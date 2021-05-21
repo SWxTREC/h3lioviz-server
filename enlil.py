@@ -1,8 +1,9 @@
 import paraview.simple as pvs
+from paraview.web import protocols as pv_protocols
+from wslink import register as exportRpc
 
 
-class EnlilDataset:
-
+class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def __init__(self, fname):
         """Enlil 4D dataset representation in Paraview.
 
@@ -10,6 +11,9 @@ class EnlilDataset:
         the Enlil output. It is designed to enable an easy storage
         and access layer to the data.
         """
+        # Initialize the PV web protocols
+        super().__init__()
+
         # create a new 'NetCDF Reader'
         self.data = pvs.NetCDFReader(
             registrationName='test_xarray.nc', FileName=[fname])
@@ -73,6 +77,11 @@ class EnlilDataset:
         self.lat_slice.SliceType.Normal = [0.0, 1.0, 0.0]
         # init the 'Plane' selected for 'HyperTreeGridSlicer'
         # self.lat_slice.HyperTreeGridSlicer.Origin = [0, 0, 0]
+
+        # Dictionary mapping of string names to the object
+        self.objs = {s: getattr(self, s) for s in (
+            "lon_slice", "lat_slice", "bvec", "cme", "data",
+            "lon_arrows", "lon_streamlines")}
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
@@ -269,3 +278,19 @@ class EnlilDataset:
 
         # restore active source
         pvs.SetActiveSource(None)
+
+    @exportRpc("pv.enlil.visibility")
+    def change_visibility(self, obj, visibility):
+        """Change the visibility of an object.
+
+        obj : str
+            Name of the object to update
+        visibility : str ("on", "off")
+            What to set the visibility to for the given object
+        """
+        if visibility == "on":
+            pvs.Show(self.objs[obj], self.view)
+        elif visibility == "off":
+            pvs.Hide(self.objs[obj], self.view)
+        else:
+            return ["Visibility can only be 'on' or 'off'"]

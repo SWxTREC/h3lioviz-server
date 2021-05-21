@@ -35,6 +35,8 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         # The NetCDF file with the data
         fname = 'data/test_xarray.nc'
         self.enlil = EnlilDataset(fname)
+        # Register the Paraview protocols for dispatching methods
+        self.registerVtkWebProtocol(self.enlil)
 
 
 if __name__ == "__main__":
