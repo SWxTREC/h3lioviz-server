@@ -31,3 +31,11 @@ Now, you can run the server with
 ```bash
 pvpython pv_server_statefile.py --port 1234
 ```
+# Building Dockerfile
+
+https://github.com/Kitware/paraviewweb/tree/master/tools/docker
+
+Need to make scripts executable:
+```
+chmod a+x scripts/
+```
