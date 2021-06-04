@@ -8,7 +8,7 @@ the 3D Enlil output.
 To run the server locally on port 1234 the command would be something like the following.
 
 ```bash
-/path/to/paraview/bin/pvpython pv_server.py --port 1234
+/path/to/paraview/bin/pvpython pvw/server/pv_server.py --port 1234
 ```
 
 The frontend can then use wslink to use a websocket to connect to port 1234.
@@ -29,13 +29,30 @@ pip install wslink
 Now, you can run the server with
 
 ```bash
-pvpython pv_server_statefile.py --port 1234
+pvpython pvw/server/pv_server_statefile.py --port 1234
 ```
-# Building Dockerfile
 
-https://github.com/Kitware/paraviewweb/tree/master/tools/docker
+## Building the Dockerfile
 
-Need to make scripts executable:
-```
-chmod a+x scripts/
-```
+
+This was built following the [guides](https://github.com/Kitware/paraviewweb/tree/master/tools/docker) from Kitware and their repositories. The `dockerfile/` directory contains all of the content that needs to be
+copied into the container.
+
+> **_NOTE:_**  You may need to make the scripts executable if they weren't cloned with those permissions.
+> `chmod a+x scripts/`
+
+1. Download the Paraview binary for linux and save it into the `docker/binaries/` directory. [https://www.paraview.org/download/](https://www.paraview.org/download/)
+    > **_NOTE:_**  If you have a GPU available use the `egl` version, otherwise use the `osemsa`.
+
+2. Build the image locally with an appropriate tag.
+
+    ```bash
+    cd docker
+    docker build --rm -t pvw-enlil-osmesa .
+    ```
+
+3. Run the image setting the proper environment variables and mounting the proper directories.
+
+    ```bash
+    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it pvw-enlil-osmesa
+    ```

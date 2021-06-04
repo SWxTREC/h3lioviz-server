@@ -1,0 +1,1 @@
+DOCUMENT-ROOT-DIRECTORY /pvw/www/swt

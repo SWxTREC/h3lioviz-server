@@ -15,6 +15,35 @@ from enlil import EnlilDataset
 
 class _DemoServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
+    viewportScale = 1.0
+    viewportMaxWidth = 2560
+    viewportMaxHeight = 1440
+    settingsLODThreshold = 102400
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument("--viewport-scale", default=1.0, type=float,
+                            help="Viewport scaling factor",
+                            dest="viewportScale")
+        parser.add_argument("--viewport-max-width", default=2560, type=int,
+                            help="Viewport maximum size in width",
+                            dest="viewportMaxWidth")
+        parser.add_argument("--viewport-max-height", default=1440, type=int,
+                            help="Viewport maximum size in height",
+                            dest="viewportMaxHeight")
+        parser.add_argument("--settings-lod-threshold", default=102400,
+                            type=int,
+                            help="LOD Threshold in Megabytes",
+                            dest="settingsLODThreshold")
+
+    @staticmethod
+    def configure(args):
+        # Update this server based on the passed in arguments
+        _DemoServer.authKey = args.authKey
+        _DemoServer.viewportScale = args.viewportScale
+        _DemoServer.viewportMaxWidth = args.viewportMaxWidth
+        _DemoServer.viewportMaxHeight = args.viewportMaxHeight
+        _DemoServer.settingsLODThreshold = args.settingsLODThreshold
 
     def initialize(self):
         # Bring used components
@@ -33,7 +62,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         simple.GetRenderView().Background = [38, 55, 90]
 
         # The NetCDF file with the data
-        fname = 'data/test_xarray.nc'
+        fname = '/data/test_xarray.nc'
         self.enlil = EnlilDataset(fname)
         # Register the Paraview protocols for dispatching methods
         self.registerVtkWebProtocol(self.enlil)
@@ -45,9 +74,11 @@ if __name__ == "__main__":
 
     # Add default arguments
     server.add_arguments(parser)
+    _DemoServer.add_arguments(parser)
 
     # Extract arguments
     args = parser.parse_args()
+    _DemoServer.configure(args)
 
     # Start server
     server.start_webserver(options=args, protocol=_DemoServer)

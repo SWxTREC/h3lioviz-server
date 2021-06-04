@@ -83,4 +83,3 @@ RUN pip install --target=/opt/paraview/lib/python3.8/site-packages/ --upgrade ws
 # overridden in the child container.  In that case, use the "start.sh"
 # script instead, or you can provide a custom one.
 ENTRYPOINT ["/opt/paraviewweb/scripts/server.sh"]
-# CMD ["/bin/bash"]

@@ -1,0 +1,48 @@
+{
+  "resources": [ {"port_range": [9010, 9100], "host": "localhost"} ],
+  "sessionData": {
+    "updir": "/Home"
+  },
+  "configuration": {
+    "log_dir": "/pvw/launcher/log",
+    "host": "localhost",
+    "endpoint": "paraview",
+    "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=ws",
+    "timeout": 25,
+    "fields": [],
+    "port": 9000,
+    "proxy_file": "/opt/launcher/proxy-mapping.txt",
+    "sanitize": {
+      "version": {
+          "type": "regexp",
+          "regexp": "^v[0-9]+.[0-9]+.[0-9]+$",
+          "default": "v0.0.0"
+      },
+      "file": {
+          "type": "regexp",
+          "regexp": "^[-\\\\w./]+$",
+          "default": "emptyFile"
+      }
+    }
+  },
+  "properties": {
+    "dataDir": "/data",
+    "webapps_dir": "/opt/paraview/share/paraview-5.9/web",
+    "python_exec": "/opt/paraview/bin/pvpython"
+  },
+  "apps": {
+    "visualizer": {
+      "cmd": [
+        "${python_exec}",
+        EXTRA_PVPYTHON_ARGS
+        "/pvw/server/pv_server_statefile.py",
+        "--port", "${port}",
+        "--authKey", "${secret}",
+        "--viewport-max-width", "1920",
+        "--viewport-max-height", "1080",
+        "--timeout", "30"
+      ],
+      "ready_line" : "Starting factory"
+    }
+  }
+}
