@@ -29,9 +29,11 @@ pip install wslink
 Now, you can run the server with
 
 ```bash
-pvpython pvw/server/pv_server_statefile.py --port 1234
+pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/test.nc
 ```
 
+where the port is `1234` for local development, and the path to the input file is
+given to the `--file` command line argument.
 ## Building the Dockerfile
 
 
@@ -54,5 +56,11 @@ copied into the container.
 3. Run the image setting the proper environment variables and mounting the proper directories.
 
     ```bash
-    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it pvw-enlil-osmesa
+    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
     ```
+
+    The container requires several input volumes that contain the frontend
+    code mounted at `/frontend` inside the container, a data directory that contains
+    a `test.nc` input file mounted to the `/data` location inside the
+    container, and the `pvw` directory from this repository mounted
+    at the `/pvw` location.
