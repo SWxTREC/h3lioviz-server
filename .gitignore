@@ -1,5 +1,9 @@
+docker/binaries/
 .vscode
 data/
+pvw/www/swt
+pvw/launcher/log/*.txt
+pvw/launcher/log/*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
