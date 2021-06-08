@@ -34,8 +34,8 @@ pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/test.nc
 
 where the port is `1234` for local development, and the path to the input file is
 given to the `--file` command line argument.
-## Building the Dockerfile
 
+## Building the Dockerfile
 
 This was built following the [guides](https://github.com/Kitware/paraviewweb/tree/master/tools/docker) from Kitware and their repositories. The `dockerfile/` directory contains all of the content that needs to be
 copied into the container.
