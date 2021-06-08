@@ -21,7 +21,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
-        # self.bvec.AttributeType = 'Cell Data'
+        self.bvec.AttributeType = 'Cell Data'
         self.bvec.ResultArrayName = 'Bvec'
         self.bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
 
