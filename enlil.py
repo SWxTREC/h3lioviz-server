@@ -117,6 +117,85 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # restore active view
         pvs.SetActiveView(self.view)
 
+        # Earth representation
+        self.earth = pvs.Sphere()
+        # TODO: What coordinate system do we want x/y/z to be in?
+        #       The base model is rotated 180 degrees, should we
+        #       automatically rotate it for the users?
+        self.earth.Center = [-1.0, 0.0, 0.0]
+        self.earth.Radius = 0.025
+        disp = pvs.Show(self.earth, self.view,
+                        'GeometryRepresentation')
+        # trace defaults for the display properties.
+        disp.Representation = 'Surface'
+        disp.AmbientColor = [0.0, 0.3333333333333333, 0.0]
+        disp.ColorArrayName = [None, '']
+        disp.DiffuseColor = [0.0, 0.3333333333333333, 0.0]
+        disp.OSPRayScaleArray = 'Normals'
+        disp.OSPRayScaleFunction = 'PiecewiseFunction'
+        disp.SelectOrientationVectors = 'None'
+        disp.ScaleFactor = 0.005000000074505806
+        disp.SelectScaleArray = 'None'
+        disp.GlyphType = 'Arrow'
+        disp.GlyphTableIndexArray = 'None'
+        disp.GaussianRadius = 0.0002500000037252903
+        disp.SetScaleArray = ['POINTS', 'Normals']
+        disp.ScaleTransferFunction = 'PiecewiseFunction'
+        disp.OpacityArray = ['POINTS', 'Normals']
+        disp.OpacityTransferFunction = 'PiecewiseFunction'
+        disp.DataAxesGrid = 'GridAxesRepresentation'
+        disp.PolarAxes = 'PolarAxesRepresentation'
+
+        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
+        disp.ScaleTransferFunction.Points = [-0.9749279022216797,
+                                             0.0, 0.5, 0.0,
+                                             0.9749279022216797,
+                                             1.0, 0.5, 0.0]
+
+        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
+        disp.OpacityTransferFunction.Points = [-0.9749279022216797,
+                                               0.0, 0.5, 0.0,
+                                               0.9749279022216797,
+                                               1.0, 0.5, 0.0]
+
+        # Sun representation
+        self.sun = pvs.Sphere()
+        self.sun.Center = [0.0, 0.0, 0.0]
+        self.sun.Radius = 0.075
+        disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
+
+        # trace defaults for the display properties.
+        disp.Representation = 'Surface'
+        disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
+        disp.ColorArrayName = [None, '']
+        disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
+        disp.OSPRayScaleArray = 'Normals'
+        disp.OSPRayScaleFunction = 'PiecewiseFunction'
+        disp.SelectOrientationVectors = 'None'
+        disp.ScaleFactor = 0.020000000298023225
+        disp.SelectScaleArray = 'None'
+        disp.GlyphType = 'Arrow'
+        disp.GlyphTableIndexArray = 'None'
+        disp.GaussianRadius = 0.0010000000149011613
+        disp.SetScaleArray = ['POINTS', 'Normals']
+        disp.ScaleTransferFunction = 'PiecewiseFunction'
+        disp.OpacityArray = ['POINTS', 'Normals']
+        disp.OpacityTransferFunction = 'PiecewiseFunction'
+        disp.DataAxesGrid = 'GridAxesRepresentation'
+        disp.PolarAxes = 'PolarAxesRepresentation'
+
+        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
+        disp.ScaleTransferFunction.Points = [-0.9749279022216797,
+                                             0.0, 0.5, 0.0,
+                                             0.9749279022216797,
+                                             1.0, 0.5, 0.0]
+
+        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
+        disp.OpacityTransferFunction.Points = [-0.9749279022216797,
+                                               0.0, 0.5, 0.0,
+                                               0.9749279022216797,
+                                               1.0, 0.5, 0.0]
+
         # TODO: Show the base dataset?
         # pvs.Show(self.data, self.view, 'StructuredGridRepresentation')
 
