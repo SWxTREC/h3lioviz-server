@@ -15,6 +15,7 @@ from enlil import EnlilDataset
 
 class _DemoServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
+    data_file = "/data/test.nc"
     viewportScale = 1.0
     viewportMaxWidth = 2560
     viewportMaxHeight = 1440
@@ -22,6 +23,9 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
     @staticmethod
     def add_arguments(parser):
+        parser.add_argument("--file", default="/data/test.nc",
+                            help=("Path to the NetCDF file to load"),
+                            dest="data_file")
         parser.add_argument("--viewport-scale", default=1.0, type=float,
                             help="Viewport scaling factor",
                             dest="viewportScale")
@@ -40,6 +44,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
     def configure(args):
         # Update this server based on the passed in arguments
         _DemoServer.authKey = args.authKey
+        _DemoServer.data_file = args.data_file
         _DemoServer.viewportScale = args.viewportScale
         _DemoServer.viewportMaxWidth = args.viewportMaxWidth
         _DemoServer.viewportMaxHeight = args.viewportMaxHeight
@@ -62,8 +67,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         simple.GetRenderView().Background = [38, 55, 90]
 
         # The NetCDF file with the data
-        fname = '/data/test_xarray.nc'
-        self.enlil = EnlilDataset(fname)
+        self.enlil = EnlilDataset(self.data_file)
         # Register the Paraview protocols for dispatching methods
         self.registerVtkWebProtocol(self.enlil)
 
