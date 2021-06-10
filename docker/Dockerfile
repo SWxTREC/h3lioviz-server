@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=ubuntu:20.04
+# ARG BASE_IMAGE=ubuntu:20.04
+
+ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE}
 
 USER root
@@ -64,10 +66,15 @@ COPY config/launcher/config.json /opt/launcher/config-template.json
 #
 
 # Copy in the tar file, extract it, then rename it /opt/paraview/...
-COPY binaries/ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz /opt
+# COPY binaries/ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz /opt
+# RUN cd /opt && \
+#     tar -xzvf ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz && \
+#     mv ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit paraview
+
+COPY binaries/ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz /opt
 RUN cd /opt && \
-    tar -xzvf ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz && \
-    mv ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit paraview
+    tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
+    mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
 
 # Replacing a bad wslink file
 # COPY extras/launcher.py /opt/paraview/lib/python3.8/site-packages/wslink/
