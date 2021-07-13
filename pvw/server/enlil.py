@@ -13,6 +13,18 @@ LUT_RANGE = {'Vr': [300, 900],
              'By': [-10, 10],
              'Bz': [-10, 10]}
 
+# Control points for the opacity mapping
+# Can be either 2 or 3 values
+# 2: Min/max opacity corresponding to the min/max data
+# 3: Min, middle, max opacity corresponding to min/center/max data
+OPACITY_VALUES = {'Vr': [0.2, 0.9],
+                  'Density': [0.2, 0.9],
+                  'T': [0.2, 0.9],
+                  'Br': [0.9, 0.2, 0.9],
+                  'Bx': [0.9, 0.2, 0.9],
+                  'By': [0.9, 0.2, 0.9],
+                  'Bz': [0.9, 0.2, 0.9]}
+
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {'Vr': "Plasma (matplotlib)",
                 'Density': "Viridis (matplotlib)",
@@ -423,6 +435,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         for disp in self.displays.values():
             pvs.ColorBy(disp, variable)
 
+        self.update_opacity(variable)
         self.update_lut(variable)
 
         # hides old scalarbars that aren't in the view and
@@ -445,6 +458,32 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         lut.RescaleTransferFunction(LUT_RANGE[variable])
         lut.AutomaticRescaleRangeMode = 'Never'
 
+    def update_opacity(self, variable):
+        """
+        Set the variable range of the opacity lookup table.
+
+        variable : str
+            Name of variable to update
+        """
+        opacity_map = pvs.GetOpacityTransferFunction(variable)
+        # Create the control points
+        points = OPACITY_VALUES[variable]
+        data_range = LUT_RANGE[variable]
+        # opacity_map.Points order of flattened list is
+        # (data-value, opacity, mid-point, sharpness)
+        if len(points) == 2:
+            # only min/max values to map
+            opacity_map.Points = [data_range[0], points[0], 0.5, 0,
+                                  data_range[1], points[1], 0.5, 0]
+        elif len(points) == 3:
+            # min/mid/max
+            opacity_map.Points = [data_range[0], points[0], 0.5, 0,
+                                  (data_range[0] + data_range[1]) / 2,
+                                  points[1], 0.5, 0,
+                                  data_range[1], points[2], 0.5, 0]
+        else:
+            raise ValueError("Opacity needs 2 or 3 points to map")
+
     def set_colormap(self, variable, cmap_name=None):
         """
         Set the colormap for the variable.
@@ -457,6 +496,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
         lut.ApplyPreset(cmap_name or DEFAULT_CMAP[variable])
+        lut.EnableOpacityMapping = 1
 
     def set_range(self, variable, range):
         """
@@ -469,3 +509,20 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         LUT_RANGE[variable] = range
         self.update_lut(variable)
+
+    def set_opacity_range(self, variable, range):
+        """
+        Set the range of values used for opacity-mapping.
+
+        Opacity values are between 0 and 1, and will be applied
+        to the current data range of the variables.
+
+        variable : str
+            Name of the variable to set the opacity of
+        range : list[2 or 3]
+            A list of the minimum and maximum opacity values if 2 elements
+            are given, or the minimum, midpoint, and maximum if 3 elements
+            are given.
+        """
+        OPACITY_VALUES[variable] = range
+        self.update_opacity(variable)
