@@ -394,8 +394,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.displays[self.cme].SetScalarBarVisibility(self.view, True)
 
         # Set colormaps
-        for variable in VARIABLE_MAP.values():
-            self.set_colormap(variable)
+        for name in VARIABLE_MAP:
+            self.set_colormap(name)
 
         # hide data in view
         pvs.Hide(self.lon_slice, self.view)
@@ -484,45 +484,54 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             raise ValueError("Opacity needs 2 or 3 points to map")
 
-    def set_colormap(self, variable, cmap_name=None):
+    @exportRpc("pv.enlil.set_colormap")
+    def set_colormap(self, name, cmap_name=None):
         """
         Set the colormap for the variable.
 
-        variable : str
+        name : str
             Name of the variable to set the colormap of
         cmap_name : str
             Name of the colormap to apply
         """
+        # Use a dictionary to map the variable received to the internal name
+        variable = VARIABLE_MAP[name]
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
         lut.ApplyPreset(cmap_name or DEFAULT_CMAP[variable])
         lut.EnableOpacityMapping = 1
 
-    def set_range(self, variable, range):
+    @exportRpc("pv.enlil.set_range")
+    def set_range(self, name, range):
         """
         Set the range of values used for colormapping.
 
-        variable : str
+        name : str
             Name of the variable to set the colormap of
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
+        # Use a dictionary to map the variable received to the internal name
+        variable = VARIABLE_MAP[name]
         LUT_RANGE[variable] = range
         self.update_lut(variable)
 
-    def set_opacity_range(self, variable, range):
+    @exportRpc("pv.enlil.set_opacity")
+    def set_opacity(self, name, range):
         """
         Set the range of values used for opacity-mapping.
 
         Opacity values are between 0 and 1, and will be applied
         to the current data range of the variables.
 
-        variable : str
+        name : str
             Name of the variable to set the opacity of
         range : list[2 or 3]
             A list of the minimum and maximum opacity values if 2 elements
             are given, or the minimum, midpoint, and maximum if 3 elements
             are given.
         """
+        # Use a dictionary to map the variable received to the internal name
+        variable = VARIABLE_MAP[name]
         OPACITY_VALUES[variable] = range
         self.update_opacity(variable)
