@@ -54,6 +54,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         # Bring used components
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebMouseHandler())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebViewPort())
+        self.registerVtkWebProtocol(pv_protocols.ParaViewWebTimeHandler())
         self.registerVtkWebProtocol(
             pv_protocols.ParaViewWebPublishImageDelivery(decode=False))
         self.updateSecret(_DemoServer.authKey)
