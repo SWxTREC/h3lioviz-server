@@ -397,8 +397,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         for name in VARIABLE_MAP:
             self.set_colormap(name)
 
-        # hide data in view
-        pvs.Hide(self.lon_slice, self.view)
+        # hide this data from the default initial view
+        for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines]:
+            pvs.Hide(x, self.view)
 
         # restore active source
         pvs.SetActiveSource(None)
