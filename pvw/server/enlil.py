@@ -1,3 +1,5 @@
+import subprocess
+
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
@@ -60,6 +62,16 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.data = pvs.NetCDFReader(
             registrationName='test_xarray.nc', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
+
+        # TODO: Figure out how to get this information using the pvs API
+        # We are making two system calls, one for the ncdump command and
+        # the second to sift for the line of interest (time:units)
+        x = subprocess.run(["ncdump", "-h", fname], capture_output=True)
+        x = subprocess.run(['grep', 'time:units'], input=x.stdout,
+                           capture_output=True)
+        # split the line and grab the variable which is in quotes
+        # "seconds since 2017-09-07 12:00:10.351562"
+        self.start_time = x.stdout.decode('utf-8').split('"')[1]
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
@@ -535,3 +547,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         variable = VARIABLE_MAP[name]
         OPACITY_VALUES[variable] = range
         self.update_opacity(variable)
+
+    @exportRpc("pv.enlil.get_start_time")
+    def get_start_time(self):
+        return [self.start_time]
