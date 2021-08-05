@@ -66,12 +66,18 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # TODO: Figure out how to get this information using the pvs API
         # We are making two system calls, one for the ncdump command and
         # the second to sift for the line of interest (time:units)
-        x = subprocess.run(["ncdump", "-h", fname], capture_output=True)
-        x = subprocess.run(['grep', 'time:units'], input=x.stdout,
-                           capture_output=True)
-        # split the line and grab the variable which is in quotes
-        # "seconds since 2017-09-07 12:00:10.351562"
-        self.start_time = x.stdout.decode('utf-8').split('"')[1]
+        # XXX
+        # Using ncdump inside the container causes issues with incompatible
+        # HDF header files. There is some issue with libraries conflicting
+        # when including it, so fake the data for now.
+        # x = subprocess.run(["ncdump", "-h", fname], capture_output=True)
+        # x = subprocess.run(['grep', 'time:units'], input=x.stdout,
+        #                    capture_output=True)
+        # # split the line and grab the variable which is in quotes
+        # # "seconds since 2017-09-07 12:00:10.351562"
+        # self.start_time = x.stdout.decode('utf-8').split('"')[1]
+        self.start_time = "seconds since 2017-09-07 12:00:10.351562"
+
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
