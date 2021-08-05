@@ -28,11 +28,11 @@
   "properties": {
     "dataDir": "/data",
     "webapps_dir": "/opt/paraview/share/paraview-5.9/web",
-    "python_exec": "/opt/paraview/bin/pvpython"
+    "python_exec": "/opt/paraview/bin/pvbatch"
   },
   "apps": {
     "visualizer": {
-      "cmd": [
+      "cmd": ["/opt/paraview/bin/mpiexec", "-n", "4",
         "${python_exec}",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/pv_server_statefile.py",
