@@ -56,7 +56,7 @@ copied into the container.
 3. Run the image setting the proper environment variables and mounting the proper directories.
 
     ```bash
-    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
+    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -v /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
     ```
 
     The container requires several input volumes that contain the frontend
@@ -64,3 +64,25 @@ copied into the container.
     a `test.nc` input file mounted to the `/data` location inside the
     container, and the `pvw` directory from this repository mounted
     at the `/pvw` location.
+
+## Build and deploy the frontend
+
+Build the assets, which produces a bundle in `/dist`.
+
+```bash
+npm run build:prod
+```
+
+Then tar the bundle and copy to the machine you want to deploy from.
+
+```bash
+tar -cf frontend-dist.tar dist/
+scp frontend-dist.tar my-ec2:.
+```
+
+On the remote machine, untar the file and mount it to the `/frontend` volume location within the container.
+
+```bash
+tar -xvf frontend-dist.tar /path/to/frontend
+docker run ... -v /path/to/frontend/dist/swt:/frontend ...
+```
