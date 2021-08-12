@@ -78,7 +78,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # self.start_time = x.stdout.decode('utf-8').split('"')[1]
         self.start_time = "seconds since 2017-09-07 12:00:10.351562"
 
-
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
         self.bvec.AttributeType = 'Cell Data'
@@ -86,10 +85,16 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
 
         # create a new 'Threshold' to represent the CME
-        self.cme = pvs.Threshold(registrationName='CME', Input=self.data)
-        self.cme.Scalars = ['CELLS', 'DP']  # DP is the variable name in Enlil
-        # We really only want a minimum value, so just set it high
-        self.cme.ThresholdRange = [1e-5, 1e5]
+        self.threshold = pvs.Threshold(registrationName='CME', Input=self.data)
+        # We really only want a minimum value, so just set the maximum high
+        self.threshold.ThresholdRange = [1e-5, 1e5]
+        # DP is the variable name in Enlil
+        self.threshold.Scalars = ['CELLS', 'DP']
+        # This resamples the CME to a uniform grid to make Volume rendering
+        # work better and faster
+        self.cme = pvs.ResampleToImage(registrationName='resampled_data',
+                                       Input=self.threshold)
+        # self.cme.SamplingBounds = [-1.5, 0, -1.5, 1.5, -1.5, 1.5]
 
         # Create a Longitude slice
         self.lon_slice = pvs.Slice(
@@ -273,11 +278,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # CME Threshold
         disp = pvs.Show(self.cme, self.view,
-                        'UnstructuredGridRepresentation')
+                        'UniformGridRepresentation')
         self.displays[self.cme] = disp
         # trace defaults for the display properties.
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['CELLS', 'Bz']
+        disp.Representation = 'Volume'
+        disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
         disp.OSPRayScaleFunction = 'PiecewiseFunction'
         disp.SelectOrientationVectors = 'None'
