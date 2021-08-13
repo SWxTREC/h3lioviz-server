@@ -85,16 +85,28 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
 
         # create a new 'Threshold' to represent the CME
-        self.threshold = pvs.Threshold(registrationName='CME', Input=self.data)
+        self.threshold_cme = pvs.Threshold(registrationName='CME',
+                                           Input=self.data)
         # We really only want a minimum value, so just set the maximum high
-        self.threshold.ThresholdRange = [1e-5, 1e5]
+        self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
-        self.threshold.Scalars = ['CELLS', 'DP']
+        self.threshold_cme.Scalars = ['CELLS', 'DP']
         # This resamples the CME to a uniform grid to make Volume rendering
         # work better and faster
-        self.cme = pvs.ResampleToImage(registrationName='resampled_data',
-                                       Input=self.threshold)
+        self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
+                                       Input=self.threshold_cme)
         # self.cme.SamplingBounds = [-1.5, 0, -1.5, 1.5, -1.5, 1.5]
+
+        # Create a threshold that can be modified by the user
+        self.threshold_data = pvs.Threshold(registrationName='Threshold',
+                                            Input=self.data)
+        # We really only want a minimum value, so just set the maximum high
+        self.threshold_data.ThresholdRange = [10, 500]
+        # The quantity of interest
+        self.threshold_data.Scalars = ['CELLS', 'Density']
+        self.threshold = pvs.ResampleToImage(
+            registrationName='resampled_threshold',
+            Input=self.threshold_cme)
 
         # Create a Longitude slice
         self.lon_slice = pvs.Slice(
@@ -146,7 +158,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Dictionary mapping of string names to the object
         self.objs = {s: getattr(self, s) for s in (
             "lon_slice", "lat_slice", "bvec", "cme", "data",
-            "lon_arrows", "lon_streamlines")}
+            "lon_arrows", "lon_streamlines", "threshold")}
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
@@ -301,6 +313,29 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ScalarOpacityUnitDistance = 0.02090409368521722
         disp.OpacityArrayName = [None, '']
 
+        disp = pvs.Show(self.threshold, self.view,
+                        'UniformGridRepresentation')
+        self.displays[self.threshold] = disp
+        # trace defaults for the display properties.
+        disp.Representation = 'Volume'
+        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.LookupTable = bzLUT
+        disp.OSPRayScaleFunction = 'PiecewiseFunction'
+        disp.SelectOrientationVectors = 'None'
+        disp.ScaleFactor = 0.09197479853610144
+        disp.SelectScaleArray = 'None'
+        disp.GlyphType = 'Arrow'
+        disp.GlyphTableIndexArray = 'None'
+        disp.GaussianRadius = 0.004598739926805072
+        disp.SetScaleArray = [None, '']
+        disp.ScaleTransferFunction = 'PiecewiseFunction'
+        disp.OpacityArray = [None, '']
+        disp.OpacityTransferFunction = 'PiecewiseFunction'
+        disp.DataAxesGrid = 'GridAxesRepresentation'
+        disp.PolarAxes = 'PolarAxesRepresentation'
+        disp.ScalarOpacityFunction = bzPWF
+        disp.ScalarOpacityUnitDistance = 0.02090409368521722
+        disp.OpacityArrayName = [None, '']
         # TODO: show data from bvec?
         # pvs.Show(self.bvec, self.view, 'StructuredGridRepresentation')
 
@@ -421,7 +456,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.set_colormap(name)
 
         # hide this data from the default initial view
-        for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines]:
+        for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines,
+                  self.threshold]:
             pvs.Hide(x, self.view)
 
         # restore active source
@@ -562,4 +598,20 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
     @exportRpc("pv.enlil.get_start_time")
     def get_start_time(self):
+        """Returns the start time as a string in a one-element list."""
         return [self.start_time]
+
+    @exportRpc("pv.enlil.set_threshold")
+    def set_threshold(self, name, range):
+        """
+        Set the variable and range of values to be used for the threshold.
+
+        name : str
+            Name of the variable to use for the thresholding
+        range : list[2]
+            A list of the minimum and maximum values to threshold by
+        """
+        variable = VARIABLE_MAP[name]
+        # The quantity of interest
+        self.threshold_data.Scalars = ['CELLS', variable]
+        self.threshold_data.ThresholdRange = range
