@@ -170,29 +170,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create a new 'Render View'
         self.view = pvs.CreateView('RenderView')
-        # self.view.Background = [38, 55, 90]
-        self.view.ViewSize = [1008, 539]
+        self.view.ViewSize = [600, 600]
         self.view.AxesGrid = 'GridAxes3DActor'
-        self.view.CenterOfRotation = [0.5, 0.0, 0]
+        self.view.CenterOfRotation = [0, 0, 0]
         self.view.StereoType = 'Crystal Eyes'
-        self.view.CameraPosition = [-5, 5, 5]
-        self.view.CameraFocalPoint = [0.5, 0, 0]
-        self.view.CameraViewUp = [0.446016916276754,
-                                  -0.28531285472026074, 0.8483309998616994]
+        self.view.CameraPosition = [-3, 3, 3]
+        self.view.CameraFocalPoint = [0, 0, 0]
+        self.view.CameraViewUp = [0, 0, 1]
         self.view.CameraFocalDisk = 1.0
         self.view.CameraParallelScale = 2.1250001580766877
         self.view.BackEnd = 'OSPRay raycaster'
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
-
-        pvs.SetActiveView(None)
-
-        # create new layout object 'Layout #1'
-        self.layout = pvs.CreateLayout(name='Layout #1')
-        self.layout.AssignView(0, self.view)
-        self.layout.SetSize(1008, 539)
-
-        # restore active view
-        pvs.SetActiveView(self.view)
 
         # Earth representation
         self.earth = pvs.Sphere()
@@ -615,3 +603,26 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The quantity of interest
         self.threshold_data.Scalars = ['CELLS', variable]
         self.threshold_data.ThresholdRange = range
+
+    @exportRpc("pv.enlil.snap_to_view")
+    def snap_to_view(self, plane):
+        """Snap to the given planar view
+
+        plane : str
+            Plane to snap to (ecliptic, meridional)
+        """
+        if plane == "ecliptic":
+            # Go up in Z
+            self.view.CameraPosition = [0, 0, 7.5]
+            # Point Earth to the right (Y down)
+            self.view.CameraViewUp = [0, -1, 0]
+        elif plane == "meridional":
+            # Go out in Y
+            self.view.CameraPosition = [0, 7.5, 0]
+            # Point Earth to the right (Z up)
+            self.view.CameraViewUp = [0, 0, 1]
+        else:
+            raise ValueError('Invalid string, only "ecliptic" or "meridional" '
+                             ' are allowed.')
+        # Force the focal point to be the sun
+        self.view.CameraFocalPoint = [0, 0, 0]

@@ -65,7 +65,6 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
         # Disable interactor-based render calls
         simple.GetRenderView().EnableRenderOnInteraction = 0
-        simple.GetRenderView().Background = [38, 55, 90]
 
         # The NetCDF file with the data
         self.enlil = EnlilDataset(self.data_file)
