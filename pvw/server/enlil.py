@@ -1,5 +1,3 @@
-import subprocess
-
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
@@ -76,7 +74,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # # split the line and grab the variable which is in quotes
         # # "seconds since 2017-09-07 12:00:10.351562"
         # self.start_time = x.stdout.decode('utf-8').split('"')[1]
-        self.start_time = "seconds since 2017-09-07 12:00:10.351562"
+        self.start_time = "seconds since 1970-01-01"
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
