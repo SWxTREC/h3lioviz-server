@@ -36,9 +36,9 @@ def spherical_to_cartesian(r, theta, phi, v1, v2, v3):
     return vx, vy, vz
 
 
-def process_ds(ds):
+def process_tim(ds):
     """
-    Function to process each dataset.
+    Function to process each tim file.
 
     This does coordinate transformations and renaming.
     """
@@ -102,7 +102,90 @@ def process_ds(ds):
     return ds
 
 
+def process_evo(ds):
+    """
+    Function to process each evo file.
+
+    This does coordinate transformations and renaming.
+    """
+    t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    t = np.datetime64(t0) + np.timedelta64(1, 's') * ds['TIME']
+
+    # Change from Tesla to nT
+    for x in ['B1', 'B2', 'B3']:
+        # Multiply by the polarity tracer to get the proper direction (+/-)
+        # The polarity is just a "tracer" variable with no physical meaning
+        # it is only used to get the sign of the magnetic field right
+        ds[x] *= 1e9 * np.sign(ds['BP'])
+
+    # Br, Blat, Blon
+    ds['Bx'], ds['By'], ds['Bz'] = spherical_to_cartesian(
+        ds['X1'], ds['X2'], ds['X3'], ds['B1'], ds['B2'], ds['B3'])
+
+    # ds['Vx'], ds['Vy'], ds['Vz'] =
+    # spherical_to_cartesian(ds['n1'], ds['n2'], ds['n3'],
+    # ds['V1'], ds['V2'], ds['V3'])
+
+    name_map = {'D': 'Density'}
+
+    ds = ds.rename(name_map)
+    rad = ds['X1']/AU
+    lat = np.pi/2 - ds['X2']
+    # subtract pi to point towards Earth
+    lon = ds['X3']
+    ds['X'] = rad * np.cos(lon) * np.cos(lat)
+    ds['Y'] = rad * np.sin(lon) * np.cos(lat)
+    ds['Z'] = rad * np.sin(lat)
+
+    ds['Vr'] = ds['V1'] * velocity_conversion
+    ds['Density'] = ds['Density'] * density_conversion / \
+        (1 - ds.attrs['xalpha']) * rad**2
+    # Ram pressure (rho * v**2)
+    ds['Pressure'] = ds['Density'] * ds['Vr']**2
+
+    ds['X'].attrs.update({'units': 'AU'})
+    ds['Y'].attrs.update({'units': 'AU'})
+    ds['Z'].attrs.update({'units': 'AU'})
+    ds = ds.assign_coords({'time': t})
+    ds['sat'] = ds.label
+
+    # Remove unnecessary variables to make file sizes smaller
+    ds = ds.drop_vars(['DT', 'NSTEP', 'BP', 'TIME',
+                       'X1', 'X2', 'X3',
+                       'B1', 'B2', 'B3',
+                       'V1', 'V2', 'V3'])
+
+    return ds
+
+
 def process_directory(path):
+    # Start off with evolution files
+    fnames = sorted(glob.glob(path + '/evo.*.nc'))
+    if len(fnames) == 0:
+        raise ValueError("No evolution files found to process in the "
+                         "current directory.")
+
+    print("Beginning processing, may take several minutes")
+    t0 = time.time()
+    # Load and process the evo file
+    datasets = [process_evo(xr.open_dataset(fname, engine='netcdf4'))
+                for fname in fnames]
+    print(f"Datasets loaded: {time.time()-t0} s")
+    ds = xr.concat(datasets, dim='sat')
+
+    # New path
+    newpath = path + '/processed'
+    if not os.path.exists(newpath):
+        os.mkdir(newpath)
+
+    # Save a single evolution file
+    datasets[0].to_netcdf(f"{newpath}/{os.path.basename(fnames[0])}")
+    # ds.to_netcdf(f"{newpath}/evo.nc")
+    return
+
+    # ---------
+    # TIM file processing
+    # ---------
     fnames = sorted(glob.glob(path + '/tim.*.nc'))
     if len(fnames) == 0:
         raise ValueError("No files found to process in the current directory.")
@@ -111,13 +194,8 @@ def process_directory(path):
     t0 = time.time()
     # Load into a multi-file dataset to be able to concatenate along Time
     ds = xr.open_mfdataset(fnames, concat_dim='time', combine='by_coords',
-                           preprocess=process_ds, engine='netcdf4')
+                           preprocess=process_tim, engine='netcdf4')
     print(f"Dataset loaded: {time.time()-t0} s")
-
-    # New path
-    newpath = path + '/processed'
-    if not os.path.exists(newpath):
-        os.mkdir(newpath)
 
     ds.to_netcdf(f"{newpath}/test.nc", engine='scipy',
                  encoding={'time': {'units': 'seconds since 1970-01-01'}})
