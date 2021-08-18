@@ -66,6 +66,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.time_string = pvs.Text(registrationName='Time')
         # Don't add in any text right now
         self.time_string.Text = ""
+        # Need to keep track of whether the CME/Threshold should be visible
+        # so that we can hide 0 value returns
+        self._CME_VISIBLE = True
+        self._THRESHOLD_VISIBLE = False
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
@@ -436,7 +440,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         bzLUTColorBar.Visibility = 1
 
         # show color legend
-        self.displays[self.cme].SetScalarBarVisibility(self.view, True)
+        self.displays[self.lon_slice].SetScalarBarVisibility(self.view, True)
 
         # Set colormaps
         for name in VARIABLE_MAP:
@@ -466,6 +470,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             pvs.Hide(self.objs[obj], self.view)
         else:
             return ["Visibility can only be 'on' or 'off'"]
+
+        if obj == "cme":
+            self._CME_VISIBLE = {"on": True, "off": False}[visibility]
+        if obj == "threshold":
+            self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
+        self.update_fields()
 
     @exportRpc("pv.enlil.colorby")
     def change_color_variable(self, name):
@@ -631,3 +641,15 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         curr = (datetime.datetime(1970, 1, 1) +
                 datetime.timedelta(seconds=pv_time))
         self.time_string.Text = curr.strftime("%Y-%m-%d %H:00")
+
+        # Handle the Thresholding operations and hide from view if there
+        # is no data.
+        if self.threshold_cme.GetDataInformation().GetNumberOfPoints() == 0:
+            pvs.Hide(self.cme, self.view)
+        elif self._CME_VISIBLE:
+            pvs.Show(self.cme, self.view)
+
+        if self.threshold_data.GetDataInformation().GetNumberOfPoints() == 0:
+            pvs.Hide(self.threshold, self.view)
+        elif self._THRESHOLD_VISIBLE:
+            pvs.Show(self.threshold, self.view)
