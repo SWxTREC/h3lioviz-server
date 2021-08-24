@@ -146,14 +146,22 @@ def process_evo(ds):
     ds['X'].attrs.update({'units': 'AU'})
     ds['Y'].attrs.update({'units': 'AU'})
     ds['Z'].attrs.update({'units': 'AU'})
-    ds = ds.assign_coords({'time': t})
+    ds['time'] = t
+    ds = ds.swap_dims({'nevo': 'time'})
+    ds = ds.drop(['time'])
+    # ds = ds.rename_dims({'nevo': 'time'})
+    # ds = ds.drop_dims(['nevo'])
+    # ds['time'] = t
+    ds = ds.assign_coords({'time': ('time', t)})
     ds['sat'] = ds.label
+    ds = ds.swap_dims({'nevo': 'time'})
 
     # Remove unnecessary variables to make file sizes smaller
     ds = ds.drop_vars(['DT', 'NSTEP', 'BP', 'TIME',
                        'X1', 'X2', 'X3',
                        'B1', 'B2', 'B3',
                        'V1', 'V2', 'V3'])
+    print(ds)
 
     return ds
 
@@ -179,7 +187,9 @@ def process_directory(path):
         os.mkdir(newpath)
 
     # Save a single evolution file
-    datasets[0].to_netcdf(f"{newpath}/{os.path.basename(fnames[0])}")
+    datasets[0].to_netcdf(f"{newpath}/{os.path.basename(fnames[0])}",
+                          encoding={'time': {'units':
+                                             'seconds since 1970-01-01'}})
     # ds.to_netcdf(f"{newpath}/evo.nc")
     return
 
