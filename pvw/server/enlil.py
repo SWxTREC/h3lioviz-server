@@ -63,7 +63,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             registrationName='test_xarray.nc', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
 
-        self.start_time = "seconds since 1970-01-01"
         self.time_string = pvs.Text(registrationName='Time')
         # Don't add in any text right now
         self.time_string.Text = ""
@@ -577,11 +576,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         variable = VARIABLE_MAP[name]
         OPACITY_VALUES[variable] = range
         self.update_opacity(variable)
-
-    @exportRpc("pv.enlil.get_start_time")
-    def get_start_time(self):
-        """Returns the start time as a string in a one-element list."""
-        return [self.start_time]
 
     @exportRpc("pv.enlil.set_threshold")
     def set_threshold(self, name, range):
