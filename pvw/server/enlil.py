@@ -99,7 +99,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.threshold_data.Scalars = ['CELLS', 'Density']
         self.threshold = pvs.ResampleToImage(
             registrationName='resampled_threshold',
-            Input=self.threshold_cme)
+            Input=self.threshold_data)
 
         # Create a Longitude slice
         self.lon_slice = pvs.Slice(
@@ -155,6 +155,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
+        self.update()
 
         # Call the update function every time the TimeKeeper gets modified
         # The final 1.0 is optional, but sets it as high priority to first
@@ -471,11 +472,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
+        # Keep track of whether the CME and Threshold variables are visible
         if obj == "cme":
             self._CME_VISIBLE = {"on": True, "off": False}[visibility]
         if obj == "threshold":
             self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
-        self.update_fields()
+        self.update()
 
     @exportRpc("pv.enlil.colorby")
     def change_color_variable(self, name):
@@ -634,6 +636,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def update(self, caller, event):
         """
         Update function to call every time the time variable has changed.
+
+        The Threshold variables will ruin the view if they are shown and
+        there is no data present. So, if they are clicked "on" by the
+        frontend, but have no data we still want to force them to be hidden.
+        When they have data again, we want to show that value without needing
+        to click on/off by the user.
         """
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
         # The internal time variable on the ViewTime attribute is stored as
@@ -642,14 +650,22 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 datetime.timedelta(seconds=pv_time))
         self.time_string.Text = curr.strftime("%Y-%m-%d %H:00")
 
-        # Handle the Thresholding operations and hide from view if there
-        # is no data.
-        if self.threshold_cme.GetDataInformation().GetNumberOfPoints() == 0:
+        # We need to force an update of the filters to populate the data.
+        # The CellData[variable] will be None if there is no data calculated
+        # based on the thresholding. In that case, we want to hide the object
+        # from view.
+        pvs.UpdatePipeline(time=self.view.ViewTime, proxy=self.threshold_cme)
+        if (self.cme.Input.CellData['DP'] is None or not self._CME_VISIBLE):
             pvs.Hide(self.cme, self.view)
-        elif self._CME_VISIBLE:
+        else:
             pvs.Show(self.cme, self.view)
 
-        if self.threshold_data.GetDataInformation().GetNumberOfPoints() == 0:
+        pvs.UpdatePipeline(time=self.view.ViewTime, proxy=self.threshold_data)
+        # Get the variable associated with this threshold operation and see if
+        # it is present within CellData
+        var = self.threshold_data.Scalars[1]
+        if (self.threshold.Input.CellData[var] is None or
+                not self._THRESHOLD_VISIBLE):
             pvs.Hide(self.threshold, self.view)
-        elif self._THRESHOLD_VISIBLE:
+        else:
             pvs.Show(self.threshold, self.view)
