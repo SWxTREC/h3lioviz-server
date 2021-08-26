@@ -152,6 +152,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.displays = {}
         self._setup_views()
 
+        # Call the update function every time the TimeKeeper gets modified
+        # The final 1.0 is optional, but sets it as high priority to first
+        # do this before other rendering.
+        pvs.GetAnimationScene().TimeKeeper.AddObserver(
+            "PropertyModifiedEvent", self.update, 1.0)
+
     def _setup_views(self):
         """Setup the rendering view."""
         # disable automatic camera reset on 'Show'
@@ -615,17 +621,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
 
-    @exportRpc("pv.enlil.update_time")
-    def update_time(self):
+    def update(self, caller, event):
         """
-        Update the time string to the current value.
-
-        The internal time variable on the ViewTime attribute is stored as
-        seconds from 1970-01-01, so we use that epoch directly internally.
+        Update function to call every time the time variable has changed.
         """
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
         curr = (datetime.datetime(1970, 1, 1) +
                 datetime.timedelta(seconds=pv_time))
         self.time_string.Text = curr.strftime("%Y-%m-%d %H:00")
-        # Force a render
-        pvs.Render(self.view)
