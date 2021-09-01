@@ -155,7 +155,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
-        self.update()
+        self.update(None, None)
 
         # Call the update function every time the TimeKeeper gets modified
         # The final 1.0 is optional, but sets it as high priority to first
@@ -477,7 +477,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self._CME_VISIBLE = {"on": True, "off": False}[visibility]
         if obj == "threshold":
             self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
-        self.update()
+        self.update(None, None)
 
     @exportRpc("pv.enlil.colorby")
     def change_color_variable(self, name):
@@ -654,13 +654,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The CellData[variable] will be None if there is no data calculated
         # based on the thresholding. In that case, we want to hide the object
         # from view.
-        pvs.UpdatePipeline(time=self.view.ViewTime, proxy=self.threshold_cme)
+        pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_cme)
         if (self.cme.Input.CellData['DP'] is None or not self._CME_VISIBLE):
             pvs.Hide(self.cme, self.view)
         else:
             pvs.Show(self.cme, self.view)
 
-        pvs.UpdatePipeline(time=self.view.ViewTime, proxy=self.threshold_data)
+        pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_data)
         # Get the variable associated with this threshold operation and see if
         # it is present within CellData
         var = self.threshold_data.Scalars[1]
