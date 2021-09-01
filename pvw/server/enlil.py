@@ -1,3 +1,5 @@
+import datetime
+
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
@@ -61,20 +63,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             registrationName='test_xarray.nc', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
 
-        # TODO: Figure out how to get this information using the pvs API
-        # We are making two system calls, one for the ncdump command and
-        # the second to sift for the line of interest (time:units)
-        # XXX
-        # Using ncdump inside the container causes issues with incompatible
-        # HDF header files. There is some issue with libraries conflicting
-        # when including it, so fake the data for now.
-        # x = subprocess.run(["ncdump", "-h", fname], capture_output=True)
-        # x = subprocess.run(['grep', 'time:units'], input=x.stdout,
-        #                    capture_output=True)
-        # # split the line and grab the variable which is in quotes
-        # # "seconds since 2017-09-07 12:00:10.351562"
-        # self.start_time = x.stdout.decode('utf-8').split('"')[1]
-        self.start_time = "seconds since 1970-01-01"
+        self.time_string = pvs.Text(registrationName='Time')
+        # Don't add in any text right now
+        self.time_string.Text = ""
 
         # Create the magnetic field vectors through a PV Function
         self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
@@ -161,6 +152,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.displays = {}
         self._setup_views()
 
+        # Call the update function every time the TimeKeeper gets modified
+        # The final 1.0 is optional, but sets it as high priority to first
+        # do this before other rendering.
+        pvs.GetAnimationScene().TimeKeeper.AddObserver(
+            "PropertyModifiedEvent", self.update, 1.0)
+
     def _setup_views(self):
         """Setup the rendering view."""
         # disable automatic camera reset on 'Show'
@@ -179,6 +176,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.view.CameraParallelScale = 2.1250001580766877
         self.view.BackEnd = 'OSPRay raycaster'
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
+
+        # Time string
+        disp = pvs.Show(self.time_string, self.view,
+                        'TextSourceRepresentation')
 
         # Earth representation
         self.earth = pvs.Sphere()
@@ -582,11 +583,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         OPACITY_VALUES[variable] = range
         self.update_opacity(variable)
 
-    @exportRpc("pv.enlil.get_start_time")
-    def get_start_time(self):
-        """Returns the start time as a string in a one-element list."""
-        return [self.start_time]
-
     @exportRpc("pv.enlil.set_threshold")
     def set_threshold(self, name, range):
         """
@@ -624,3 +620,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              ' are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
+
+    def update(self, caller, event):
+        """
+        Update function to call every time the time variable has changed.
+        """
+        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
+        curr = (datetime.datetime(1970, 1, 1) +
+                datetime.timedelta(seconds=pv_time))
+        self.time_string.Text = curr.strftime("%Y-%m-%d %H:00")
