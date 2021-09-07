@@ -48,6 +48,12 @@ VARIABLE_MAP = {'velocity': 'Vr',
                 'by': 'By',
                 'bz': 'Bz'}
 
+# List of satellite colors
+SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
+                    "sun": [0.8313725490196079, 0.8313725490196079, 0.0],
+                    "stereoa": [177/255, 138/255, 142/255],
+                    "stereob": [94/255, 96/255, 185/255]}
+
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def __init__(self, fname):
@@ -61,7 +67,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize the PV web protocols
         super().__init__()
 
-        self.evolutions = load_evolution_files(fname)
+        self.evolutions = {x.name: x for x in load_evolution_files(fname)}
 
         # create a new 'NetCDF Reader'
         self.data = pvs.NetCDFReader(
@@ -160,6 +166,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
+        self._setup_satellites()
         self.update(None, None)
 
         # Call the update function every time the TimeKeeper gets modified
@@ -190,95 +197,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Time string
         disp = pvs.Show(self.time_string, self.view,
                         'TextSourceRepresentation')
-
-        # Earth representation
-        self.earth = pvs.Sphere()
-        # TODO: What coordinate system do we want x/y/z to be in?
-        #       The base model is rotated 180 degrees, should we
-        #       automatically rotate it for the users?
-        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
-        # The internal time variable on the ViewTime attribute is stored as
-        # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr_time = (datetime.datetime(1970, 1, 1) +
-                     datetime.timedelta(seconds=pv_time))
-        earth_evo = [x for x in self.evolutions if x.name == 'earth']
-        if earth_evo:
-            earth_evo = earth_evo[0]
-            self.earth.Center = earth_evo.get_position(curr_time)
-        else:
-            self.earth.Center = [-1.0, 0.0, 0.0]
-        self.earth.Radius = 0.025
-        disp = pvs.Show(self.earth, self.view,
-                        'GeometryRepresentation')
-        # trace defaults for the display properties.
-        disp.Representation = 'Surface'
-        disp.AmbientColor = [0.0, 0.3333333333333333, 0.0]
-        disp.ColorArrayName = [None, '']
-        disp.DiffuseColor = [0.0, 0.3333333333333333, 0.0]
-        disp.OSPRayScaleArray = 'Normals'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.005000000074505806
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.0002500000037252903
-        disp.SetScaleArray = ['POINTS', 'Normals']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'Normals']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
-
-        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
-        disp.ScaleTransferFunction.Points = [-0.9749279022216797,
-                                             0.0, 0.5, 0.0,
-                                             0.9749279022216797,
-                                             1.0, 0.5, 0.0]
-
-        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-        disp.OpacityTransferFunction.Points = [-0.9749279022216797,
-                                               0.0, 0.5, 0.0,
-                                               0.9749279022216797,
-                                               1.0, 0.5, 0.0]
-
-        # Sun representation
-        self.sun = pvs.Sphere()
-        self.sun.Center = [0.0, 0.0, 0.0]
-        self.sun.Radius = 0.075
-        disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
-
-        # trace defaults for the display properties.
-        disp.Representation = 'Surface'
-        disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.ColorArrayName = [None, '']
-        disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.OSPRayScaleArray = 'Normals'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.020000000298023225
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.0010000000149011613
-        disp.SetScaleArray = ['POINTS', 'Normals']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'Normals']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
-
-        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
-        disp.ScaleTransferFunction.Points = [-0.9749279022216797,
-                                             0.0, 0.5, 0.0,
-                                             0.9749279022216797,
-                                             1.0, 0.5, 0.0]
-
-        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-        disp.OpacityTransferFunction.Points = [-0.9749279022216797,
-                                               0.0, 0.5, 0.0,
-                                               0.9749279022216797,
-                                               1.0, 0.5, 0.0]
 
         # TODO: Show the base dataset?
         # pvs.Show(self.data, self.view, 'StructuredGridRepresentation')
@@ -469,6 +387,81 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # restore active source
         pvs.SetActiveSource(None)
+
+    def _setup_satellites(self):
+        """
+        Initializes the satellites locations and plots them as spheres.
+        """
+        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
+        curr_time = (datetime.datetime(1970, 1, 1) +
+                     datetime.timedelta(seconds=pv_time))
+
+        for x in SATELLITE_COLORS:
+            # Skip this satellite if it isn't in the data
+            if x not in self.evolutions:
+                continue
+            
+            # All satellites are represented as a sphere
+            sat = pvs.Sphere()
+            setattr(self, x, sat)
+            # TODO: What coordinate system do we want x/y/z to be in?
+            #       The base model is rotated 180 degrees, should we
+            #       automatically rotate it for the users?
+            evo = self.evolutions[x]
+
+            sat.Center = evo.get_position(curr_time)
+            sat.Radius = 0.025
+
+            disp = pvs.Show(sat, self.view,
+                            'GeometryRepresentation')
+            # trace defaults for the display properties.
+            disp.Representation = 'Surface'
+            disp.AmbientColor = SATELLITE_COLORS[x]
+            disp.ColorArrayName = [None, '']
+            disp.DiffuseColor = SATELLITE_COLORS[x]
+            disp.OSPRayScaleArray = 'Normals'
+            disp.OSPRayScaleFunction = 'PiecewiseFunction'
+            disp.SelectOrientationVectors = 'None'
+            disp.ScaleFactor = 0.005000000074505806
+            disp.SelectScaleArray = 'None'
+            disp.GlyphType = 'Arrow'
+            disp.GlyphTableIndexArray = 'None'
+            disp.GaussianRadius = 0.0002500000037252903
+            disp.SetScaleArray = ['POINTS', 'Normals']
+            disp.ScaleTransferFunction = 'PiecewiseFunction'
+            disp.OpacityArray = ['POINTS', 'Normals']
+            disp.OpacityTransferFunction = 'PiecewiseFunction'
+            disp.DataAxesGrid = 'GridAxesRepresentation'
+            disp.PolarAxes = 'PolarAxesRepresentation'
+
+        # Sun representation
+        self.sun = pvs.Sphere()
+        self.sun.Center = [0.0, 0.0, 0.0]
+        self.sun.Radius = 0.075
+        disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
+
+        # trace defaults for the display properties.
+        disp.Representation = 'Surface'
+        disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
+        disp.ColorArrayName = [None, '']
+        disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
+        disp.OSPRayScaleArray = 'Normals'
+        disp.OSPRayScaleFunction = 'PiecewiseFunction'
+        disp.SelectOrientationVectors = 'None'
+        disp.ScaleFactor = 0.020000000298023225
+        disp.SelectScaleArray = 'None'
+        disp.GlyphType = 'Arrow'
+        disp.GlyphTableIndexArray = 'None'
+        disp.GaussianRadius = 0.0010000000149011613
+        disp.SetScaleArray = ['POINTS', 'Normals']
+        disp.ScaleTransferFunction = 'PiecewiseFunction'
+        disp.OpacityArray = ['POINTS', 'Normals']
+        disp.OpacityTransferFunction = 'PiecewiseFunction'
+        disp.DataAxesGrid = 'GridAxesRepresentation'
+        disp.PolarAxes = 'PolarAxesRepresentation'
+
 
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
