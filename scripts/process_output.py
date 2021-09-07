@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import glob
+import json
 import os
 import sys
 import time
@@ -146,22 +147,14 @@ def process_evo(ds):
     ds['X'].attrs.update({'units': 'AU'})
     ds['Y'].attrs.update({'units': 'AU'})
     ds['Z'].attrs.update({'units': 'AU'})
-    ds['time'] = t
-    ds = ds.swap_dims({'nevo': 'time'})
-    ds = ds.drop(['time'])
-    # ds = ds.rename_dims({'nevo': 'time'})
-    # ds = ds.drop_dims(['nevo'])
-    # ds['time'] = t
-    ds = ds.assign_coords({'time': ('time', t)})
-    ds['sat'] = ds.label
-    ds = ds.swap_dims({'nevo': 'time'})
+    ds = ds.rename_dims({'nevo': 'time'})
+    ds = ds.assign_coords(time=t.data)
 
     # Remove unnecessary variables to make file sizes smaller
     ds = ds.drop_vars(['DT', 'NSTEP', 'BP', 'TIME',
                        'X1', 'X2', 'X3',
                        'B1', 'B2', 'B3',
                        'V1', 'V2', 'V3'])
-    print(ds)
 
     return ds
 
@@ -178,20 +171,28 @@ def process_directory(path):
     # Load and process the evo file
     datasets = [process_evo(xr.open_dataset(fname, engine='netcdf4'))
                 for fname in fnames]
-    print(f"Datasets loaded: {time.time()-t0} s")
-    ds = xr.concat(datasets, dim='sat')
 
     # New path
     newpath = path + '/processed'
     if not os.path.exists(newpath):
         os.mkdir(newpath)
 
-    # Save a single evolution file
-    datasets[0].to_netcdf(f"{newpath}/{os.path.basename(fnames[0])}",
-                          encoding={'time': {'units':
-                                             'seconds since 1970-01-01'}})
-    # ds.to_netcdf(f"{newpath}/evo.nc")
-    return
+    for ds, fname in zip(datasets, fnames):
+        # Save a single evolution file to NetCDF
+        newfile = f"{newpath}/{os.path.basename(fname)}"
+        ds.to_netcdf(newfile,
+                     encoding={'time': {'units':
+                                        'seconds since 1970-01-01'}})
+        # Reload that file and save it to json
+        # Loading with decode_times=False makes it so the datetimes
+        # get encoded as ints within the JSON
+        newds = xr.load_dataset(newfile, decode_times=False)
+
+        # Drop the ".nc" extension and replace with json
+        with open(newfile.replace('.nc', '.json'), 'w') as f:
+            # Put it through dump/load/dump to get floating point truncation
+            f.write(json.dumps(json.loads(json.dumps(newds.to_dict()),
+                    parse_float=lambda x: round(float(x), 3))))
 
     # ---------
     # TIM file processing
