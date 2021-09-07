@@ -1,9 +1,12 @@
 import datetime
+import glob
+import os
 
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
+from evolution import Evolution
 
 # Global definitions of variables
 # Range for each lookup table
@@ -57,6 +60,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         # Initialize the PV web protocols
         super().__init__()
+
+        self.evolutions = load_evolution_files(fname)
 
         # create a new 'NetCDF Reader'
         self.data = pvs.NetCDFReader(
@@ -191,7 +196,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # TODO: What coordinate system do we want x/y/z to be in?
         #       The base model is rotated 180 degrees, should we
         #       automatically rotate it for the users?
-        self.earth.Center = [-1.0, 0.0, 0.0]
+        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
+        curr_time = (datetime.datetime(1970, 1, 1) +
+                     datetime.timedelta(seconds=pv_time))
+        earth_evo = [x for x in self.evolutions if x.name == 'earth']
+        if earth_evo:
+            earth_evo = earth_evo[0]
+            self.earth.Center = earth_evo.get_position(curr_time)
+        else:
+            self.earth.Center = [-1.0, 0.0, 0.0]
         self.earth.Radius = 0.025
         disp = pvs.Show(self.earth, self.view,
                         'GeometryRepresentation')
@@ -669,3 +684,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             pvs.Hide(self.threshold, self.view)
         else:
             pvs.Show(self.threshold, self.view)
+
+
+def load_evolution_files(fname):
+    """
+    Loads evolution files relative to the given file.
+
+    fname : str
+        File name of the full 4D file. The evolution files
+        should all be in the same directory as this.
+
+    Returns
+    -------
+    A list of Evolution objects.
+    """
+    # Find all json files in our current directory
+    files = glob.glob(os.path.join(os.path.dirname(fname), '*.json'))
+    # Iterate over the files and create an Evolution object for each one
+    return [Evolution(f) for f in files]
