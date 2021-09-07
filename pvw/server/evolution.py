@@ -42,3 +42,26 @@ class Evolution:
         """
         loc = np.argmin(np.abs(np.datetime64(time) - self.times))
         return self.X[loc], self.Y[loc], self.Z[loc]
+
+    def get_data(self, variable):
+        """
+        Get the data within the variable of this satellite
+
+        variable : str
+            Variable of interest
+
+        Returns
+        -------
+        List of data for this satellite
+        """
+        return self.json['data_vars'][variable]['data']
+
+    def get_times(self):
+        """
+        Get the time series within the variable of this satellite
+
+        Returns
+        -------
+        List of times for this satellite
+        """
+        return self.json['coords']['time']['data']

@@ -401,7 +401,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # Skip this satellite if it isn't in the data
             if x not in self.evolutions:
                 continue
-            
+
             # All satellites are represented as a sphere
             sat = pvs.Sphere()
             setattr(self, x, sat)
@@ -638,6 +638,40 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              ' are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
+
+    @exportRpc("pv.enlil.get_satellite_times")
+    def get_satellite_time(self, sat):
+        """
+        Returns a time-series of data for the given satellite and variable.
+
+        sat : str
+            Name of the satellite (earth, stereoa, stereob)
+        variable : str
+            Variable of interest
+
+        Returns
+        -------
+        List of times from epoch
+        """
+        return self.evolutions[sat].get_times()
+
+    @exportRpc("pv.enlil.get_satellite_data")
+    def get_satellite_data(self, sat, variable):
+        """
+        Returns a time-series of data for the given satellite and variable.
+
+        sat : str
+            Name of the satellite (earth, stereoa, stereob)
+        variable : str
+            Variable of interest
+
+        Returns
+        -------
+        List of data
+        """
+        # Transform the variable name from the frontend to the back
+        var = VARIABLE_MAP[variable]
+        return self.evolutions[sat].get_data(var)
 
     def update(self, caller, event):
         """
