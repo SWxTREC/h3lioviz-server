@@ -50,7 +50,6 @@ VARIABLE_MAP = {'velocity': 'Vr',
 
 # List of satellite colors
 SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
-                    "sun": [0.8313725490196079, 0.8313725490196079, 0.0],
                     "stereoa": [177/255, 138/255, 142/255],
                     "stereob": [94/255, 96/255, 185/255]}
 
@@ -462,7 +461,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.DataAxesGrid = 'GridAxesRepresentation'
         disp.PolarAxes = 'PolarAxesRepresentation'
 
-
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
         """
@@ -654,9 +652,15 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
         # The internal time variable on the ViewTime attribute is stored as
         # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr = (datetime.datetime(1970, 1, 1) +
-                datetime.timedelta(seconds=pv_time))
-        self.time_string.Text = curr.strftime("%Y-%m-%d %H:00")
+        curr_time = (datetime.datetime(1970, 1, 1) +
+                     datetime.timedelta(seconds=pv_time))
+        self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
+
+        for x in SATELLITE_COLORS:
+            # Update the satellite positions based on the evolution data
+            if hasattr(self, x):
+                getattr(self, x).Center = self.evolutions[x].get_position(
+                    curr_time)
 
         # We need to force an update of the filters to populate the data.
         # The CellData[variable] will be None if there is no data calculated
