@@ -142,7 +142,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             GlyphType='Arrow')
         self.lon_arrows.OrientationArray = ['CELLS', 'Bvec']
         self.lon_arrows.ScaleArray = ['POINTS', 'No scale array']
-        self.lon_arrows.ScaleFactor = 0.35
+        self.lon_arrows.ScaleFactor = 0.1
         self.lon_arrows.GlyphTransform = 'Transform2'
         self.lon_arrows.MaximumNumberOfSamplePoints = 500
 
@@ -341,28 +341,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.displays[self.lon_arrows] = disp
         # trace defaults for the display properties.
         disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
-        disp.LookupTable = bzLUT
-        disp.OSPRayScaleArray = 'BP'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'BP'
-        disp.ScaleFactor = 0.3804943442344666
-        disp.SelectScaleArray = 'BP'
+        disp.ScaleFactor = 0.1
         disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'BP'
-        disp.GaussianRadius = 0.019024717211723326
-        disp.SetScaleArray = ['POINTS', 'BP']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'BP']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
-        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
-        disp.ScaleTransferFunction.Points = [
-            -96.6900405883789, 0.0, 0.5, 0.0, 97.67322540283203, 1.0, 0.5, 0.0]
-        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-        disp.OpacityTransferFunction.Points = [
-            -96.6900405883789, 0.0, 0.5, 0.0, 97.67322540283203, 1.0, 0.5, 0.0]
+        disp.GaussianRadius = 0.005
+        disp.AmbientColor = [1, 1, 1]
+        disp.ColorArrayName = [None, '']
+        disp.DiffuseColor = [1, 1, 1]
 
         # setup the color legend parameters for each legend in this view
         # get color legend/bar for bzLUT in view self.view
@@ -497,7 +481,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         variable = VARIABLE_MAP[name]
 
         # Update all displays to be colored by this variable
-        for disp in self.displays.values():
+        for obj, disp in self.displays.items():
+            if obj == self.lon_arrows:
+                # We don't want to update the longitude arrow colors
+                continue
             pvs.ColorBy(disp, variable)
 
         self.update_opacity(variable)
