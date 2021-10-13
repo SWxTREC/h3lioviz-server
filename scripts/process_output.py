@@ -61,6 +61,7 @@ def process_tim(ds):
     # Br, Blat, Blon
     ds['Bx'], ds['By'], ds['Bz'] = spherical_to_cartesian(
         ds['n1'], ds['n2'], ds['n3'], ds['B1'], ds['B2'], ds['B3'])
+    ds['Br'] = ds['B1']
 
     # ds['Vx'], ds['Vy'], ds['Vz'] =
     # spherical_to_cartesian(ds['n1'], ds['n2'], ds['n3'],
