@@ -7,7 +7,7 @@
     "log_dir": "/opt/launcher/log",
     "host": "localhost",
     "endpoint": "paraview",
-    "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=ws",
+    "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=wss",
     "timeout": 25,
     "upload_dir": "/data/upload",
     "fields": ["file", "updir"],

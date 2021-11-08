@@ -79,7 +79,8 @@ RUN cd /opt && \
 # Replacing a bad wslink file
 # COPY extras/launcher.py /opt/paraview/lib/python3.8/site-packages/wslink/
 # Install missing packages
-RUN pip install --target=/opt/paraview/lib/python3.8/site-packages/ --upgrade wslink cryptography
+# wslink 1.x broke something, so force pip to install an older version for now
+RUN pip install --target=/opt/paraview/lib/python3.8/site-packages/ --upgrade wslink==0.1.10 cryptography
 
 # RUN ["/opt/paraviewweb/scripts/addEndpoints.sh", \
 #   "enlil", "/opt/paraview/share/paraview-5.9/web/visualizer/www" \
