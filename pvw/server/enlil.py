@@ -174,6 +174,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         pvs.GetAnimationScene().TimeKeeper.AddObserver(
             "PropertyModifiedEvent", self.update, 1.0)
 
+        # Set the default to have the slice go through Earth
+        self.snap_ecliptic_plane("ecliptic")
+
     def _setup_views(self):
         """Setup the rendering view."""
         # disable automatic camera reset on 'Show'
@@ -602,6 +605,30 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The quantity of interest
         self.threshold_data.Scalars = ['CELLS', variable]
         self.threshold_data.ThresholdRange = range
+
+    @exportRpc("pv.enlil.snap_ecliptic_plane")
+    def snap_ecliptic_plane(self, clip):
+        """Snap the ecliptic slice to either the equator or ecliptic plane.
+
+        clip : str
+            Name of the plane to snap to. Either "ecliptic" (Earth) or
+            "equator" (heliographic equator).
+        """
+        if clip == "ecliptic":
+            # We have to have an Earth location for this to work
+            # (-z, 0, x), y is frozen, so tilt is only in the xz plane
+            # -z rotates by 90 degrees to get the normal vector to the plane
+            # that contains Earth
+            loc = [-self.earth.Center[2], 0, self.earth.Center[0]]
+        elif clip == "equator":
+            # Standard coordinates, so the plane is purely in xy and
+            # z is perpendicular
+            loc = [0, 0, 1]
+        else:
+            raise ValueError('The snapping clip plane must be either '
+                             '"ecliptic" or "equator"')
+
+        self.lon_slice.SliceType.Normal = loc
 
     @exportRpc("pv.enlil.snap_to_view")
     def snap_to_view(self, plane):
