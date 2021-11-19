@@ -425,7 +425,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Sun representation
         self.sun = pvs.Sphere()
         self.sun.Center = [0.0, 0.0, 0.0]
-        self.sun.Radius = 0.075
+        self.sun.Radius = 0.074
+        self.sun.ThetaResolution = 50
+        self.sun.PhiResolution = 50
         disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
 
         # trace defaults for the display properties.
@@ -450,6 +452,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Apply an image to the Earth sphere
         self.apply_earth_texture()
+        self.apply_solar_texture()
 
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
@@ -785,6 +788,85 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         texture_map_disp.Texture = earth_image
         # To get the proper orientation
         texture_map_disp.FlipTextures = 1
+
+    def apply_solar_texture(self):
+        """Applies a texture (image) to the Sun.
+
+        This will look for a local image asset to use, and if not found,
+        try to go download it for the user.
+        """
+        import pathlib
+        # Path to the Earth texture on our local system
+        # cwd() is where paraview is launched from
+        sun_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
+        sun_path /= 'hmi_2017.jpg'
+        # If we don't have the texture file, go download it.
+        if not sun_path.exists():
+            # Make the directories if they don't already exist
+            sun_path.parent.mkdir(parents=True, exist_ok=True)
+            import urllib.request
+            # This is the alternative request to search for nearest that gets
+            # forwarded to the below url
+            # ("http://jsoc.stanford.edu/cgi-bin/hmiimage.pl"
+            #        "?Year=2017&Month=09&Day=06&Hour=00&Minute=00"
+            #        "&Kind=_M_color_&resolution=4k")
+            url = ("http://jsoc.stanford.edu/data/hmi/images/"
+                   "2017/09/06/20170906_000000_M_color_4k.jpg")
+
+            # Make a request
+            req = urllib.request.urlopen(url)
+            # Write out the response to our local file
+            with open(sun_path, "wb") as f:
+                f.write(req.read())
+
+        # Sun representation
+        # Note we don't use the self.sun here because we want this
+        # to be slightly larger than the sun sphere when representing it
+        sun = pvs.Sphere()
+        sun.Center = [0.0, 0.0, 0.0]
+        sun.Radius = 0.075
+        sun.ThetaResolution = 50
+        sun.PhiResolution = 50
+
+        # For the solar imagery we want texture map to plane because it is
+        # a flat image instead of an unwrapped image.
+        texture_map = pvs.TextureMaptoPlane(registrationName='SunImage',
+                                            Input=sun)
+
+        # We have to transform the image coordinates and rotate the image
+        # on the sphere
+        t = pvs.Transform(registrationName='SunRotation', Input=texture_map)
+        t.Transform = 'Transform'
+        # 90 degrees around X and 90 degrees around Y
+        # This is dependent on coordinate systems (Earth is in -X)
+        t.Transform.Rotate = [90.0, -90.0, 0.0]
+
+        # We also want to clip the sphere so we don't get any wrapping
+        # into the back plane
+        clip = pvs.Clip(registrationName='ClipSun', Input=t)
+        clip.ClipType = 'Plane'
+        clip.HyperTreeGridClipper = 'Plane'
+        clip.Scalars = ['POINTS', '']
+        clip.Invert = 1
+
+        # This is the plane to clip on. It doesn't cover the entire
+        # half-sphere, so limit it a little bit in the X direction
+        clip.ClipType.Origin = [-0.03, 0.0, 0.0]
+
+        sun_display = pvs.Show(clip, self.view,
+                               'UnstructuredGridRepresentation')
+
+        sun_texture = pvs.CreateTexture(str(sun_path))
+
+        # trace defaults for the display properties.
+        sun_display.Representation = 'Surface'
+        sun_display.ColorArrayName = [None, '']
+        sun_display.SelectTCoordArray = 'Texture Coordinates'
+        sun_display.SelectNormalArray = 'Normals'
+        sun_display.SelectTangentArray = 'None'
+        sun_display.Texture = sun_texture
+        # This hides the HMI image when looking from behind
+        sun_display.BackfaceRepresentation = 'Cull Backface'
 
 
 def load_evolution_files(fname):
