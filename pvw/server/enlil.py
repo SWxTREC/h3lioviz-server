@@ -175,7 +175,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             "PropertyModifiedEvent", self.update, 1.0)
 
         # Set the default to have the slice go through Earth
-        self.snap_ecliptic_plane("ecliptic")
+        self.snap_solar_plane("ecliptic")
 
     def _setup_views(self):
         """Setup the rendering view."""
@@ -606,9 +606,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.threshold_data.Scalars = ['CELLS', variable]
         self.threshold_data.ThresholdRange = range
 
-    @exportRpc("pv.enlil.snap_ecliptic_plane")
-    def snap_ecliptic_plane(self, clip):
-        """Snap the ecliptic slice to either the equator or ecliptic plane.
+    @exportRpc("pv.enlil.snap_solar_plane")
+    def snap_solar_plane(self, clip):
+        """Snap the solar plane to either the solar equator or Sun-Earth plane.
 
         clip : str
             Name of the plane to snap to. Either "ecliptic" (Earth) or
