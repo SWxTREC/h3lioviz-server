@@ -448,6 +448,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.DataAxesGrid = 'GridAxesRepresentation'
         disp.PolarAxes = 'PolarAxesRepresentation'
 
+        # Apply an image to the Earth sphere
+        self.apply_earth_texture()
+
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
         """
@@ -729,6 +732,59 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             pvs.Hide(self.threshold, self.view)
         else:
             pvs.Show(self.threshold, self.view)
+
+    def apply_earth_texture(self):
+        """Applies a texture (image) to the Earth sphere.
+
+        This will look for a local image asset to use, and if not found,
+        try to go download it for the user.
+        """
+        import pathlib
+        # Path to the Earth texture on our local system
+        # cwd() is where paraview is launched from
+        earth_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
+        earth_path /= 'land_shallow_topo_2048.jpg'
+        # If we don't have the texture file, go download it.
+        if not earth_path.exists():
+            # Make the directories if they don't already exist
+            earth_path.parent.mkdir(parents=True, exist_ok=True)
+            import urllib.request
+            url = ("https://eoimages.gsfc.nasa.gov/images/imagerecords/"
+                   "57000/57752/land_shallow_topo_2048.jpg")
+            # Make a request
+            req = urllib.request.urlopen(url)
+            # Write out the response to our local file
+            with open(earth_path, "wb") as f:
+                f.write(req.read())
+
+        # We should have a local image file to use as a texture
+        earth_image = pvs.CreateTexture(str(earth_path))
+        # Set up the sphere source
+        sphere = self.earth
+        sphere.ThetaResolution = 50
+        # We need to perturb the StartTheta a small amount to not have a
+        # seam/mismatch in the texture at 0
+        sphere.StartTheta = 1e-05
+        sphere.PhiResolution = 50
+        # create a new 'Texture Map to Sphere'
+        texture_map = pvs.TextureMaptoSphere(registrationName='EarthImage',
+                                             Input=sphere)
+        texture_map.PreventSeam = 0
+
+        # show data from the image and hide the plain sphere
+        pvs.Hide(self.earth)
+        texture_map_disp = pvs.Show(texture_map, self.view,
+                                    'GeometryRepresentation')
+
+        # trace defaults for the display properties.
+        texture_map_disp.Representation = 'Surface'
+        texture_map_disp.ColorArrayName = [None, '']
+        texture_map_disp.SelectTCoordArray = 'Texture Coordinates'
+        texture_map_disp.SelectNormalArray = 'Normals'
+        texture_map_disp.SelectTangentArray = 'None'
+        texture_map_disp.Texture = earth_image
+        # To get the proper orientation
+        texture_map_disp.FlipTextures = 1
 
 
 def load_evolution_files(fname):
