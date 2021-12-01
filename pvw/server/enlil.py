@@ -378,11 +378,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellites locations and plots them as spheres.
         """
-        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
-        # The internal time variable on the ViewTime attribute is stored as
-        # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr_time = (datetime.datetime(1970, 1, 1) +
-                     datetime.timedelta(seconds=pv_time))
+        curr_time = self.get_current_time()
 
         for x in SATELLITE_COLORS:
             # Skip this satellite if it isn't in the data
@@ -707,10 +703,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         to click on/off by the user.
         """
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
-        # The internal time variable on the ViewTime attribute is stored as
-        # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr_time = (datetime.datetime(1970, 1, 1) +
-                     datetime.timedelta(seconds=pv_time))
+        curr_time = self.get_current_time()
         self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
 
         for x in SATELLITE_COLORS:
@@ -873,6 +866,19 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         sun_display.Texture = sun_texture
         # This hides the HMI image when looking from behind
         sun_display.BackfaceRepresentation = 'Cull Backface'
+
+    def get_current_time(self):
+        """Retrieves the current time of the view.
+
+        Returns
+        -------
+        datetime of the current timestep
+        """
+        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
+        return (datetime.datetime(1970, 1, 1) +
+                datetime.timedelta(seconds=pv_time))
 
 
 def load_evolution_files(fname):
