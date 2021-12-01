@@ -732,6 +732,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             pvs.Show(self.threshold, self.view)
 
+        # Update the rotation of the earth image
+        self.rotate_earth()
+
     def apply_earth_texture(self):
         """Applies a texture (image) to the Earth sphere.
 
@@ -773,9 +776,36 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                                              Input=sphere)
         texture_map.PreventSeam = 0
 
+        # Move the Earth sphere center back to zero for a translation
+        # after rotation later.
+        self.earth.Center = [0, 0, 0]
+
+        # We want to rotate the Earth image with the hour of the day
+        # To do that, we need to translate our object to the opposite
+        # location of what it truly is, then rotate about the origin's
+        # z-axis, then translate to the final location after the rotation.
+        # TODO: This could be turned into a rotation matrix eventually to
+        #       only calculate this at one step, rather than three successive
+        #       filters being applied.
+        t = pvs.Transform(registrationName='EarthTranslation1',
+                          Input=texture_map)
+        t.Transform = 'Transform'
+        t.Transform.Translate = [0.0, 0.0, 0.0]
+        self.earth_translation1 = t
+        t = pvs.Transform(registrationName='EarthRotation',
+                          Input=self.earth_translation1)
+        t.Transform = 'Transform'
+        t.Transform.Rotate = [0.0, 0.0, 0.0]
+        self.earth_rotation = t
+        t = pvs.Transform(registrationName='EarthTranslation2',
+                          Input=self.earth_rotation)
+        t.Transform = 'Transform'
+        t.Transform.Translate = [0.0, 0.0, -1]
+        self.earth_translation2 = t
+
         # show data from the image and hide the plain sphere
         pvs.Hide(self.earth)
-        texture_map_disp = pvs.Show(texture_map, self.view,
+        texture_map_disp = pvs.Show(t, self.view,
                                     'GeometryRepresentation')
 
         # trace defaults for the display properties.
@@ -879,6 +909,22 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # seconds from 1970-01-01, so we use that epoch directly internally.
         return (datetime.datetime(1970, 1, 1) +
                 datetime.timedelta(seconds=pv_time))
+
+    def rotate_earth(self):
+        """Rotates the Earth image around with the hour of day."""
+        if not hasattr(self, 'earth_rotation'):
+            # There is no earth image to rotate
+            return
+        curr_time = self.get_current_time()
+        # We want rotation to be from 0 -> 360
+        rot = (curr_time.hour + curr_time.minute/60) / 24 * 360
+        # Rotate around Z with the hours of the day
+        earth_pos = self.evolutions['earth'].get_position(curr_time)
+        # Move it negative first to apply the rotation
+        self.earth_translation1.Transform.Translate = [-x for x in earth_pos]
+        self.earth_rotation.Transform.Rotate = [0.0, 0.0, rot]
+        # Then move it back positive to its actual location
+        self.earth_translation2.Transform.Translate = earth_pos
 
 
 def load_evolution_files(fname):
