@@ -621,6 +621,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             "equator" (heliographic equator).
         """
         if clip == "ecliptic":
+            if not hasattr(self, "earth"):
+                # We don't have earth's location, so just return
+                return
             # We have to have an Earth location for this to work
             # (-z, 0, x), y is frozen, so tilt is only in the xz plane
             # -z rotates by 90 degrees to get the normal vector to the plane
@@ -742,6 +745,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         This will look for a local image asset to use, and if not found,
         try to go download it for the user.
         """
+        if not hasattr(self, "earth"):
+            # We don't have earth's location, so just return
+            return
         import pathlib
         # Path to the Earth texture on our local system
         # cwd() is where paraview is launched from
