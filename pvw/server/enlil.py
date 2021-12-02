@@ -378,11 +378,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellites locations and plots them as spheres.
         """
-        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
-        # The internal time variable on the ViewTime attribute is stored as
-        # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr_time = (datetime.datetime(1970, 1, 1) +
-                     datetime.timedelta(seconds=pv_time))
+        curr_time = self.get_current_time()
 
         for x in SATELLITE_COLORS:
             # Skip this satellite if it isn't in the data
@@ -425,7 +421,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Sun representation
         self.sun = pvs.Sphere()
         self.sun.Center = [0.0, 0.0, 0.0]
-        self.sun.Radius = 0.075
+        self.sun.Radius = 0.074
+        self.sun.ThetaResolution = 50
+        self.sun.PhiResolution = 50
         disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
 
         # trace defaults for the display properties.
@@ -447,6 +445,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.OpacityTransferFunction = 'PiecewiseFunction'
         disp.DataAxesGrid = 'GridAxesRepresentation'
         disp.PolarAxes = 'PolarAxesRepresentation'
+
+        # Apply an image to the Earth sphere
+        self.apply_earth_texture()
+        self.apply_solar_texture()
 
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
@@ -615,6 +617,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             "equator" (heliographic equator).
         """
         if clip == "ecliptic":
+            if not hasattr(self, "earth"):
+                # We don't have earth's location, so just return
+                return
             # We have to have an Earth location for this to work
             # (-z, 0, x), y is frozen, so tilt is only in the xz plane
             # -z rotates by 90 degrees to get the normal vector to the plane
@@ -698,10 +703,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         to click on/off by the user.
         """
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
-        # The internal time variable on the ViewTime attribute is stored as
-        # seconds from 1970-01-01, so we use that epoch directly internally.
-        curr_time = (datetime.datetime(1970, 1, 1) +
-                     datetime.timedelta(seconds=pv_time))
+        curr_time = self.get_current_time()
         self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
 
         for x in SATELLITE_COLORS:
@@ -729,6 +731,200 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             pvs.Hide(self.threshold, self.view)
         else:
             pvs.Show(self.threshold, self.view)
+
+        # Update the rotation of the earth image
+        self.rotate_earth()
+
+    def apply_earth_texture(self):
+        """Applies a texture (image) to the Earth sphere.
+
+        This will look for a local image asset to use, and if not found,
+        try to go download it for the user.
+        """
+        if not hasattr(self, "earth"):
+            # We don't have earth's location, so just return
+            return
+        import pathlib
+        # Path to the Earth texture on our local system
+        # cwd() is where paraview is launched from
+        earth_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
+        earth_path /= 'land_shallow_topo_2048.jpg'
+        # If we don't have the texture file, go download it.
+        if not earth_path.exists():
+            # Make the directories if they don't already exist
+            earth_path.parent.mkdir(parents=True, exist_ok=True)
+            import urllib.request
+            url = ("https://eoimages.gsfc.nasa.gov/images/imagerecords/"
+                   "57000/57752/land_shallow_topo_2048.jpg")
+            # Make a request
+            req = urllib.request.urlopen(url)
+            # Write out the response to our local file
+            with open(earth_path, "wb") as f:
+                f.write(req.read())
+
+        # We should have a local image file to use as a texture
+        earth_image = pvs.CreateTexture(str(earth_path))
+        # Set up the sphere source
+        sphere = self.earth
+        sphere.ThetaResolution = 50
+        # We need to perturb the StartTheta a small amount to not have a
+        # seam/mismatch in the texture at 0
+        sphere.StartTheta = 1e-05
+        sphere.PhiResolution = 50
+        # create a new 'Texture Map to Sphere'
+        texture_map = pvs.TextureMaptoSphere(registrationName='EarthImage',
+                                             Input=sphere)
+        texture_map.PreventSeam = 0
+
+        # Move the Earth sphere center back to zero for a translation
+        # after rotation later.
+        self.earth.Center = [0, 0, 0]
+
+        # We want to rotate the Earth image with the hour of the day
+        # To do that, we need to translate our object to the opposite
+        # location of what it truly is, then rotate about the origin's
+        # z-axis, then translate to the final location after the rotation.
+        # TODO: This could be turned into a rotation matrix eventually to
+        #       only calculate this at one step, rather than three successive
+        #       filters being applied.
+        t = pvs.Transform(registrationName='EarthTranslation1',
+                          Input=texture_map)
+        t.Transform = 'Transform'
+        t.Transform.Translate = [0.0, 0.0, 0.0]
+        self.earth_translation1 = t
+        t = pvs.Transform(registrationName='EarthRotation',
+                          Input=self.earth_translation1)
+        t.Transform = 'Transform'
+        t.Transform.Rotate = [0.0, 0.0, 0.0]
+        self.earth_rotation = t
+        t = pvs.Transform(registrationName='EarthTranslation2',
+                          Input=self.earth_rotation)
+        t.Transform = 'Transform'
+        t.Transform.Translate = [0.0, 0.0, -1]
+        self.earth_translation2 = t
+
+        # show data from the image and hide the plain sphere
+        pvs.Hide(self.earth)
+        texture_map_disp = pvs.Show(t, self.view,
+                                    'GeometryRepresentation')
+
+        # trace defaults for the display properties.
+        texture_map_disp.Representation = 'Surface'
+        texture_map_disp.ColorArrayName = [None, '']
+        texture_map_disp.SelectTCoordArray = 'Texture Coordinates'
+        texture_map_disp.SelectNormalArray = 'Normals'
+        texture_map_disp.SelectTangentArray = 'None'
+        texture_map_disp.Texture = earth_image
+        # To get the proper orientation
+        texture_map_disp.FlipTextures = 1
+
+    def apply_solar_texture(self):
+        """Applies a texture (image) to the Sun.
+
+        This will look for a local image asset to use, and if not found,
+        try to go download it for the user.
+        """
+        import pathlib
+        # Path to the Earth texture on our local system
+        # cwd() is where paraview is launched from
+        sun_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
+        sun_path /= 'hmi_2017.jpg'
+        # If we don't have the texture file, go download it.
+        if not sun_path.exists():
+            # Make the directories if they don't already exist
+            sun_path.parent.mkdir(parents=True, exist_ok=True)
+            import urllib.request
+            # This is the alternative request to search for nearest that gets
+            # forwarded to the below url
+            # ("http://jsoc.stanford.edu/cgi-bin/hmiimage.pl"
+            #        "?Year=2017&Month=09&Day=06&Hour=00&Minute=00"
+            #        "&Kind=_M_color_&resolution=4k")
+            url = ("http://jsoc.stanford.edu/data/hmi/images/"
+                   "2017/09/06/20170906_000000_M_color_4k.jpg")
+
+            # Make a request
+            req = urllib.request.urlopen(url)
+            # Write out the response to our local file
+            with open(sun_path, "wb") as f:
+                f.write(req.read())
+
+        # Sun representation
+        # Note we don't use the self.sun here because we want this
+        # to be slightly larger than the sun sphere when representing it
+        sun = pvs.Sphere()
+        sun.Center = [0.0, 0.0, 0.0]
+        sun.Radius = 0.075
+        sun.ThetaResolution = 50
+        sun.PhiResolution = 50
+
+        # For the solar imagery we want texture map to plane because it is
+        # a flat image instead of an unwrapped image.
+        texture_map = pvs.TextureMaptoPlane(registrationName='SunImage',
+                                            Input=sun)
+
+        # We have to transform the image coordinates and rotate the image
+        # on the sphere
+        t = pvs.Transform(registrationName='SunRotation', Input=texture_map)
+        t.Transform = 'Transform'
+        # 90 degrees around X and 90 degrees around Y
+        # This is dependent on coordinate systems (Earth is in -X)
+        t.Transform.Rotate = [90.0, -90.0, 0.0]
+
+        # We also want to clip the sphere so we don't get any wrapping
+        # into the back plane
+        clip = pvs.Clip(registrationName='ClipSun', Input=t)
+        clip.ClipType = 'Plane'
+        clip.HyperTreeGridClipper = 'Plane'
+        clip.Scalars = ['POINTS', '']
+        clip.Invert = 1
+
+        # This is the plane to clip on. It doesn't cover the entire
+        # half-sphere, so limit it a little bit in the X direction
+        clip.ClipType.Origin = [-0.03, 0.0, 0.0]
+
+        sun_display = pvs.Show(clip, self.view,
+                               'UnstructuredGridRepresentation')
+
+        sun_texture = pvs.CreateTexture(str(sun_path))
+
+        # trace defaults for the display properties.
+        sun_display.Representation = 'Surface'
+        sun_display.ColorArrayName = [None, '']
+        sun_display.SelectTCoordArray = 'Texture Coordinates'
+        sun_display.SelectNormalArray = 'Normals'
+        sun_display.SelectTangentArray = 'None'
+        sun_display.Texture = sun_texture
+        # This hides the HMI image when looking from behind
+        sun_display.BackfaceRepresentation = 'Cull Backface'
+
+    def get_current_time(self):
+        """Retrieves the current time of the view.
+
+        Returns
+        -------
+        datetime of the current timestep
+        """
+        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
+        # The internal time variable on the ViewTime attribute is stored as
+        # seconds from 1970-01-01, so we use that epoch directly internally.
+        return (datetime.datetime(1970, 1, 1) +
+                datetime.timedelta(seconds=pv_time))
+
+    def rotate_earth(self):
+        """Rotates the Earth image around with the hour of day."""
+        if not hasattr(self, 'earth_rotation'):
+            # There is no earth image to rotate
+            return
+        curr_time = self.get_current_time()
+        # We want rotation to be from 0 -> 360
+        rot = (curr_time.hour + curr_time.minute/60) / 24 * 360
+        # Rotate around Z with the hours of the day
+        earth_pos = self.evolutions['earth'].get_position(curr_time)
+        # Move it negative first to apply the rotation
+        self.earth_translation1.Transform.Translate = [-x for x in earth_pos]
+        self.earth_rotation.Transform.Rotate = [0.0, 0.0, rot]
+        # Then move it back positive to its actual location
+        self.earth_translation2.Transform.Translate = earth_pos
 
 
 def load_evolution_files(fname):

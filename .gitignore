@@ -4,6 +4,7 @@ data/
 pvw/www/swt
 pvw/launcher/log/*.txt
 pvw/launcher/log/*.log
+pvw/server/assets
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
