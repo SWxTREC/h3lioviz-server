@@ -839,6 +839,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # to be slightly larger than the sun sphere when representing it
         sun = pvs.Sphere()
         sun.Center = [0.0, 0.0, 0.0]
+        r = 0.075
         sun.Radius = 0.075
         sun.ThetaResolution = 50
         sun.PhiResolution = 50
@@ -847,18 +848,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # a flat image instead of an unwrapped image.
         texture_map = pvs.TextureMaptoPlane(registrationName='SunImage',
                                             Input=sun)
-
-        # We have to transform the image coordinates and rotate the image
-        # on the sphere
-        t = pvs.Transform(registrationName='SunRotation', Input=texture_map)
-        t.Transform = 'Transform'
-        # 90 degrees around X and 90 degrees around Y
-        # This is dependent on coordinate systems (Earth is in -X)
-        t.Transform.Rotate = [90.0, -90.0, 0.0]
+        # Make the points form a square of radius r
+        # Earth is in the -X direction, so we want our image plane to be
+        # in the Y-Z direction, with the origin at (+Y, -Z) and the base
+        # of the image extending out in the Y direction to (-Y, -Z).
+        texture_map.Origin = [0, r, -r]
+        texture_map.Point1 = [0, -r, -r]
+        texture_map.Point2 = [0, r, r]
 
         # We also want to clip the sphere so we don't get any wrapping
         # into the back plane
-        clip = pvs.Clip(registrationName='ClipSun', Input=t)
+        clip = pvs.Clip(registrationName='ClipSun', Input=texture_map)
         clip.ClipType = 'Plane'
         clip.HyperTreeGridClipper = 'Plane'
         clip.Scalars = ['POINTS', '']
@@ -869,7 +869,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         clip.ClipType.Origin = [-0.03, 0.0, 0.0]
 
         sun_display = pvs.Show(clip, self.view,
-                               'UnstructuredGridRepresentation')
+                               'GeometryRepresentation')
 
         # Create a texture from the first image
         sun_texture = pvs.CreateTexture(
