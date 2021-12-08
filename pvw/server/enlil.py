@@ -634,6 +634,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              '"ecliptic" or "equator"')
 
         self.lon_slice.SliceType.Normal = loc
+        # Force a re-render with the updated camera
+        pvs.Render(self.view)
 
     @exportRpc("pv.enlil.snap_to_view")
     def snap_to_view(self, plane):
@@ -657,6 +659,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              ' are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
+        # Force a re-render with the updated camera
+        pvs.Render(self.view)
 
     @exportRpc("pv.enlil.get_satellite_times")
     def get_satellite_time(self, sat):
