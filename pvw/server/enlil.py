@@ -771,7 +771,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         sphere.ThetaResolution = 50
         # We need to perturb the StartTheta a small amount to not have a
         # seam/mismatch in the texture at 0
-        sphere.StartTheta = 1e-05
+        sphere.StartTheta = 1e-3
         sphere.PhiResolution = 50
         # create a new 'Texture Map to Sphere'
         texture_map = pvs.TextureMaptoSphere(registrationName='EarthImage',
