@@ -68,7 +68,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Save the data directory
         self._data_dir = os.path.join(os.path.dirname(fname))
         self.evolutions = {x.name: x for x in load_evolution_files(fname)}
-        print("GML", self._data_dir, fname)
         # create a new 'NetCDF Reader'
         self.data = pvs.NetCDFReader(
             registrationName='enlil-data', FileName=[fname])
