@@ -65,7 +65,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         # Initialize the PV web protocols
         super().__init__()
-
+        # Save the data directory
+        self._data_dir = os.path.join(os.path.dirname(fname))
         self.evolutions = {x.name: x for x in load_evolution_files(fname)}
 
         # create a new 'NetCDF Reader'
@@ -734,6 +735,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Update the rotation of the earth image
         self.rotate_earth()
+        self.update_solar_image()
 
     def apply_earth_texture(self):
         """Applies a texture (image) to the Earth sphere.
@@ -769,7 +771,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         sphere.ThetaResolution = 50
         # We need to perturb the StartTheta a small amount to not have a
         # seam/mismatch in the texture at 0
-        sphere.StartTheta = 1e-05
+        sphere.StartTheta = 1e-3
         sphere.PhiResolution = 50
         # create a new 'Texture Map to Sphere'
         texture_map = pvs.TextureMaptoSphere(registrationName='EarthImage',
@@ -824,35 +826,20 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         This will look for a local image asset to use, and if not found,
         try to go download it for the user.
         """
-        import pathlib
-        # Path to the Earth texture on our local system
-        # cwd() is where paraview is launched from
-        sun_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
-        sun_path /= 'hmi_2017.jpg'
-        # If we don't have the texture file, go download it.
-        if not sun_path.exists():
-            # Make the directories if they don't already exist
-            sun_path.parent.mkdir(parents=True, exist_ok=True)
-            import urllib.request
-            # This is the alternative request to search for nearest that gets
-            # forwarded to the below url
-            # ("http://jsoc.stanford.edu/cgi-bin/hmiimage.pl"
-            #        "?Year=2017&Month=09&Day=06&Hour=00&Minute=00"
-            #        "&Kind=_M_color_&resolution=4k")
-            url = ("http://jsoc.stanford.edu/data/hmi/images/"
-                   "2017/09/06/20170906_000000_M_color_4k.jpg")
-
-            # Make a request
-            req = urllib.request.urlopen(url)
-            # Write out the response to our local file
-            with open(sun_path, "wb") as f:
-                f.write(req.read())
+        solar_dir = self._data_dir + '/solar_images'
+        if not os.path.exists(solar_dir):
+            return
+        # Store a list of the solar images
+        self._solar_images = [os.path.basename(x)
+                              for x in glob.glob(solar_dir + '/*.jpg')]
+        self._solar_images = sorted(self._solar_images)
 
         # Sun representation
         # Note we don't use the self.sun here because we want this
         # to be slightly larger than the sun sphere when representing it
         sun = pvs.Sphere()
         sun.Center = [0.0, 0.0, 0.0]
+        r = 0.075
         sun.Radius = 0.075
         sun.ThetaResolution = 50
         sun.PhiResolution = 50
@@ -861,18 +848,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # a flat image instead of an unwrapped image.
         texture_map = pvs.TextureMaptoPlane(registrationName='SunImage',
                                             Input=sun)
-
-        # We have to transform the image coordinates and rotate the image
-        # on the sphere
-        t = pvs.Transform(registrationName='SunRotation', Input=texture_map)
-        t.Transform = 'Transform'
-        # 90 degrees around X and 90 degrees around Y
-        # This is dependent on coordinate systems (Earth is in -X)
-        t.Transform.Rotate = [90.0, -90.0, 0.0]
+        # Make the points form a square of radius r
+        # Earth is in the -X direction, so we want our image plane to be
+        # in the Y-Z direction, with the origin at (+Y, -Z) and the base
+        # of the image extending out in the Y direction to (-Y, -Z).
+        texture_map.Origin = [0, r, -r]
+        texture_map.Point1 = [0, -r, -r]
+        texture_map.Point2 = [0, r, r]
 
         # We also want to clip the sphere so we don't get any wrapping
         # into the back plane
-        clip = pvs.Clip(registrationName='ClipSun', Input=t)
+        clip = pvs.Clip(registrationName='ClipSun', Input=texture_map)
         clip.ClipType = 'Plane'
         clip.HyperTreeGridClipper = 'Plane'
         clip.Scalars = ['POINTS', '']
@@ -883,9 +869,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         clip.ClipType.Origin = [-0.03, 0.0, 0.0]
 
         sun_display = pvs.Show(clip, self.view,
-                               'UnstructuredGridRepresentation')
+                               'GeometryRepresentation')
 
-        sun_texture = pvs.CreateTexture(str(sun_path))
+        # Create a texture from the first image
+        sun_texture = pvs.CreateTexture(
+            solar_dir + '/' + self._solar_images[0])
+        self._previous_time = self.get_current_time()
 
         # trace defaults for the display properties.
         sun_display.Representation = 'Surface'
@@ -896,6 +885,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         sun_display.Texture = sun_texture
         # This hides the HMI image when looking from behind
         sun_display.BackfaceRepresentation = 'Cull Backface'
+        self.sun_display = sun_display
 
     def get_current_time(self):
         """Retrieves the current time of the view.
@@ -909,6 +899,31 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # seconds from 1970-01-01, so we use that epoch directly internally.
         return (datetime.datetime(1970, 1, 1) +
                 datetime.timedelta(seconds=pv_time))
+
+    def update_solar_image(self):
+        if not hasattr(self, '_solar_images'):
+            # No solar images
+            return
+        if self._previous_time == self.get_current_time():
+            # This is the same timestep, so we don't need to
+            # update anything now
+            return
+        # Iterate through the solar images, choosing
+        # the one before this timestep.
+        # filename looks like: 20170906_000000_M_color_4k.jpg
+        i = len(self._solar_images) - 1
+        image_name = self._solar_images[i]
+        t = self.get_current_time().strftime("%Y%m%d_%H0000_M_color_4k.jpg")
+        while image_name > t and i > 0:
+            image_name = self._solar_images[i]
+            i -= 1
+
+        # We have our image_name now, so update the texture
+        solar_dir = self._data_dir + '/solar_images'
+        self.sun_display.Texture = pvs.CreateTexture(
+            solar_dir + '/' + image_name)
+        # Set the time for the next update
+        self._previous_time = self.get_current_time()
 
     def rotate_earth(self):
         """Rotates the Earth image around with the hour of day."""

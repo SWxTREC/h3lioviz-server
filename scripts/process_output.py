@@ -2,8 +2,10 @@ from datetime import datetime, timedelta
 import glob
 import json
 import os
+import pathlib
 import sys
 import time
+import urllib.request
 
 import numpy as np
 import xarray as xr
@@ -215,10 +217,68 @@ def process_directory(path):
     # paths = [f"{newpath}/tim.{i:04d}.nc" for i in range(len(fnames))]
     # xr.save_mfdataset(datasets, paths, engine='scipy')
     print(f"Dataset saved: {time.time()-t0} s")
-    # for fname in fnames:
-    #     with xr.open_dataset(fname) as ds:
-    #         print(f"processing {fname}")
-    #         process_ds(ds).to_netcdf(f'{newpath}/{os.path.basename(fname)}')
+
+    # Downloading images now, we want to download for every day in the dataset
+    # Convert numpy datetime64 (strip nanoseconds component),
+    # then to a Python datetime object
+    start_date = ds['time'].data[0].astype('datetime64[s]').astype(object)
+    end_date = ds['time'].data[-1].astype('datetime64[s]').astype(object)
+    dt = timedelta(days=1)
+    curr_date = start_date
+    while curr_date <= end_date:
+        download_hmi(curr_date, outdir=newpath + "/solar_images")
+        curr_date += dt
+
+
+def download_hmi(date: datetime, outdir=None, resolution='1k'):
+    """
+    Downloads hourly HMI files for the date selected if not already
+    available locally.
+    """
+    if outdir is None:
+        outdir = pathlib.Path.cwd() / 'solar_images'
+    else:
+        outdir = pathlib.Path(outdir)
+
+    if not outdir.exists():
+        # Make our directory structure if it doesn't exist yet
+        print(f"Making directory: {outdir}")
+        outdir.mkdir(parents=True, exist_ok=True)
+
+    base_url = "http://jsoc.stanford.edu/data/hmi/images/"
+    # Files are stored in YYYY/MM/DD directories, with
+    # specific times in the filenames after that.
+    # This is the alternative request to search for nearest that gets
+    # forwarded to the below url
+    # ("http://jsoc.stanford.edu/cgi-bin/hmiimage.pl"
+    #        "?Year=2017&Month=09&Day=06&Hour=00&Minute=00"
+    #        "&Kind=_M_color_&resolution=4k")
+    # url = ("http://jsoc.stanford.edu/data/hmi/images/"
+    #        "2017/09/06/20170906_000000_M_color_4k.jpg")
+    dt = timedelta(hours=1)
+    for timestep in range(24):
+        t = date + timestep*dt
+        url_dir = t.strftime("%Y/%m/%d/")
+        fname = t.strftime(f"%Y%m%d_%H0000_M_color_{resolution}.jpg")
+        url = base_url + url_dir + fname
+        download_path = outdir / fname
+        if download_path.exists():
+            # We have already downloaded this file, so no need to repeat
+            print(f"Already downloaded, skipping: {fname}")
+            continue
+
+        # Make the download request
+        try:
+            req = urllib.request.urlopen(url)
+        except urllib.error.HTTPError:
+            # Just ignore the URL not found errors for now
+            print(f"Could not download {url}")
+            continue
+
+        # Write out the response to our local file
+        with open(download_path, "wb") as f:
+            f.write(req.read())
+        print(f"Downloaded {url}")
 
 
 if __name__ == '__main__':
