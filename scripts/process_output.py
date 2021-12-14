@@ -176,7 +176,7 @@ def process_directory(path):
                 for fname in fnames]
 
     # New path
-    newpath = path + '/processed'
+    newpath = path + '/pv-ready-data'
     if not os.path.exists(newpath):
         os.mkdir(newpath)
 
@@ -211,7 +211,7 @@ def process_directory(path):
                            preprocess=process_tim, engine='netcdf4')
     print(f"Dataset loaded: {time.time()-t0} s")
 
-    ds.to_netcdf(f"{newpath}/test.nc", engine='scipy',
+    ds.to_netcdf(f"{newpath}/pv-data-3d.nc", engine='scipy',
                  encoding={'time': {'units': 'seconds since 1970-01-01'}})
     # _, datasets = zip(*ds.groupby('time'))
     # paths = [f"{newpath}/tim.{i:04d}.nc" for i in range(len(fnames))]

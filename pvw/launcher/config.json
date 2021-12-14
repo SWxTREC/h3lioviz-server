@@ -37,7 +37,7 @@
         "/pvw/server/pv_server_statefile.py",
         "--port", "${port}",
         "--authKey", "${secret}",
-        "--file", "/data/test.nc",
+        "--file", "/data/pv-data-3d.nc",
         "--viewport-max-width", "1920",
         "--viewport-max-height", "1080",
         "--timeout", "30"

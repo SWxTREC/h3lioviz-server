@@ -68,10 +68,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Save the data directory
         self._data_dir = os.path.join(os.path.dirname(fname))
         self.evolutions = {x.name: x for x in load_evolution_files(fname)}
-
+        print("GML", self._data_dir, fname)
         # create a new 'NetCDF Reader'
         self.data = pvs.NetCDFReader(
-            registrationName='test_xarray.nc', FileName=[fname])
+            registrationName='enlil-data', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
 
         self.time_string = pvs.Text(registrationName='Time')

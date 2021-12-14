@@ -15,7 +15,7 @@ from enlil import EnlilDataset
 
 class _DemoServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
-    data_file = "/data/test.nc"
+    data_file = "/data/pv-data-3d.nc"
     viewportScale = 1.0
     viewportMaxWidth = 2560
     viewportMaxHeight = 1440
@@ -23,7 +23,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--file", default="/data/test.nc",
+        parser.add_argument("--file", default="/data/pv-data-3d.nc",
                             help=("Path to the NetCDF file to load"),
                             dest="data_file")
         parser.add_argument("--viewport-scale", default=1.0, type=float,

@@ -29,7 +29,7 @@ pip install wslink
 Now, you can run the server with
 
 ```bash
-pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/test.nc
+pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/pv-data-3d.nc
 ```
 
 where the port is `1234` for local development, and the path to the input file is
@@ -61,7 +61,7 @@ copied into the container.
 
     The container requires several input volumes that contain the frontend
     code mounted at `/frontend` inside the container, a data directory that contains
-    a `test.nc` input file mounted to the `/data` location inside the
+    a `pv-data-3d.nc` input file mounted to the `/data` location inside the
     container, and the `pvw` directory from this repository mounted
     at the `/pvw` location.
 
