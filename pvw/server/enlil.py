@@ -37,10 +37,10 @@ DEFAULT_CMAP = {'Vr': "Plasma (matplotlib)",
                 'Density': "Viridis (matplotlib)",
                 'Pressure': "Viridis (matplotlib)",
                 'T': "Inferno (matplotlib)",
-                'Br': "Cool Warm",
-                'Bx': "Cool Warm",
-                'By': "Cool Warm",
-                'Bz': "Cool Warm"}
+                'Br': "Cool to Warm",
+                'Bx': "Cool to Warm",
+                'By': "Cool to Warm",
+                'Bz': "Cool to Warm"}
 
 # Name mapping from frontend to variables in dataset
 VARIABLE_MAP = {'velocity': 'Vr',
