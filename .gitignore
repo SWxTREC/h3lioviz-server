@@ -1,6 +1,7 @@
 docker/binaries/
 .vscode
 data/
+pv-ready-data*
 pvw/www/swt
 pvw/launcher/log/*.txt
 pvw/launcher/log/*.log
