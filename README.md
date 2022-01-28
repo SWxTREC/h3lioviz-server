@@ -3,37 +3,42 @@
 This repository hosts the code to run a Paraview server for
 the 3D Enlil output.
 
-## Running the server
+## Local Development and Testing
 
-To run the server locally on port 1234 the command would be something like the following.
+To test the code locally, you will need the Docker container that has Paraviewweb installed, the test data files, and this cloned git repository. This will require
+Docker and the aws-cli programs to run locally.
 
-```bash
-/path/to/paraview/bin/pvpython pvw/server/pv_server.py --port 1234
-```
+[Get Docker](https://docs.docker.com/get-docker/)
+[Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
-The frontend can then use wslink to use a websocket to connect to port 1234.
+### Getting the Docker container locally
 
-## Installation
-
-The standard Paraview binaries seem to have issues with missing packages. Creating a
-new virtual environment and installing the dependencies manually seemed to be the easiest
-way to address that. The below commands worked for me to get a Paraview 5.9.1 server running.
-The conda pvpython binary is missing `autobahn` and `wslink`, the latter of which isn't
-in the conda package manager, so I had to use pip to install it.
+Use your AWS credentials to authorize yourself to the AWS Registry.
 
 ```bash
-conda create -n paraview python=3.9 paraview autobahn
-pip install wslink
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 135080795405.dkr.ecr.us-east-1.amazonaws.com
 ```
 
-Now, you can run the server with
+Pull the container to your local system. (Note: the `osmesa` container is for CPU rendering, if you want to test GPU rendering you'll need the `egl` container)
 
 ```bash
-pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/pv-data-3d.nc
+docker pull 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
 ```
 
-where the port is `1234` for local development, and the path to the input file is
-given to the `--file` command line argument.
+### Getting the test data locally
+
+This is a 4 GB archive containing the relevant data products. You will need AWS credentials to access this bucket as well, which can be given as a profile `--profile swx-trec-base`
+
+```bash
+aws s3 cp s3://enlil-data/pv-ready-data.tar .
+tar -xf pv-ready-data.tar
+```
+
+### Running the package locally
+
+```bash
+docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/pv-ready-data:/data -it 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
+```
 
 ## Building the Dockerfile
 
@@ -56,33 +61,42 @@ copied into the container.
 3. Run the image setting the proper environment variables and mounting the proper directories.
 
     ```bash
-    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME="127.0.0.1:9000" -e PROTOCOL="ws" -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -v /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
+    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME=127.0.0.1:9000 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -v /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
     ```
 
-    The container requires several input volumes that contain the frontend
-    code mounted at `/frontend` inside the container, a data directory that contains
-    a `pv-data-3d.nc` input file mounted to the `/data` location inside the
+    The container requires several input volumes that contain the data directory (that contains
+    a `pv-data-3d.nc` input file) mounted at the `/data` location inside the
     container, and the `pvw` directory from this repository mounted
     at the `/pvw` location.
 
-## Build and deploy the frontend
+## Running the server without Docker
 
-Build the assets, which produces a bundle in `/dist`.
-
-```bash
-npm run build:prod
-```
-
-Then tar the bundle and copy to the machine you want to deploy from.
+To run the server locally on port 1234 the command would be something like the following.
 
 ```bash
-tar -cf frontend-dist.tar dist/
-scp frontend-dist.tar my-ec2:.
+/path/to/paraview/bin/pvpython pvw/server/pv_server.py --port 1234
 ```
 
-On the remote machine, untar the file and mount it to the `/frontend` volume location within the container.
+The frontend can then use wslink to use a websocket to connect to port 1234.
+
+### Installation
+
+The standard Paraview binaries seem to have issues with missing packages. Creating a
+new virtual environment and installing the dependencies manually seemed to be the easiest
+way to address that. The below commands worked for me to get a Paraview 5.9.1 server running.
+The conda pvpython binary is missing `autobahn` and `wslink`, the latter of which isn't
+in the conda package manager, so I had to use pip to install it.
 
 ```bash
-tar -xvf frontend-dist.tar /path/to/frontend
-docker run ... -v /path/to/frontend/dist/swt:/frontend ...
+conda create -n paraview python=3.9 paraview autobahn
+pip install wslink
 ```
+
+Now, you can run the server with
+
+```bash
+pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/pv-data-3d.nc
+```
+
+where the port is `1234` for local development, and the path to the input file is
+given to the `--file` command line argument.
