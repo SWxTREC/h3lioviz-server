@@ -65,3 +65,73 @@ class Evolution:
         List of times for this satellite
         """
         return self.json['coords']['time']['data']
+
+    def as_latis(self):
+        """Create a Latis-style return for front-end use."""
+        # List of lists
+        # (ntimes, nvariables)
+        ntimes = len(self.times)
+        timestep_data = []
+        for i in range(ntimes):
+            curr_row = [self.get_times()[i]]
+            for var in ["Density", "Vr", "Pressure", "T", "Bx", "By", "Bz"]:
+                curr_row.append(self.get_data(var)[i][0])
+            timestep_data.append(curr_row)
+
+        json_out = {f"{self.name}": {
+            "metadata": {
+                "time": {
+                    "units": "seconds since 1970-01-01",
+                    "length": f"{ntimes}"
+                },
+                "density": {
+                    "missing_value": "99999.99",
+                    "description": "Density",
+                    "units": "r<sup>2</sup>N/cm<sup>3</sup>"
+                },
+                "velocity": {
+                    "missing_value": "99999.99",
+                    "description": "Velocity",
+                    "units": "km/s"
+                },
+                "pressure": {
+                    "missing_value": "99999.99",
+                    "description": "Ram pressure",
+                    "units": ("r<sup>2</sup>N/cm<sup>3</sup> * "
+                              "km<sup>2</sup>/s<sup>2</sup>")
+                },
+                "temperature": {
+                    "missing_value": "99999.99",
+                    "description": "Temperature",
+                    "units": "K"
+                },
+                "bx": {
+                    "missing_value": "99999.99",
+                    "description": "BX",
+                    "units": "nT"
+                },
+                "by": {
+                    "missing_value": "99999.99",
+                    "description": "BX",
+                    "units": "nT"
+                },
+                "bz": {
+                    "missing_value": "99999.99",
+                    "description": "BX",
+                    "units": "nT"
+                }
+            },
+            "parameters": [
+                "time",
+                "density",
+                "velocity",
+                "pressure",
+                "temperature",
+                "bx",
+                "by",
+                "bz"
+            ],
+            "data": timestep_data
+            }
+        }
+        return json.dumps(json_out)

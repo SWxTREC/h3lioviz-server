@@ -690,11 +690,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         Returns
         -------
-        List of data
+        JSON formatted similarly to a LaTiS-response
         """
-        # Transform the variable name from the frontend to the back
-        var = VARIABLE_MAP[variable]
-        return self.evolutions[sat].get_data(var)
+        return self.evolutions[sat].as_latis()
 
     def update(self, caller, event):
         """
