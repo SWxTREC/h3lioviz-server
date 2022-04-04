@@ -73,7 +73,9 @@ class Evolution:
         ntimes = len(self.times)
         timestep_data = []
         for i in range(ntimes):
-            curr_row = [self.get_times()[i]]
+            # Time is in units of seconds from epoch, but Scicharts needs
+            # the units to be in milliseconds
+            curr_row = [int(self.get_times()[i]) * 1000]
             for var in ["Density", "Vr", "Pressure", "T", "Bx", "By", "Bz"]:
                 curr_row.append(self.get_data(var)[i][0])
             timestep_data.append(curr_row)
@@ -81,7 +83,7 @@ class Evolution:
         json_out = {f"{self.name}": {
             "metadata": {
                 "time": {
-                    "units": "seconds since 1970-01-01",
+                    "units": "milliseconds since 1970-01-01",
                     "length": f"{ntimes}"
                 },
                 "density": {

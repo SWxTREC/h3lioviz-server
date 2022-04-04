@@ -679,14 +679,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         return self.evolutions[sat].get_times()
 
     @exportRpc("pv.enlil.get_satellite_data")
-    def get_satellite_data(self, sat, variable):
+    def get_satellite_data(self, sat):
         """
         Returns a time-series of data for the given satellite and variable.
 
         sat : str
             Name of the satellite (earth, stereoa, stereob)
-        variable : str
-            Variable of interest
 
         Returns
         -------
