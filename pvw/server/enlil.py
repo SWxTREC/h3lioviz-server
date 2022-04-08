@@ -59,7 +59,7 @@ SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
 
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
-    def __init__(self, fname):
+    def __init__(self, dirname):
         """
         Enlil 4D dataset representation in Paraview.
 
@@ -70,9 +70,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize the PV web protocols
         super().__init__()
         # Save the data directory
-        self._data_dir = os.path.join(os.path.dirname(fname))
-        self.evolutions = {x.name: x for x in load_evolution_files(fname)}
-        # create a new 'NetCDF Reader'
+        self._data_dir = dirname
+        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        # create a new 'NetCDF Reader' from the full data path
+        fname = os.path.join(dirname, "pv-data-3d.nc")
         self.data = pvs.NetCDFReader(
             registrationName='enlil-data', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
@@ -945,19 +946,18 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.earth_translation2.Transform.Translate = earth_pos
 
 
-def load_evolution_files(fname):
+def load_evolution_files(dirname):
     """
     Loads evolution files relative to the given file.
 
-    fname : str
-        File name of the full 4D file. The evolution files
-        should all be in the same directory as this.
+    dirname : str
+        Directory path for the evolution files.
 
     Returns
     -------
     A list of Evolution objects.
     """
     # Find all json files in our current directory
-    files = glob.glob(os.path.join(os.path.dirname(fname), '*.json'))
+    files = glob.glob(os.path.join(dirname, '*.json'))
     # Iterate over the files and create an Evolution object for each one
     return [Evolution(f) for f in files]

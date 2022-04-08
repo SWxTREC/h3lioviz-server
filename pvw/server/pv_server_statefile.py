@@ -23,9 +23,9 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--file", default="/data/pv-data-3d.nc",
+        parser.add_argument("--dir", default="/data",
                             help=("Path to the NetCDF file to load"),
-                            dest="data_file")
+                            dest="data_dir")
         parser.add_argument("--viewport-scale", default=1.0, type=float,
                             help="Viewport scaling factor",
                             dest="viewportScale")
@@ -44,7 +44,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
     def configure(args):
         # Update this server based on the passed in arguments
         _DemoServer.authKey = args.authKey
-        _DemoServer.data_file = args.data_file
+        _DemoServer.data_dir = args.data_dir
         _DemoServer.viewportScale = args.viewportScale
         _DemoServer.viewportMaxWidth = args.viewportMaxWidth
         _DemoServer.viewportMaxHeight = args.viewportMaxHeight
@@ -66,8 +66,8 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         # Disable interactor-based render calls
         simple.GetRenderView().EnableRenderOnInteraction = 0
 
-        # The NetCDF file with the data
-        self.enlil = EnlilDataset(self.data_file)
+        # The directory containing the NetCDF file with the data
+        self.enlil = EnlilDataset(self.data_dir)
         # Register the Paraview protocols for dispatching methods
         self.registerVtkWebProtocol(self.enlil)
 
