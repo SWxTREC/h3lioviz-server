@@ -455,6 +455,50 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.apply_earth_texture()
         self.apply_solar_texture()
 
+    @exportRpc("pv.enlil.get_available_runs")
+    def get_available_runs(self):
+        """
+        Get a list of available runs to choose from.
+
+        Returns
+        -------
+        List of available runs
+        """
+        # We need to go up a directory from where we are currently.
+        # This expects a flat list of available runs currently.
+        #   /data/run1/pv-data-3d.nc
+        #   /data/run2/pv-data-3d.nc
+        # If we have loaded /data/run1/pv-data-3d.nc, then this
+        # will return ["/data/run1", "/data/run2"] listing all directories
+        # up one level from the current data file
+        dirs = os.listdir(os.path.join(self._data_dir, ".."))
+        # Now search to see if there is a pv-data-3d.nc in that directory
+        # and if not, ignore that entry
+        dirs = [x for x in dirs
+                if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
+        return dirs
+
+    @exportRpc("pv.enlil.directory")
+    def update_dataset(self, dirname):
+        """
+        Change the dataset directory to the one specified by dirname
+
+        dirname : str
+            Path to the dataset file (/dirname/pv-data-3d.nc)
+        """
+        self._data_dir = dirname
+        # Update the evolution files associated with the run
+        # NOTE: We need to delete the evolutions first, there must be a
+        #       dangling reference within the cpp that causes a segfault
+        #       if we just update the object dictionary without removal
+        del self.evolutions
+        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        # Update the primary data 3D data file
+        self.data.FileName = os.path.join(dirname, "pv-data-3d.nc")
+        # Force an update and re-render
+        self.data.UpdatePipeline()
+        pvs.Render(self.view)
+
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
         """
