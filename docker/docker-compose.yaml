@@ -1,0 +1,23 @@
+version: '2'
+
+volumes:
+  pv-data:
+     external: true
+  pv-server:
+     external: true
+  pv-frontend:
+     external: true
+
+services:
+  app:
+    image: public.ecr.aws/enlil/paraview_web_repo:pvw-enlil-osmesa
+    ports:
+      - 8080:80
+    volumes:
+      - pv-data:/data
+      - pv-server:/pvw
+      - pv-frontend:/frontend
+    restart: always
+    environment:
+      - SERVER_NAME=127.0.0.1:8080
+      - PROTOCOL=ws
