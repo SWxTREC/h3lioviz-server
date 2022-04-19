@@ -59,7 +59,7 @@ SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
 
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
-    def __init__(self, fname):
+    def __init__(self, dirname):
         """
         Enlil 4D dataset representation in Paraview.
 
@@ -70,9 +70,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize the PV web protocols
         super().__init__()
         # Save the data directory
-        self._data_dir = os.path.join(os.path.dirname(fname))
-        self.evolutions = {x.name: x for x in load_evolution_files(fname)}
-        # create a new 'NetCDF Reader'
+        self._data_dir = dirname
+        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        # create a new 'NetCDF Reader' from the full data path
+        fname = os.path.join(dirname, "pv-data-3d.nc")
         self.data = pvs.NetCDFReader(
             registrationName='enlil-data', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
@@ -453,6 +454,50 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Apply an image to the Earth sphere
         self.apply_earth_texture()
         self.apply_solar_texture()
+
+    @exportRpc("pv.enlil.get_available_runs")
+    def get_available_runs(self):
+        """
+        Get a list of available runs to choose from.
+
+        Returns
+        -------
+        List of available runs
+        """
+        # We need to go up a directory from where we are currently.
+        # This expects a flat list of available runs currently.
+        #   /data/run1/pv-data-3d.nc
+        #   /data/run2/pv-data-3d.nc
+        # If we have loaded /data/run1/pv-data-3d.nc, then this
+        # will return ["/data/run1", "/data/run2"] listing all directories
+        # up one level from the current data file
+        dirs = os.listdir(os.path.join(self._data_dir, ".."))
+        # Now search to see if there is a pv-data-3d.nc in that directory
+        # and if not, ignore that entry
+        dirs = [x for x in dirs
+                if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
+        return dirs
+
+    @exportRpc("pv.enlil.directory")
+    def update_dataset(self, dirname):
+        """
+        Change the dataset directory to the one specified by dirname
+
+        dirname : str
+            Path to the dataset file (/dirname/pv-data-3d.nc)
+        """
+        self._data_dir = dirname
+        # Update the evolution files associated with the run
+        # NOTE: We need to delete the evolutions first, there must be a
+        #       dangling reference within the cpp that causes a segfault
+        #       if we just update the object dictionary without removal
+        del self.evolutions
+        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        # Update the primary data 3D data file
+        self.data.FileName = os.path.join(dirname, "pv-data-3d.nc")
+        # Force an update and re-render
+        self.data.UpdatePipeline()
+        pvs.Render(self.view)
 
     @exportRpc("pv.enlil.visibility")
     def change_visibility(self, obj, visibility):
@@ -941,19 +986,18 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.earth_translation2.Transform.Translate = earth_pos
 
 
-def load_evolution_files(fname):
+def load_evolution_files(dirname):
     """
     Loads evolution files relative to the given file.
 
-    fname : str
-        File name of the full 4D file. The evolution files
-        should all be in the same directory as this.
+    dirname : str
+        Directory path for the evolution files.
 
     Returns
     -------
     A list of Evolution objects.
     """
     # Find all json files in our current directory
-    files = glob.glob(os.path.join(os.path.dirname(fname), '*.json'))
+    files = glob.glob(os.path.join(dirname, '*.json'))
     # Iterate over the files and create an Evolution object for each one
     return [Evolution(f) for f in files]

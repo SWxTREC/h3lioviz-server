@@ -95,8 +95,8 @@ pip install wslink
 Now, you can run the server with
 
 ```bash
-pvpython pvw/server/pv_server_statefile.py --port 1234 --file /path/to/pv-data-3d.nc
+pvpython pvw/server/pv_server_statefile.py --port 1234 --dir /path/to/<pv-data-3d.nc>
 ```
 
 where the port is `1234` for local development, and the path to the input file is
-given to the `--file` command line argument.
+given to the `--dir` command line argument.
