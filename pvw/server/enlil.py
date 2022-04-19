@@ -1,5 +1,6 @@
 import datetime
 import glob
+import math
 import os
 
 import paraview.simple as pvs
@@ -683,6 +684,36 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              '"ecliptic" or "equator"')
 
         self.lon_slice.SliceType.Normal = loc
+
+    @exportRpc("pv.enlil.rotate_plane")
+    def rotate_plane(self, plane, angle):
+        """
+        Rotate the desired plane to the given angle.
+
+        plane : str
+            Plane to rotate (lon, lat).
+        angle : float
+            Angle (in degrees) for the tilt of the ecliptic/solar plane.
+        """
+        angle_rad = math.radians(angle)
+        x = math.cos(angle_rad)
+        y = math.sin(angle_rad)
+        if plane == "lon":
+            # We want the normal to the plane, so we are really rotating the
+            # normal vector here, which swaps the x/z and adds a negative
+            # tilt is only in the xz plane
+            self.lon_slice.SliceType.Normal = [-y, 0, -x]
+        elif plane == "lat":
+            raise NotImplementedError("Updating the latitudinal plane angle "
+                                      "is not implemented.")
+            # TODO: Implement the latitudinal adjustment.
+            #       Currently this fails with a segfault, which I
+            #       assume has to do with some slicing of grid cells changing
+            #       sizes when creating a new slice angle, but it is odd that
+            #       it only happens for the latitudinal plane...
+            # self.lat_slice.SliceType.Normal = [-y, x, 0]
+        else:
+            raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
     @exportRpc("pv.enlil.snap_to_view")
     def snap_to_view(self, plane):
