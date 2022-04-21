@@ -144,13 +144,15 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # create a new 'Glyph' in longitude (Arrow/vectors)
         self.lon_arrows = pvs.Glyph(
-            registrationName='Lon-B-Arrows', Input=self.lon_slice,
+            registrationName='Lon-B-Arrows', Input=self.lon_streamlines,
             GlyphType='Arrow')
-        self.lon_arrows.OrientationArray = ['CELLS', 'Bvec']
+        self.lon_arrows.OrientationArray = ['POINTS', 'Bvec']
         self.lon_arrows.ScaleArray = ['POINTS', 'No scale array']
         self.lon_arrows.ScaleFactor = 0.1
         self.lon_arrows.GlyphTransform = 'Transform2'
-        self.lon_arrows.MaximumNumberOfSamplePoints = 500
+        self.lon_arrows.GlyphMode = 'Every Nth Point'
+        self.lon_arrows.MaximumNumberOfSamplePoints = 50
+        self.lon_arrows.Stride = 50
 
         # Create a Latitude slice
         self.lat_slice = pvs.Slice(
@@ -323,26 +325,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # trace defaults for the display properties.
         disp.Representation = 'Surface'
         disp.ColorArrayName = [None, '']
-        disp.OSPRayScaleArray = 'AngularVelocity'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'Normals'
-        disp.ScaleFactor = 0.3336487650871277
-        disp.SelectScaleArray = 'AngularVelocity'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'AngularVelocity'
-        disp.GaussianRadius = 0.016682438254356384
-        disp.SetScaleArray = ['POINTS', 'AngularVelocity']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'AngularVelocity']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
-        # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
-        disp.ScaleTransferFunction.Points = [
-            0.0, 0.0, 0.5, 0.0, 0, 1.0, 0.5, 0.0]
-        # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-        disp.OpacityTransferFunction.Points = [
-            0.0, 0.0, 0.5, 0.0, 0, 1.0, 0.5, 0.0]
+        # Set the linewidth of the streamlines
+        disp.LineWidth = 2
 
         # Longitude B-field vectors
         disp = pvs.Show(self.lon_arrows, self.view,
