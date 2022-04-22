@@ -126,33 +126,59 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Init the SliceType values
         self.lon_slice.SliceType.Origin = [0, 0, 0]
         self.lon_slice.SliceType.Normal = [0.0, 0.0, 1.0]
-        # TODO: Not sure what this is...
-        # init the 'Plane' selected for 'HyperTreeGridSlicer'
-        # self.lon_slice.HyperTreeGridSlicer.Origin = [0, 0, 0]
 
-        # create a new 'Stream Tracer' in longitude
-        self.lon_streamlines = pvs.StreamTracer(
-            registrationName='LonStreamlines', Input=self.lon_slice,
-            SeedType='Point Cloud')
-        self.lon_streamlines.Vectors = ['CELLS', 'Bvec']
-        self.lon_streamlines.SurfaceStreamlines = 1
-        self.lon_streamlines.MaximumStreamlineLength = 3.4
-        # init the 'Point Cloud' selected for 'SeedType'
-        self.lon_streamlines.SeedType.Center = [0, 0, 0]
-        self.lon_streamlines.SeedType.NumberOfPoints = 500
-        self.lon_streamlines.SeedType.Radius = 0.35
+        # Our stream tracer source needs to have the same plane
+        # as our longitude slice, and 0.2 for the radius
+        self.stream_source = pvs.Ellipse(registrationName='StreamSource')
+        self.stream_source.Normal = self.lon_slice.SliceType.Normal
+        self.stream_source.Center = [0.0, 0.0, 0.0]
+        self.stream_source.Normal = [0.0, 0.0, 1.0]
+        self.stream_source.MajorRadiusVector = [0.2, 0.0, 0.0]
+        # Controls how many streamlines we have
+        self.stream_source.Resolution = 50
+
+        # Make sure we are doing the CellDatatoPointData on the lon_slice
+        # directly and not up above, so that it is perfectly on this plane,
+        # otherwise the streamlines will be out-of-plane potentially
+        self.point_data = pvs.CellDatatoPointData(
+            registrationName='CellDatatoPointData',
+            Input=self.lon_slice)
+        # Limit the arrays to process to the vector components and
+        # direction (Br) for coloring the polarity
+        # NOTE: In the processing steps, we multiply
+        #       Br * sign(BP), meaning the Br here contains the
+        #       polarity implicitly.
+        self.point_data.CellDataArraytoprocess = ['Br', 'Bvec']
+
+        self.lon_stream_input = pvs.StreamTracerWithCustomSource(
+            registrationName='StreamTracerWithCustomSource1',
+            Input=self.point_data,
+            SeedSource=self.stream_source)
+        self.lon_stream_input.Vectors = ['POINTS', 'Bvec']
+        self.lon_stream_input.SurfaceStreamlines = 1
+        self.lon_stream_input.MaximumStreamlineLength = 3.4
+        self.lon_stream_input.ComputeVorticity = 0
+
+        self.lon_streamlines = pvs.Tube(registrationName='Streamlines',
+                                        Input=self.lon_stream_input)
+        self.lon_streamlines.Capping = 1
+        self.lon_streamlines.Radius = 0.005
 
         # create a new 'Glyph' in longitude (Arrow/vectors)
         self.lon_arrows = pvs.Glyph(
-            registrationName='Lon-B-Arrows', Input=self.lon_streamlines,
-            GlyphType='Arrow')
+            registrationName='Lon-B-Arrows', Input=self.lon_stream_input,
+            GlyphType='Cone')
         self.lon_arrows.OrientationArray = ['POINTS', 'Bvec']
         self.lon_arrows.ScaleArray = ['POINTS', 'No scale array']
-        self.lon_arrows.ScaleFactor = 0.1
+        self.lon_arrows.ScaleFactor = 0.08
+        self.lon_arrows.GlyphType.Resolution = 30
+        self.lon_arrows.GlyphType.Radius = 0.2
+        self.lon_arrows.GlyphType.Height = 0.75
         self.lon_arrows.GlyphTransform = 'Transform2'
         self.lon_arrows.GlyphMode = 'Every Nth Point'
-        self.lon_arrows.MaximumNumberOfSamplePoints = 50
-        self.lon_arrows.Stride = 50
+        self.lon_arrows.GlyphMode = ('Uniform Spatial Distribution '
+                                     '(Bounds Based)')
+        self.lon_arrows.MaximumNumberOfSamplePoints = 100
 
         # Create a Latitude slice
         self.lat_slice = pvs.Slice(
@@ -321,25 +347,27 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Longitude streamlines
         disp = pvs.Show(self.lon_streamlines, self.view,
                         'GeometryRepresentation')
+        # Add in a magnetic polarity colormap (radial in or out)
+        # with two values blue/red
+        # separate=True makes sure it doesn't overwrite the Br of the
+        # frontend choices
+        bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
+        bpLUT.RGBPoints = [-1e5, 0, 0, 0,
+                           1e5, 1, 1, 1]
+        bpLUT.ScalarRangeInitialized = 1.0
+        bpLUT.NumberOfTableValues = 2
         self.displays[self.lon_streamlines] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
-        disp.ColorArrayName = [None, '']
-        # Set the linewidth of the streamlines
-        disp.LineWidth = 2
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
 
         # Longitude B-field vectors
         disp = pvs.Show(self.lon_arrows, self.view,
                         'GeometryRepresentation')
         self.displays[self.lon_arrows] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
-        disp.ScaleFactor = 0.1
-        disp.GlyphType = 'Arrow'
-        disp.GaussianRadius = 0.005
-        disp.AmbientColor = [1, 1, 1]
-        disp.ColorArrayName = [None, '']
-        disp.DiffuseColor = [1, 1, 1]
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
 
         # setup the color legend parameters for each legend in this view
         # get color legend/bar for bzLUT in view self.view
@@ -496,8 +524,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         if visibility == "on":
             pvs.Show(self.objs[obj], self.view)
+            if obj == "lon_streamlines":
+                # We also want to turn on the vectors
+                pvs.Show(self.objs["lon_arrows"], self.view)
         elif visibility == "off":
             pvs.Hide(self.objs[obj], self.view)
+            if obj == "lon_streamlines":
+                # We also want to turn off the vectors
+                pvs.Hide(self.objs["lon_arrows"], self.view)
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
@@ -521,7 +555,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
-            if obj == self.lon_arrows:
+            if obj in (self.lon_arrows, self.lon_streamlines):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -668,6 +702,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              '"ecliptic" or "equator"')
 
         self.lon_slice.SliceType.Normal = loc
+        # Also update the stream source so they stay in-sync
+        self.stream_source.Normal = self.lon_slice.SliceType.Normal
 
     @exportRpc("pv.enlil.rotate_plane")
     def rotate_plane(self, plane, angle):
@@ -687,6 +723,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # normal vector here, which swaps the x/z and adds a negative
             # tilt is only in the xz plane
             self.lon_slice.SliceType.Normal = [-y, 0, -x]
+            self.stream_source.Normal = self.lon_slice.SliceType.Normal
         elif plane == "lat":
             raise NotImplementedError("Updating the latitudinal plane angle "
                                       "is not implemented.")
