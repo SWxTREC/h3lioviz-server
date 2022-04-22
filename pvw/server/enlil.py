@@ -357,17 +357,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ColorArrayName = [None, '']
         disp.DiffuseColor = [1, 1, 1]
 
-        # setup the color legend parameters for each legend in this view
-        # get color legend/bar for bzLUT in view self.view
-        bzLUTColorBar = pvs.GetScalarBar(bzLUT, self.view)
-        bzLUTColorBar.Title = 'Bz'
-        bzLUTColorBar.ComponentTitle = ''
-        # set color bar visibility
-        bzLUTColorBar.Visibility = 1
-
-        # show color legend
-        self.displays[self.lon_slice].SetScalarBarVisibility(self.view, True)
-
         # Set colormaps
         for name in VARIABLE_MAP:
             self.set_colormap(name)
@@ -541,6 +530,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
+
+            # Also update the colorbar orientation information
+            if disp.LookupTable is None:
+                continue
+            cbar = pvs.GetScalarBar(disp.LookupTable, self.view)
+            cbar.AutoOrient = 0
+            cbar.Orientation = 'Horizontal'
+            cbar.TextPosition = 'Ticks left/bottom, annotations right/top'
 
         self.update_opacity(variable)
         self.update_lut(variable)
