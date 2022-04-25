@@ -170,10 +170,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             GlyphType='Cone')
         self.lon_arrows.OrientationArray = ['POINTS', 'Bvec']
         self.lon_arrows.ScaleArray = ['POINTS', 'No scale array']
-        self.lon_arrows.ScaleFactor = 0.08
-        self.lon_arrows.GlyphType.Resolution = 30
-        self.lon_arrows.GlyphType.Radius = 0.2
-        self.lon_arrows.GlyphType.Height = 0.75
+        self.lon_arrows.ScaleFactor = 1
+        self.lon_arrows.GlyphType.Resolution = 60
+        self.lon_arrows.GlyphType.Radius = 0.02
+        self.lon_arrows.GlyphType.Height = 0.08
         self.lon_arrows.GlyphTransform = 'Transform2'
         self.lon_arrows.GlyphMode = 'Every Nth Point'
         self.lon_arrows.GlyphMode = ('Uniform Spatial Distribution '
@@ -352,8 +352,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # separate=True makes sure it doesn't overwrite the Br of the
         # frontend choices
         bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
-        bpLUT.RGBPoints = [-1e5, 0, 0, 0,
-                           1e5, 1, 1, 1]
+        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5,
+                           1e5, 0.9, 0.9, 0.9]
         bpLUT.ScalarRangeInitialized = 1.0
         bpLUT.NumberOfTableValues = 2
         self.displays[self.lon_streamlines] = disp
