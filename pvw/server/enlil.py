@@ -53,6 +53,15 @@ VARIABLE_MAP = {'velocity': 'Vr',
                 'by': 'By',
                 'bz': 'Bz'}
 
+VARIABLE_LABEL = {'velocity': 'Velocity (km/s)',
+                  'density': 'Density (r$^2$N/cm$^3$)',
+                  'pressure': 'Ram pressure (r$^2$N/cm$^3$ * km$^2$/s$^2$)',
+                  'temperature': 'Temperature (K)',
+                  'b': 'Br (nT)',
+                  'bx': 'Bx (nT)',
+                  'by': 'By (nT)',
+                  'bz': 'Bz (nT)'}
+
 # List of satellite colors
 SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
                     "stereoa": [177/255, 138/255, 142/255],
@@ -523,6 +532,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         # Use a dictionary to map the variable received to the internal name
         variable = VARIABLE_MAP[name]
+        label = VARIABLE_LABEL[name]
 
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
@@ -538,6 +548,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             cbar.AutoOrient = 0
             cbar.Orientation = 'Horizontal'
             cbar.TextPosition = 'Ticks left/bottom, annotations right/top'
+            cbar.Title = label
+            cbar.ComponentTitle = ""
 
         self.update_opacity(variable)
         self.update_lut(variable)
