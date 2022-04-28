@@ -489,6 +489,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
         return dirs
 
+    @exportRpc("pv.enlil.get_variable_range")
+    def get_variable_range(self, name):
+        """
+        Get the range of values for a variable at the current timestep.
+
+        name : str
+            Name of variable to colormap all of the surfaces by
+        """
+        variable = VARIABLE_MAP[name]
+        return self.data.CellData.GetArray(variable).GetRange()
+
     @exportRpc("pv.enlil.directory")
     def update_dataset(self, dirname):
         """
