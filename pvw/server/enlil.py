@@ -108,6 +108,19 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
                                        Input=self.threshold_cme)
 
+        # Move to point arrays for contouring
+        self._cme_points = pvs.CellDatatoPointData(
+            registrationName=f"CME-points",
+            Input=self.threshold_cme)
+        self._cme_points.ProcessAllArrays = 1
+
+        self.cme_contours = pvs.Contour(
+            registrationName='CME-contour',
+            Input=self._cme_points)
+        self.cme_contours.ContourBy = ['POINTS', 'Density']
+        self.cme_contours.Isosurfaces = []
+        self.cme_contours.PointMergeMethod = 'Uniform Binning'
+
         # Create a threshold that can be modified by the user
         self.threshold_data = pvs.Threshold(registrationName='Threshold',
                                             Input=self.data)
@@ -143,7 +156,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.objs = {s: getattr(self, s) for s in (
             "lon_slice", "lat_slice", "cme", "data",
             "lon_arrows", "lon_streamlines", "lat_arrows", "lat_streamlines",
-            "threshold")}
+            "threshold", "cme_contours")}
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
@@ -207,6 +220,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ScalarOpacityUnitDistance = 0.02
         disp.OpacityArrayName = [None, '']
 
+        # CME Contours
+        disp = pvs.Show(self.cme_contours, self.view,
+                        'GeometryRepresentation')
+        self.displays[self.cme_contours] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.LookupTable = bzLUT
+
         disp = pvs.Show(self.threshold, self.view,
                         'UniformGridRepresentation')
         self.displays[self.threshold] = disp
@@ -265,7 +286,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # hide this data from the default initial view
         for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines,
-                  self.threshold]:
+                  self.threshold, self.cme_contours]:
             pvs.Hide(x, self.view)
 
         # restore active source
@@ -635,6 +656,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The quantity of interest
         self.threshold_data.Scalars = ['CELLS', variable]
         self.threshold_data.ThresholdRange = range
+
+    @exportRpc("pv.enlil.set_contours")
+    def set_contours(self, name, values):
+        """
+        Set the variable and a list of values to be used for the contours.
+
+        name : str
+            Name of the variable to use for the contouring
+        values : list
+            A list of the values to contour by
+        """
+        variable = VARIABLE_MAP[name]
+        # The quantity of interest
+        self.cme_contours.ContourBy = ['POINTS', variable]
+        self.cme_contours.Isosurfaces = values
 
     @exportRpc("pv.enlil.snap_solar_plane")
     def snap_solar_plane(self, clip):
