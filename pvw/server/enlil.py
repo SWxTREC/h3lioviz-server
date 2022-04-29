@@ -365,6 +365,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # NOTE: In the processing steps, we multiply
         #       Br * sign(BP), meaning the Br here contains the
         #       polarity implicitly.
+        point_data.ProcessAllArrays = 0
         point_data.CellDataArraytoprocess = ['Br', 'Bvec']
 
         stream_input = pvs.StreamTracerWithCustomSource(
