@@ -107,7 +107,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # work better and faster
         self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
                                        Input=self.threshold_cme)
-        # self.cme.SamplingBounds = [-1.5, 0, -1.5, 1.5, -1.5, 1.5]
 
         # Create a threshold that can be modified by the user
         self.threshold_data = pvs.Threshold(registrationName='Threshold',
@@ -175,7 +174,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.view.CameraFocalPoint = [0, 0, 0]
         self.view.CameraViewUp = [0, 0, 1]
         self.view.CameraFocalDisk = 1.0
-        self.view.CameraParallelScale = 2.1250001580766877
+        self.view.CameraParallelScale = 2
         self.view.BackEnd = 'OSPRay raycaster'
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
