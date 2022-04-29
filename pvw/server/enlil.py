@@ -482,7 +482,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # If we have loaded /data/run1/pv-data-3d.nc, then this
         # will return ["/data/run1", "/data/run2"] listing all directories
         # up one level from the current data file
-        dirs = os.listdir(os.path.join(self._data_dir, ".."))
+        base_dir = os.path.abspath(os.path.join(self._data_dir, ".."))
+        dirs = os.listdir(base_dir)
+        # Add the base path into the listed directory
+        dirs = [os.path.join(base_dir, x) for x in dirs]
         # Now search to see if there is a pv-data-3d.nc in that directory
         # and if not, ignore that entry
         dirs = [x for x in dirs
