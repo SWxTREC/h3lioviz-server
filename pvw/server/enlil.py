@@ -96,12 +96,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
 
-        # Create the magnetic field vectors through a PV Function
-        self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
-        self.bvec.AttributeType = 'Cell Data'
-        self.bvec.ResultArrayName = 'Bvec'
-        self.bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
-
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName='CME',
                                            Input=self.data)
@@ -128,7 +122,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create a Longitude slice
         self.lon_slice = pvs.Slice(
-            registrationName='Longitude', Input=self.bvec)
+            registrationName='Longitude', Input=self.data)
         self.lon_slice.SliceType = 'Plane'
         self.lon_slice.HyperTreeGridSlicer = 'Plane'
         self.lon_slice.SliceOffsetValues = [0.0]
@@ -146,12 +140,18 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Controls how many streamlines we have
         self.stream_source.Resolution = 50
 
+        # Create the magnetic field vectors through a PV Function
+        self.lon_bvec = pvs.Calculator(registrationName='Bvec',
+                                       Input=self.lon_slice)
+        self.lon_bvec.AttributeType = 'Cell Data'
+        self.lon_bvec.ResultArrayName = 'Bvec'
+        self.lon_bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
         # Make sure we are doing the CellDatatoPointData on the lon_slice
         # directly and not up above, so that it is perfectly on this plane,
         # otherwise the streamlines will be out-of-plane potentially
         self.point_data = pvs.CellDatatoPointData(
             registrationName='CellDatatoPointData',
-            Input=self.lon_slice)
+            Input=self.lon_bvec)
         # Limit the arrays to process to the vector components and
         # direction (Br) for coloring the polarity
         # NOTE: In the processing steps, we multiply
@@ -191,7 +191,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create a Latitude slice
         self.lat_slice = pvs.Slice(
-            registrationName='Latitude', Input=self.bvec)
+            registrationName='Latitude', Input=self.data)
         self.lat_slice.SliceType = 'Plane'
         self.lat_slice.HyperTreeGridSlicer = 'Plane'
         self.lat_slice.SliceOffsetValues = [0.0]
@@ -203,7 +203,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Dictionary mapping of string names to the object
         self.objs = {s: getattr(self, s) for s in (
-            "lon_slice", "lat_slice", "bvec", "cme", "data",
+            "lon_slice", "lat_slice", "cme", "data",
             "lon_arrows", "lon_streamlines", "threshold")}
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
@@ -306,8 +306,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ScalarOpacityFunction = bzPWF
         disp.ScalarOpacityUnitDistance = 0.02090409368521722
         disp.OpacityArrayName = [None, '']
-        # TODO: show data from bvec?
-        # pvs.Show(self.bvec, self.view, 'StructuredGridRepresentation')
 
         # Latitude
         disp = pvs.Show(self.lat_slice, self.view,
