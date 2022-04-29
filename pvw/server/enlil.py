@@ -182,10 +182,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view,
                         'TextSourceRepresentation')
 
-        # TODO: Show the base dataset?
-        # pvs.Show(self.data, self.view, 'StructuredGridRepresentation')
-
-        # get color transfer function/color map for 'Bz'
+        # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction('Bz')
         bzLUT.RGBPoints = [-10, 0.231373, 0.298039, 0.752941,
                            0, 0.865003, 0.865003, 0.865003,
@@ -201,94 +198,41 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.cme, self.view,
                         'UniformGridRepresentation')
         self.displays[self.cme] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Volume'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.09197479853610144
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.004598739926805072
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
         disp.OpacityArray = [None, '']
         disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
         disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02090409368521722
+        disp.ScalarOpacityUnitDistance = 0.02
         disp.OpacityArrayName = [None, '']
 
         disp = pvs.Show(self.threshold, self.view,
                         'UniformGridRepresentation')
         self.displays[self.threshold] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Volume'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.09197479853610144
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.004598739926805072
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
         disp.OpacityArray = [None, '']
         disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
         disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02090409368521722
+        disp.ScalarOpacityUnitDistance = 0.02
         disp.OpacityArrayName = [None, '']
 
         # Latitude
         disp = pvs.Show(self.lat_slice, self.view,
                         'GeometryRepresentation')
         self.displays[self.lat_slice] = disp
-
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
         disp.ColorArrayName = ['CELLS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'Bvec'
-        disp.ScaleFactor = 0.2944486496874232
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.01472243248437116
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Longitude
         disp = pvs.Show(self.lon_slice, self.view, 'GeometryRepresentation')
         self.displays[self.lon_slice] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
         disp.ColorArrayName = ['CELLS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'Bvec'
-        disp.ScaleFactor = 0.340000014164759
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.017000000708237952
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Streamlines
         disp = pvs.Show(self.lon_streamlines, self.view,
