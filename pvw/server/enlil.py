@@ -300,20 +300,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             disp.AmbientColor = SATELLITE_COLORS[x]
             disp.ColorArrayName = [None, '']
             disp.DiffuseColor = SATELLITE_COLORS[x]
-            disp.OSPRayScaleArray = 'Normals'
-            disp.OSPRayScaleFunction = 'PiecewiseFunction'
-            disp.SelectOrientationVectors = 'None'
-            disp.ScaleFactor = 0.005000000074505806
-            disp.SelectScaleArray = 'None'
-            disp.GlyphType = 'Arrow'
-            disp.GlyphTableIndexArray = 'None'
-            disp.GaussianRadius = 0.0002500000037252903
-            disp.SetScaleArray = ['POINTS', 'Normals']
-            disp.ScaleTransferFunction = 'PiecewiseFunction'
-            disp.OpacityArray = ['POINTS', 'Normals']
-            disp.OpacityTransferFunction = 'PiecewiseFunction'
-            disp.DataAxesGrid = 'GridAxesRepresentation'
-            disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Sun representation
         self.sun = pvs.Sphere()
@@ -328,20 +314,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
         disp.ColorArrayName = [None, '']
         disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.OSPRayScaleArray = 'Normals'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.020000000298023225
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.0010000000149011613
-        disp.SetScaleArray = ['POINTS', 'Normals']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'Normals']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Apply an image to the Earth sphere
         self.apply_earth_texture()
