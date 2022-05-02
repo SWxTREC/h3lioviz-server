@@ -776,6 +776,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.view.CameraPosition = [0, 7.5, 0]
             # Point Earth to the right (Z up)
             self.view.CameraViewUp = [0, 0, 1]
+        elif plane == "initial":
+            # Reset to the initial values
+            self.view.CameraPosition = [-3, 3, 3]
+            self.view.CameraViewUp = [0, 0, 1]
         else:
             raise ValueError('Invalid string, only "ecliptic" or "meridional" '
                              ' are allowed.')
