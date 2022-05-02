@@ -2,9 +2,9 @@ version: '2'
 
 services:
   pvw:
-    image: public.ecr.aws/enlil/paraview_web_repo:pvw-enlil-osmesa
+    image: 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
     ports:
-      - 8080:80
+      - "0.0.0.0:8080:80"
     restart: always
     environment:
       - SERVER_NAME=127.0.0.1:8080
