@@ -61,7 +61,7 @@ copied into the container.
 3. Run the image setting the proper environment variables and mounting the proper directories.
 
     ```bash
-    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME=127.0.0.1:9000 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -v /path/to/frontend/dist/swt:/frontend -it pvw-enlil-osmesa
+    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME=127.0.0.1:9000 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it pvw-enlil-osmesa
     ```
 
     The container requires several input volumes that contain the data directory (that contains
