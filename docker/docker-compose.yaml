@@ -2,7 +2,7 @@ version: '2.1'
 
 services:
   pvw:
-    image: 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
+    image: public.ecr.aws/enlil/paraview_web_repo:pvw-enlil-osmesa
     ports:
       - "8080:80"
     volumes:
