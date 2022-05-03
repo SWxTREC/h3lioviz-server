@@ -96,12 +96,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
 
-        # Create the magnetic field vectors through a PV Function
-        self.bvec = pvs.Calculator(registrationName='Bvec', Input=self.data)
-        self.bvec.AttributeType = 'Cell Data'
-        self.bvec.ResultArrayName = 'Bvec'
-        self.bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
-
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName='CME',
                                            Input=self.data)
@@ -113,7 +107,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # work better and faster
         self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
                                        Input=self.threshold_cme)
-        # self.cme.SamplingBounds = [-1.5, 0, -1.5, 1.5, -1.5, 1.5]
 
         # Create a threshold that can be modified by the user
         self.threshold_data = pvs.Threshold(registrationName='Threshold',
@@ -128,83 +121,29 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create a Longitude slice
         self.lon_slice = pvs.Slice(
-            registrationName='Longitude', Input=self.bvec)
+            registrationName='Longitude', Input=self.data)
         self.lon_slice.SliceType = 'Plane'
         self.lon_slice.HyperTreeGridSlicer = 'Plane'
         self.lon_slice.SliceOffsetValues = [0.0]
-        # Init the SliceType values
         self.lon_slice.SliceType.Origin = [0, 0, 0]
         self.lon_slice.SliceType.Normal = [0.0, 0.0, 1.0]
-
-        # Our stream tracer source needs to have the same plane
-        # as our longitude slice, and 0.2 for the radius
-        self.stream_source = pvs.Ellipse(registrationName='StreamSource')
-        self.stream_source.Normal = self.lon_slice.SliceType.Normal
-        self.stream_source.Center = [0.0, 0.0, 0.0]
-        self.stream_source.Normal = [0.0, 0.0, 1.0]
-        self.stream_source.MajorRadiusVector = [0.2, 0.0, 0.0]
-        # Controls how many streamlines we have
-        self.stream_source.Resolution = 50
-
-        # Make sure we are doing the CellDatatoPointData on the lon_slice
-        # directly and not up above, so that it is perfectly on this plane,
-        # otherwise the streamlines will be out-of-plane potentially
-        self.point_data = pvs.CellDatatoPointData(
-            registrationName='CellDatatoPointData',
-            Input=self.lon_slice)
-        # Limit the arrays to process to the vector components and
-        # direction (Br) for coloring the polarity
-        # NOTE: In the processing steps, we multiply
-        #       Br * sign(BP), meaning the Br here contains the
-        #       polarity implicitly.
-        self.point_data.CellDataArraytoprocess = ['Br', 'Bvec']
-
-        self.lon_stream_input = pvs.StreamTracerWithCustomSource(
-            registrationName='StreamTracerWithCustomSource1',
-            Input=self.point_data,
-            SeedSource=self.stream_source)
-        self.lon_stream_input.Vectors = ['POINTS', 'Bvec']
-        self.lon_stream_input.SurfaceStreamlines = 1
-        self.lon_stream_input.MaximumStreamlineLength = 3.4
-        self.lon_stream_input.ComputeVorticity = 0
-
-        self.lon_streamlines = pvs.Tube(registrationName='Streamlines',
-                                        Input=self.lon_stream_input)
-        self.lon_streamlines.Capping = 1
-        self.lon_streamlines.Radius = 0.005
-
-        # create a new 'Glyph' in longitude (Arrow/vectors)
-        self.lon_arrows = pvs.Glyph(
-            registrationName='Lon-B-Arrows', Input=self.lon_stream_input,
-            GlyphType='Cone')
-        self.lon_arrows.OrientationArray = ['POINTS', 'Bvec']
-        self.lon_arrows.ScaleArray = ['POINTS', 'No scale array']
-        self.lon_arrows.ScaleFactor = 1
-        self.lon_arrows.GlyphType.Resolution = 60
-        self.lon_arrows.GlyphType.Radius = 0.02
-        self.lon_arrows.GlyphType.Height = 0.08
-        self.lon_arrows.GlyphTransform = 'Transform2'
-        self.lon_arrows.GlyphMode = 'Every Nth Point'
-        self.lon_arrows.GlyphMode = ('Uniform Spatial Distribution '
-                                     '(Bounds Based)')
-        self.lon_arrows.MaximumNumberOfSamplePoints = 100
+        self._add_streamlines("lon")
 
         # Create a Latitude slice
         self.lat_slice = pvs.Slice(
-            registrationName='Latitude', Input=self.bvec)
+            registrationName='Latitude', Input=self.data)
         self.lat_slice.SliceType = 'Plane'
         self.lat_slice.HyperTreeGridSlicer = 'Plane'
         self.lat_slice.SliceOffsetValues = [0.0]
-        # init the 'Plane' selected for 'SliceType'
         self.lat_slice.SliceType.Origin = [0, 0, 0]
         self.lat_slice.SliceType.Normal = [0.0, 1.0, 0.0]
-        # init the 'Plane' selected for 'HyperTreeGridSlicer'
-        # self.lat_slice.HyperTreeGridSlicer.Origin = [0, 0, 0]
+        self._add_streamlines("lat")
 
         # Dictionary mapping of string names to the object
         self.objs = {s: getattr(self, s) for s in (
-            "lon_slice", "lat_slice", "bvec", "cme", "data",
-            "lon_arrows", "lon_streamlines", "threshold")}
+            "lon_slice", "lat_slice", "cme", "data",
+            "lon_arrows", "lon_streamlines", "lat_arrows", "lat_streamlines",
+            "threshold")}
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
@@ -235,7 +174,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.view.CameraFocalPoint = [0, 0, 0]
         self.view.CameraViewUp = [0, 0, 1]
         self.view.CameraFocalDisk = 1.0
-        self.view.CameraParallelScale = 2.1250001580766877
+        self.view.CameraParallelScale = 2
         self.view.BackEnd = 'OSPRay raycaster'
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
@@ -243,10 +182,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view,
                         'TextSourceRepresentation')
 
-        # TODO: Show the base dataset?
-        # pvs.Show(self.data, self.view, 'StructuredGridRepresentation')
-
-        # get color transfer function/color map for 'Bz'
+        # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction('Bz')
         bzLUT.RGBPoints = [-10, 0.231373, 0.298039, 0.752941,
                            0, 0.865003, 0.865003, 0.865003,
@@ -262,98 +198,43 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.cme, self.view,
                         'UniformGridRepresentation')
         self.displays[self.cme] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Volume'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.09197479853610144
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.004598739926805072
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
         disp.OpacityArray = [None, '']
         disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
         disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02090409368521722
+        disp.ScalarOpacityUnitDistance = 0.02
         disp.OpacityArrayName = [None, '']
 
         disp = pvs.Show(self.threshold, self.view,
                         'UniformGridRepresentation')
         self.displays[self.threshold] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Volume'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.09197479853610144
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.004598739926805072
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
         disp.OpacityArray = [None, '']
         disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
         disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02090409368521722
+        disp.ScalarOpacityUnitDistance = 0.02
         disp.OpacityArrayName = [None, '']
-        # TODO: show data from bvec?
-        # pvs.Show(self.bvec, self.view, 'StructuredGridRepresentation')
 
         # Latitude
         disp = pvs.Show(self.lat_slice, self.view,
                         'GeometryRepresentation')
         self.displays[self.lat_slice] = disp
-
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
         disp.ColorArrayName = ['CELLS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'Bvec'
-        disp.ScaleFactor = 0.2944486496874232
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.01472243248437116
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Longitude
         disp = pvs.Show(self.lon_slice, self.view, 'GeometryRepresentation')
         self.displays[self.lon_slice] = disp
-        # trace defaults for the display properties.
         disp.Representation = 'Surface'
         disp.ColorArrayName = ['CELLS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'Bvec'
-        disp.ScaleFactor = 0.340000014164759
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.017000000708237952
-        disp.SetScaleArray = [None, '']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
-        # Longitude streamlines
+        # Streamlines
         disp = pvs.Show(self.lon_streamlines, self.view,
                         'GeometryRepresentation')
         # Add in a magnetic polarity colormap (radial in or out)
@@ -370,7 +251,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ColorArrayName = ["POINTS", 'Br']
         disp.LookupTable = bpLUT
 
-        # Longitude B-field vectors
+        # B-field vectors
         disp = pvs.Show(self.lon_arrows, self.view,
                         'GeometryRepresentation')
         self.displays[self.lon_arrows] = disp
@@ -419,20 +300,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             disp.AmbientColor = SATELLITE_COLORS[x]
             disp.ColorArrayName = [None, '']
             disp.DiffuseColor = SATELLITE_COLORS[x]
-            disp.OSPRayScaleArray = 'Normals'
-            disp.OSPRayScaleFunction = 'PiecewiseFunction'
-            disp.SelectOrientationVectors = 'None'
-            disp.ScaleFactor = 0.005000000074505806
-            disp.SelectScaleArray = 'None'
-            disp.GlyphType = 'Arrow'
-            disp.GlyphTableIndexArray = 'None'
-            disp.GaussianRadius = 0.0002500000037252903
-            disp.SetScaleArray = ['POINTS', 'Normals']
-            disp.ScaleTransferFunction = 'PiecewiseFunction'
-            disp.OpacityArray = ['POINTS', 'Normals']
-            disp.OpacityTransferFunction = 'PiecewiseFunction'
-            disp.DataAxesGrid = 'GridAxesRepresentation'
-            disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Sun representation
         self.sun = pvs.Sphere()
@@ -447,24 +314,93 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
         disp.ColorArrayName = [None, '']
         disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.OSPRayScaleArray = 'Normals'
-        disp.OSPRayScaleFunction = 'PiecewiseFunction'
-        disp.SelectOrientationVectors = 'None'
-        disp.ScaleFactor = 0.020000000298023225
-        disp.SelectScaleArray = 'None'
-        disp.GlyphType = 'Arrow'
-        disp.GlyphTableIndexArray = 'None'
-        disp.GaussianRadius = 0.0010000000149011613
-        disp.SetScaleArray = ['POINTS', 'Normals']
-        disp.ScaleTransferFunction = 'PiecewiseFunction'
-        disp.OpacityArray = ['POINTS', 'Normals']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.DataAxesGrid = 'GridAxesRepresentation'
-        disp.PolarAxes = 'PolarAxesRepresentation'
 
         # Apply an image to the Earth sphere
         self.apply_earth_texture()
         self.apply_solar_texture()
+
+    def _add_streamlines(self, plane):
+        """
+        Add streamlines to the desired slice plane
+
+        This requires creating several sources and filters.
+
+        1. Ellipse source (Circle at 0.2 AU) in the proper plane
+        2. Calculator filter for creating the vector components
+        3. CellData -> PointData filter on the plane
+        4. StreamTracer with custom source from (1)
+        5. Tubes for better display of (4)
+        6. Arrows to indicate direction of the arrows
+
+        plane : str
+            Name of the plane to add the streamlines on (lon, lat)
+        """
+        if plane not in ("lon", "lat"):
+            raise ValueError("The plane must be one of ('lon', 'lat').")
+        # Our stream tracer source needs to have the same plane
+        # as our slice, and 0.2 for the radius
+        curr_slice = getattr(self, f"{plane}_slice")
+        stream_source = pvs.Ellipse(registrationName=f"{plane}-StreamSource")
+        stream_source.Center = [0.0, 0.0, 0.0]
+        stream_source.Normal = curr_slice.SliceType.Normal
+        radius = [0.2, 0, 0] if plane == "lon" else [0, 0, 0.2]
+        stream_source.MajorRadiusVector = radius
+        # Controls how many streamlines we have
+        stream_source.Resolution = 50
+
+        # Create the magnetic field vectors through a PV Function
+        bvec = pvs.Calculator(registrationName=f"{plane}-Bvec",
+                              Input=curr_slice)
+        bvec.AttributeType = 'Cell Data'
+        bvec.ResultArrayName = 'Bvec'
+        bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
+        # Make sure we are doing the CellDatatoPointData on the slice
+        # directly and not up above, so that it is perfectly on this plane,
+        # otherwise the streamlines will be out-of-plane potentially
+        point_data = pvs.CellDatatoPointData(
+            registrationName=f"{plane}-CellDatatoPointData",
+            Input=bvec)
+        # Limit the arrays to process to the vector components and
+        # direction (Br) for coloring the polarity
+        # NOTE: In the processing steps, we multiply
+        #       Br * sign(BP), meaning the Br here contains the
+        #       polarity implicitly.
+        point_data.ProcessAllArrays = 0
+        point_data.CellDataArraytoprocess = ['Br', 'Bvec']
+
+        stream_input = pvs.StreamTracerWithCustomSource(
+            registrationName=f"{plane}-StreamTracerWithCustomSource",
+            Input=point_data,
+            SeedSource=stream_source)
+        stream_input.Vectors = ['POINTS', 'Bvec']
+        stream_input.SurfaceStreamlines = 1
+        stream_input.MaximumStreamlineLength = 3.4
+        stream_input.ComputeVorticity = 0
+
+        streamlines = pvs.Tube(registrationName=f"{plane}-Streamlines",
+                               Input=stream_input)
+        streamlines.Capping = 1
+        streamlines.Radius = 0.005
+
+        # create a new 'Glyph' in the slice (Arrow/vectors)
+        arrows = pvs.Glyph(
+            registrationName=f"{plane}-B-Arrows", Input=stream_input,
+            GlyphType='Cone')
+        arrows.OrientationArray = ['POINTS', 'Bvec']
+        arrows.ScaleArray = ['POINTS', 'No scale array']
+        arrows.ScaleFactor = 1
+        arrows.GlyphType.Resolution = 60
+        arrows.GlyphType.Radius = 0.02
+        arrows.GlyphType.Height = 0.08
+        arrows.GlyphTransform = 'Transform2'
+        arrows.GlyphMode = 'Every Nth Point'
+        arrows.GlyphMode = 'Uniform Spatial Distribution (Bounds Based)'
+        arrows.MaximumNumberOfSamplePoints = 100
+        # Store the objects we need for later as attributes on self
+        # (self.lon_streamlines / self.lat_streamlines)
+        setattr(self, f"{plane}_stream_source", stream_source)
+        setattr(self, f"{plane}_streamlines", streamlines)
+        setattr(self, f"{plane}_arrows", arrows)
 
     @exportRpc("pv.enlil.get_available_runs")
     def get_available_runs(self):
@@ -568,7 +504,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
-            if obj in (self.lon_arrows, self.lon_streamlines):
+            if obj in (self.lon_arrows, self.lon_streamlines,
+                       self.lat_arrows, self.lat_streamlines):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -726,7 +663,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         self.lon_slice.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
-        self.stream_source.Normal = self.lon_slice.SliceType.Normal
+        self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
 
     @exportRpc("pv.enlil.rotate_plane")
     def rotate_plane(self, plane, angle):
@@ -746,7 +683,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # normal vector here, which swaps the x/z and adds a negative
             # tilt is only in the xz plane
             self.lon_slice.SliceType.Normal = [-y, 0, -x]
-            self.stream_source.Normal = self.lon_slice.SliceType.Normal
+            self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
         elif plane == "lat":
             raise NotImplementedError("Updating the latitudinal plane angle "
                                       "is not implemented.")
