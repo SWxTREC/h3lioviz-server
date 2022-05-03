@@ -61,13 +61,20 @@ copied into the container.
 3. Run the image setting the proper environment variables and mounting the proper directories.
 
     ```bash
-    docker run -p 0.0.0.0:9000:80 -e SERVER_NAME=127.0.0.1:9000 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it pvw-enlil-osmesa
+    docker-compose --env-file docker/.env.local --file docker/docker-compose.yaml up
     ```
 
     The container requires several input volumes that contain the data directory (that contains
     a `pv-data-3d.nc` input file) mounted at the `/data` location inside the
     container, and the `pvw` directory from this repository mounted
-    at the `/pvw` location.
+    at the `/pvw` location. To handle that, you can create a `.env.local` environment variable
+    file to point to these data locations on your local system. For instance, your local file may
+    look like:
+
+    ```bash
+    PVW_BACKEND=/home/code/enlil-3d-server/pvw  
+    PVW_DATA=/home/data/pv-ready-data
+    ```
 
 ## Running the server without Docker
 
