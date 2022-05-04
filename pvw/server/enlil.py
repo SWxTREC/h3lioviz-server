@@ -764,7 +764,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """Snap to the given planar view
 
         plane : str
-            Plane to snap to (ecliptic, meridional)
+            Plane to snap to (ecliptic, meridional, initial)
         """
         if plane == "ecliptic":
             # Go up in Z
@@ -781,8 +781,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.view.CameraPosition = [-3, 3, 3]
             self.view.CameraViewUp = [0, 0, 1]
         else:
-            raise ValueError('Invalid string, only "ecliptic" or "meridional" '
-                             ' are allowed.')
+            raise ValueError('Invalid string, only "ecliptic", "meridional", '
+                             'and "initial" are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
 
