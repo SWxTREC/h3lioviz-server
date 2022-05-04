@@ -547,6 +547,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # hides old scalarbars that aren't in the view and
         # shows the new variable we are using now
         pvs.UpdateScalarBars(self.view)
+        # But we want to hide the streamlines colorbar
+        disp = self.displays[self.lon_streamlines]
+        disp.SetScalarBarVisibility(self.view, False)
 
         # restore active source
         pvs.SetActiveSource(None)
