@@ -7,7 +7,7 @@ services:
       - "8080:80"
     volumes:
       - type: bind
-        source: ${PVW_BACKEND:-/data/pv-server}
+        source: ${PVW_BACKEND:-/data/pv-server/pvw}
         target: /pvw
       - type: bind
         source: ${PVW_DATA:-/data/pv-data}
