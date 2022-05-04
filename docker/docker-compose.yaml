@@ -1,0 +1,18 @@
+version: '2.1'
+
+services:
+  pvw:
+    image: public.ecr.aws/enlil/paraview_web_repo:pvw-enlil-osmesa
+    ports:
+      - "8080:80"
+    volumes:
+      - type: bind
+        source: ${PVW_BACKEND:-/data/pv-server}
+        target: /pvw
+      - type: bind
+        source: ${PVW_DATA:-/data/pv-data}
+        target: /data
+    restart: always
+    environment:
+      - SERVER_NAME=${SERVER_NAME:-127.0.0.1:8080}
+      - PROTOCOL=${PROTOCOL:-ws}

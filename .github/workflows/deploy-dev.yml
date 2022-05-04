@@ -21,4 +21,4 @@ jobs:
 
     - name: Deploy to s3
       run: |
-        aws s3 cp --recursive . s3://enlil.dev.swx-trec.com/backend/ --exclude="*.git/*"
+        aws s3 sync . s3://enlil.dev.swx-trec.com/backend/ --exclude="*.git/*" --delete
