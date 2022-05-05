@@ -303,16 +303,22 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if x not in self.evolutions:
                 continue
 
-            # All satellites are represented as a sphere
-            sat = pvs.Sphere()
+            # All satellites are represented as a box, except the Earth
+            if x == "earth":
+                sat = pvs.Sphere()
+                sat.Radius = 0.025
+            else:
+                sat = pvs.Box()
+                radius = 0.02
+                sat.XLength = radius
+                sat.YLength = radius
+                sat.ZLength = radius
             setattr(self, x, sat)
             # TODO: What coordinate system do we want x/y/z to be in?
             #       The base model is rotated 180 degrees, should we
             #       automatically rotate it for the users?
             evo = self.evolutions[x]
-
             sat.Center = evo.get_position(curr_time)
-            sat.Radius = 0.025
 
             disp = pvs.Show(sat, self.view,
                             'GeometryRepresentation')
