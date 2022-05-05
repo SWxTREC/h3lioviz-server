@@ -812,25 +812,34 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 getattr(self, x).Center = self.evolutions[x].get_position(
                     curr_time)
 
-        # We need to force an update of the filters to populate the data.
-        # The CellData[variable] will be None if there is no data calculated
-        # based on the thresholding. In that case, we want to hide the object
-        # from view.
-        pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_cme)
-        if (self.cme.Input.CellData['DP'] is None or not self._CME_VISIBLE):
+        if self._CME_VISIBLE:
+            # We need to force an update of the filters to populate the data.
+            # The CellData[variable] will be None if there is no data
+            # calculated based on the thresholding. In that case, we want to
+            # hide the object from view.
+            # NOTE: We only want to update the pipeline if necessary
+            pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_cme)
+            if self.cme.Input.CellData['DP'] is None:
+                pvs.Hide(self.cme, self.view)
+            else:
+                pvs.Show(self.cme, self.view)
+        else:
+            # CME isn't visible, so hide it
             pvs.Hide(self.cme, self.view)
-        else:
-            pvs.Show(self.cme, self.view)
 
-        pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_data)
-        # Get the variable associated with this threshold operation and see if
-        # it is present within CellData
-        var = self.threshold_data.Scalars[1]
-        if (self.threshold.Input.CellData[var] is None or
-                not self._THRESHOLD_VISIBLE):
-            pvs.Hide(self.threshold, self.view)
+        if self._THRESHOLD_VISIBLE:
+            # NOTE: Only update pipeline if necessary, same as the CME
+            pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_data)
+            # Get the variable associated with this threshold operation
+            # and see if it is present within CellData
+            var = self.threshold_data.Scalars[1]
+            if self.threshold.Input.CellData[var] is None:
+                pvs.Hide(self.threshold, self.view)
+            else:
+                pvs.Show(self.threshold, self.view)
         else:
-            pvs.Show(self.threshold, self.view)
+            # Hide the Threshold
+            pvs.Hide(self.threshold, self.view)
 
         # Update the rotation of the earth image
         self.rotate_earth()
