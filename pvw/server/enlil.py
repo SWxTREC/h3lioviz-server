@@ -100,6 +100,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # so that we can hide 0 value returns
         self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
+        # Keep track of satellite labels
+        self._sat_views = []
 
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName='CME',
@@ -345,6 +347,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 # Offset the center by the width to give some separation
                 disp.BillboardPosition = [x + sat.XLength for x in sat.Center]
                 disp.Color = [0, 0, 0]  # Black text
+                # Store the satellite and text here to be able to toggle them
+                # on/off
+                self._sat_views.append(sat)
+                self._sat_views.append(sat_label)
 
         # Sun representation
         self.sun = pvs.Sphere()
@@ -785,6 +791,25 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              'and "initial" are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
+
+    @exportRpc("pv.enlil.toggle_satellites")
+    def toggle_satellites(self, visibility):
+        """
+        Toggles the visibility of the satellites on/off from the view
+
+        visibility : str ("on", "off")
+            What to set the visibility to
+        """
+        if visibility == "on":
+            hide_show = pvs.Show
+        elif visibility == "off":
+            hide_show = pvs.Hide
+        else:
+            return ["Visibility can only be 'on' or 'off'"]
+        for sat in self._sat_views:
+            # Hide() / Show()
+            hide_show(sat, self.view)
+        self.update(None, None)
 
     @exportRpc("pv.enlil.get_satellite_times")
     def get_satellite_time(self, sat):
