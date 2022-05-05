@@ -67,6 +67,11 @@ SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
                     "stereoa": [177/255, 138/255, 142/255],
                     "stereob": [94/255, 96/255, 185/255]}
 
+# Keep track of the name mapping that we want to show to users
+SATELLITE_NAMES = {"earth": "Earth",
+                   "stereoa": "STEREO-A",
+                   "stereob": "STEREO-B"}
+
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
@@ -327,6 +332,19 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             disp.AmbientColor = SATELLITE_COLORS[x]
             disp.ColorArrayName = [None, '']
             disp.DiffuseColor = SATELLITE_COLORS[x]
+
+            if x != "earth":
+                # Label all non-earth satellites
+                sat_label = pvs.Text()
+                sat_label.Text = SATELLITE_NAMES[x]
+                disp = pvs.Show(sat_label, self.view,
+                                'TextSourceRepresentation')
+                disp.TextPropMode = 'Billboard 3D Text'
+                disp.FontSize = 14
+                disp.WindowLocation = 'AnyLocation'
+                # Offset the center by the width to give some separation
+                disp.BillboardPosition = [x + sat.XLength for x in sat.Center]
+                disp.Color = [0, 0, 0]  # Black text
 
         # Sun representation
         self.sun = pvs.Sphere()
