@@ -177,8 +177,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # disable automatic camera reset on 'Show'
         pvs._DisableFirstRenderCameraReset()
 
-        # Create a new 'Render View'
-        self.view = pvs.CreateView('RenderView')
+        # Get the initial 'Render View'
+        self.view = pvs.GetActiveView()
         self.view.ViewSize = [600, 600]
         self.view.AxesGrid = 'GridAxes3DActor'
         self.view.CenterOfRotation = [0, 0, 0]
