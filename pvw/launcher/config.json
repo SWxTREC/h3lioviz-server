@@ -32,7 +32,9 @@
   },
   "apps": {
     "visualizer": {
-      "cmd": ["${python_exec}",
+      "cmd": ["env", "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
+        "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
+        "${python_exec}",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/pv_server_statefile.py",
         "--port", "${port}",
