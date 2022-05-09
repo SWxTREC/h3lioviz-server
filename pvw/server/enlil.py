@@ -67,6 +67,11 @@ SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
                     "stereoa": [177/255, 138/255, 142/255],
                     "stereob": [94/255, 96/255, 185/255]}
 
+# Keep track of the name mapping that we want to show to users
+SATELLITE_NAMES = {"earth": "Earth",
+                   "stereoa": "STEREO-A",
+                   "stereob": "STEREO-B"}
+
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
@@ -95,6 +100,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # so that we can hide 0 value returns
         self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
+        # Keep track of satellite labels
+        self._sat_views = []
 
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName='CME',
@@ -303,16 +310,22 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if x not in self.evolutions:
                 continue
 
-            # All satellites are represented as a sphere
-            sat = pvs.Sphere()
+            # All satellites are represented as a box, except the Earth
+            if x == "earth":
+                sat = pvs.Sphere()
+                sat.Radius = 0.025
+            else:
+                sat = pvs.Box()
+                radius = 0.02
+                sat.XLength = radius
+                sat.YLength = radius
+                sat.ZLength = radius
             setattr(self, x, sat)
             # TODO: What coordinate system do we want x/y/z to be in?
             #       The base model is rotated 180 degrees, should we
             #       automatically rotate it for the users?
             evo = self.evolutions[x]
-
             sat.Center = evo.get_position(curr_time)
-            sat.Radius = 0.025
 
             disp = pvs.Show(sat, self.view,
                             'GeometryRepresentation')
@@ -321,6 +334,23 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             disp.AmbientColor = SATELLITE_COLORS[x]
             disp.ColorArrayName = [None, '']
             disp.DiffuseColor = SATELLITE_COLORS[x]
+
+            if x != "earth":
+                # Label all non-earth satellites
+                sat_label = pvs.Text()
+                sat_label.Text = SATELLITE_NAMES[x]
+                disp = pvs.Show(sat_label, self.view,
+                                'TextSourceRepresentation')
+                disp.TextPropMode = 'Billboard 3D Text'
+                disp.FontSize = 14
+                disp.WindowLocation = 'AnyLocation'
+                # Offset the center by the width to give some separation
+                disp.BillboardPosition = [x + sat.XLength for x in sat.Center]
+                disp.Color = [0, 0, 0]  # Black text
+                # Store the satellite and text here to be able to toggle them
+                # on/off
+                self._sat_views.append(sat)
+                self._sat_views.append(sat_label)
 
         # Sun representation
         self.sun = pvs.Sphere()
@@ -761,6 +791,25 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                              'and "initial" are allowed.')
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
+
+    @exportRpc("pv.enlil.toggle_satellites")
+    def toggle_satellites(self, visibility):
+        """
+        Toggles the visibility of the satellites on/off from the view
+
+        visibility : str ("on", "off")
+            What to set the visibility to
+        """
+        if visibility == "on":
+            hide_show = pvs.Show
+        elif visibility == "off":
+            hide_show = pvs.Hide
+        else:
+            return ["Visibility can only be 'on' or 'off'"]
+        for sat in self._sat_views:
+            # Hide() / Show()
+            hide_show(sat, self.view)
+        self.update(None, None)
 
     @exportRpc("pv.enlil.get_satellite_times")
     def get_satellite_time(self, sat):
