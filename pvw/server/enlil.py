@@ -93,12 +93,18 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             registrationName='enlil-data', FileName=[fname])
         self.data.Dimensions = '(longitude, latitude, radius)'
 
+        # Force all cell data to point data right off the bat
+        self.data = pvs.CellDatatoPointData(
+            registrationName=f"3D-CellDatatoPointData",
+            Input=self.data)
+        self.data.ProcessAllArrays = 1
+        self.data.PassCellData = 1
+
         self.time_string = pvs.Text(registrationName='Time')
         # Don't add in any text right now
         self.time_string.Text = ""
         # Need to keep track of whether the CME/Threshold should be visible
         # so that we can hide 0 value returns
-        self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
         # Keep track of satellite labels
         self._sat_views = []
@@ -110,10 +116,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
         self.threshold_cme.Scalars = ['CELLS', 'DP']
-        # This resamples the CME to a uniform grid to make Volume rendering
-        # work better and faster
-        self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
-                                       Input=self.threshold_cme)
+        self.cme = pvs.Contour(registrationName='contoured_cme',
+                               Input=self.data)
+        self.cme.ContourBy = ['POINTS', 'DP']
+        self.cme.ComputeNormals = 0
+        self.cme.Isosurfaces = [1e-06]
+        self.cme.PointMergeMethod = 'Uniform Binning'
 
         # Move to point arrays for contouring
         self._cme_points = pvs.CellDatatoPointData(
@@ -216,16 +224,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # CME Threshold
         disp = pvs.Show(self.cme, self.view,
-                        'UniformGridRepresentation')
+                        'GeometryRepresentation')
         self.displays[self.cme] = disp
-        disp.Representation = 'Volume'
-        disp.ColorArrayName = ['POINTS', 'Bz']
-        disp.LookupTable = bzLUT
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02
-        disp.OpacityArrayName = [None, '']
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = [None, '']
+        disp.Opacity = 0.25
 
         # CME Contours
         disp = pvs.Show(self.cme_contours, self.view,
@@ -534,9 +537,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
-        # Keep track of whether the CME and Threshold variables are visible
-        if obj == "cme":
-            self._CME_VISIBLE = {"on": True, "off": False}[visibility]
+        # Keep track of whether the Threshold variables are visible
         if obj == "threshold":
             self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
         self.update(None, None)
@@ -556,7 +557,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
             if obj in (self.lon_arrows, self.lon_streamlines,
-                       self.lat_arrows, self.lat_streamlines):
+                       self.lat_arrows, self.lat_streamlines,
+                       self.cme):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -860,21 +862,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if hasattr(self, x):
                 getattr(self, x).Center = self.evolutions[x].get_position(
                     curr_time)
-
-        if self._CME_VISIBLE:
-            # We need to force an update of the filters to populate the data.
-            # The CellData[variable] will be None if there is no data
-            # calculated based on the thresholding. In that case, we want to
-            # hide the object from view.
-            # NOTE: We only want to update the pipeline if necessary
-            pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_cme)
-            if self.cme.Input.CellData['DP'] is None:
-                pvs.Hide(self.cme, self.view)
-            else:
-                pvs.Show(self.cme, self.view)
-        else:
-            # CME isn't visible, so hide it
-            pvs.Hide(self.cme, self.view)
 
         if self._THRESHOLD_VISIBLE:
             # NOTE: Only update pipeline if necessary, same as the CME
