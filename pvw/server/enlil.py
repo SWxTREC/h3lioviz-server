@@ -255,14 +255,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                         'GeometryRepresentation')
         self.displays[self.lat_slice] = disp
         disp.Representation = 'Surface'
-        disp.ColorArrayName = ['CELLS', 'Bz']
+        disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
 
         # Longitude
         disp = pvs.Show(self.lon_slice, self.view, 'GeometryRepresentation')
         self.displays[self.lon_slice] = disp
         disp.Representation = 'Surface'
-        disp.ColorArrayName = ['CELLS', 'Bz']
+        disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
 
         # Streamlines
