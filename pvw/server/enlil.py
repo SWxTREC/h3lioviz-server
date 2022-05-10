@@ -294,12 +294,45 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ColorArrayName = ["POINTS", 'Br']
         disp.LookupTable = bpLUT
 
+        # latitudinal plane
+        disp = pvs.Show(self.lat_slice, self.view, 'GeometryRepresentation')
+        self.displays[self.lat_slice] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.LookupTable = bzLUT
+
+        # Streamlines
+        disp = pvs.Show(self.lat_streamlines, self.view,
+                        'GeometryRepresentation')
+        # Add in a magnetic polarity colormap (radial in or out)
+        # with two values blue/red
+        # separate=True makes sure it doesn't overwrite the Br of the
+        # frontend choices
+        bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
+        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5,
+                           1e5, 0.9, 0.9, 0.9]
+        bpLUT.ScalarRangeInitialized = 1.0
+        bpLUT.NumberOfTableValues = 2
+        self.displays[self.lat_streamlines] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
+
+        # B-field vectors
+        disp = pvs.Show(self.lat_arrows, self.view,
+                        'GeometryRepresentation')
+        self.displays[self.lat_arrows] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
+
         # Set colormaps
         for name in VARIABLE_MAP:
             self.set_colormap(name)
 
         # hide this data from the default initial view
         for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines,
+                  self.lat_arrows, self.lat_streamlines,
                   self.threshold, self.cme_contours]:
             pvs.Hide(x, self.view)
 
@@ -521,11 +554,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if obj == "lon_streamlines":
                 # We also want to turn on the vectors
                 pvs.Show(self.objs["lon_arrows"], self.view)
+            elif obj == "lat_streamlines":
+                # We also want to turn on the vectors
+                pvs.Show(self.objs["lat_arrows"], self.view)
         elif visibility == "off":
             pvs.Hide(self.objs[obj], self.view)
             if obj == "lon_streamlines":
                 # We also want to turn off the vectors
                 pvs.Hide(self.objs["lon_arrows"], self.view)
+            elif obj == "lat_streamlines":
+                # We also want to turn off the vectors
+                pvs.Hide(self.objs["lat_arrows"], self.view)
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
@@ -573,6 +612,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         pvs.UpdateScalarBars(self.view)
         # But we want to hide the streamlines colorbar
         disp = self.displays[self.lon_streamlines]
+        disp.SetScalarBarVisibility(self.view, False)
+        disp = self.displays[self.lat_streamlines]
         disp.SetScalarBarVisibility(self.view, False)
 
         # restore active source
