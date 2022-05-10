@@ -142,23 +142,33 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Input=self.threshold_data)
 
         # Create a Longitude slice
-        self.lon_slice = pvs.Slice(
-            registrationName='Longitude', Input=self.data)
-        self.lon_slice.SliceType = 'Plane'
-        self.lon_slice.HyperTreeGridSlicer = 'Plane'
-        self.lon_slice.SliceOffsetValues = [0.0]
-        self.lon_slice.SliceType.Origin = [0, 0, 0]
-        self.lon_slice.SliceType.Normal = [0.0, 0.0, 1.0]
+        self.lon_slice_data = pvs.Slice(
+            registrationName='Longitude', Input=self.celldata)
+        self.lon_slice_data.SliceType = 'Plane'
+        self.lon_slice_data.HyperTreeGridSlicer = 'Plane'
+        self.lon_slice_data.SliceOffsetValues = [0.0]
+        self.lon_slice_data.SliceType.Origin = [0, 0, 0]
+        self.lon_slice_data.SliceType.Normal = [0.0, 0.0, 1.0]
+        # Now make point data on that slice
+        self.lon_slice = pvs.CellDatatoPointData(
+            registrationName=f"lon-slice-CellDatatoPointData",
+            Input=self.lon_slice_data)
+        self.lon_slice.ProcessAllArrays = 1
         self._add_streamlines("lon")
 
         # Create a Latitude slice
-        self.lat_slice = pvs.Slice(
-            registrationName='Latitude', Input=self.data)
-        self.lat_slice.SliceType = 'Plane'
-        self.lat_slice.HyperTreeGridSlicer = 'Plane'
-        self.lat_slice.SliceOffsetValues = [0.0]
-        self.lat_slice.SliceType.Origin = [0, 0, 0]
-        self.lat_slice.SliceType.Normal = [0.0, 1.0, 0.0]
+        self.lat_slice_data = pvs.Slice(
+            registrationName='Latitude', Input=self.celldata)
+        self.lat_slice_data.SliceType = 'Plane'
+        self.lat_slice_data.HyperTreeGridSlicer = 'Plane'
+        self.lat_slice_data.SliceOffsetValues = [0.0]
+        self.lat_slice_data.SliceType.Origin = [0, 0, 0]
+        self.lat_slice_data.SliceType.Normal = [0.0, 1.0, 0.0]
+        # Now make point data on that slice
+        self.lat_slice = pvs.CellDatatoPointData(
+            registrationName=f"lat-slice-CellDatatoPointData",
+            Input=self.lat_slice_data)
+        self.lat_slice.ProcessAllArrays = 1
         self._add_streamlines("lat")
 
         # Dictionary mapping of string names to the object
@@ -387,38 +397,26 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             raise ValueError("The plane must be one of ('lon', 'lat').")
         # Our stream tracer source needs to have the same plane
         # as our slice, and 0.2 for the radius
-        curr_slice = getattr(self, f"{plane}_slice")
+        curr_slice_data = getattr(self, f"{plane}_slice_data")
         stream_source = pvs.Ellipse(registrationName=f"{plane}-StreamSource")
         stream_source.Center = [0.0, 0.0, 0.0]
-        stream_source.Normal = curr_slice.SliceType.Normal
+        stream_source.Normal = curr_slice_data.SliceType.Normal
         radius = [0.2, 0, 0] if plane == "lon" else [0, 0, 0.2]
         stream_source.MajorRadiusVector = radius
         # Controls how many streamlines we have
         stream_source.Resolution = 50
 
         # Create the magnetic field vectors through a PV Function
+        curr_slice = getattr(self, f"{plane}_slice")
         bvec = pvs.Calculator(registrationName=f"{plane}-Bvec",
                               Input=curr_slice)
-        bvec.AttributeType = 'Cell Data'
+        bvec.AttributeType = 'Point Data'
         bvec.ResultArrayName = 'Bvec'
         bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
-        # Make sure we are doing the CellDatatoPointData on the slice
-        # directly and not up above, so that it is perfectly on this plane,
-        # otherwise the streamlines will be out-of-plane potentially
-        point_data = pvs.CellDatatoPointData(
-            registrationName=f"{plane}-CellDatatoPointData",
-            Input=bvec)
-        # Limit the arrays to process to the vector components and
-        # direction (Br) for coloring the polarity
-        # NOTE: In the processing steps, we multiply
-        #       Br * sign(BP), meaning the Br here contains the
-        #       polarity implicitly.
-        point_data.ProcessAllArrays = 0
-        point_data.CellDataArraytoprocess = ['Br', 'Bvec']
 
         stream_input = pvs.StreamTracerWithCustomSource(
             registrationName=f"{plane}-StreamTracerWithCustomSource",
-            Input=point_data,
+            Input=bvec,
             SeedSource=stream_source)
         stream_input.Vectors = ['POINTS', 'Bvec']
         stream_input.SurfaceStreamlines = 1
@@ -485,7 +483,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         variable = VARIABLE_MAP[name]
-        return self.data.CellData.GetArray(variable).GetRange()
+        return self.celldata.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.enlil.directory")
     def update_dataset(self, dirname):
@@ -726,9 +724,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             raise ValueError('The snapping clip plane must be either '
                              '"ecliptic" or "equator"')
 
-        self.lon_slice.SliceType.Normal = loc
+        self.lon_slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
-        self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
+        self.lon_stream_source.Normal = loc
 
     @exportRpc("pv.enlil.rotate_plane")
     def rotate_plane(self, plane, angle):
@@ -747,8 +745,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # We want the normal to the plane, so we are really rotating the
             # normal vector here, which swaps the x/z and adds a negative
             # tilt is only in the xz plane
-            self.lon_slice.SliceType.Normal = [-y, 0, -x]
-            self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
+            loc = [-y, 0, -x]
+            self.lon_slice_data.SliceType.Normal = loc
+            self.lon_stream_source.Normal = loc
         elif plane == "lat":
             raise NotImplementedError("Updating the latitudinal plane angle "
                                       "is not implemented.")
