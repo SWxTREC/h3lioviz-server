@@ -790,14 +790,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.lon_slice_data.SliceType.Normal = loc
             self.lon_stream_source.Normal = loc
         elif plane == "lat":
-            raise NotImplementedError("Updating the latitudinal plane angle "
-                                      "is not implemented.")
-            # TODO: Implement the latitudinal adjustment.
-            #       Currently this fails with a segfault, which I
-            #       assume has to do with some slicing of grid cells changing
-            #       sizes when creating a new slice angle, but it is odd that
-            #       it only happens for the latitudinal plane...
-            # self.lat_slice.SliceType.Normal = [-y, x, 0]
+            loc = [-y, x, 0]
+            self.lat_slice_data.SliceType.Normal = loc
+            self.lat_stream_source.Normal = loc
         else:
             raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
