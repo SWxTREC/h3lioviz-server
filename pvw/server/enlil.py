@@ -89,14 +89,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
         # create a new 'NetCDF Reader' from the full data path
         fname = os.path.join(dirname, "pv-data-3d.nc")
-        self.data = pvs.NetCDFReader(
+        self.celldata = pvs.NetCDFReader(
             registrationName='enlil-data', FileName=[fname])
-        self.data.Dimensions = '(longitude, latitude, radius)'
+        self.celldata.Dimensions = '(longitude, latitude, radius)'
 
-        # Force all cell data to point data right off the bat
+        # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
             registrationName=f"3D-CellDatatoPointData",
-            Input=self.data)
+            Input=self.celldata)
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
 
@@ -123,15 +123,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme.Isosurfaces = [1e-06]
         self.cme.PointMergeMethod = 'Uniform Binning'
 
-        # Move to point arrays for contouring
-        self._cme_points = pvs.CellDatatoPointData(
-            registrationName=f"CME-points",
-            Input=self.threshold_cme)
-        self._cme_points.ProcessAllArrays = 1
-
         self.cme_contours = pvs.Contour(
             registrationName='CME-contour',
-            Input=self._cme_points)
+            Input=self.threshold_cme)
         self.cme_contours.ContourBy = ['POINTS', 'Density']
         self.cme_contours.Isosurfaces = []
         self.cme_contours.PointMergeMethod = 'Uniform Binning'
