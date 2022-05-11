@@ -89,16 +89,22 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
         # create a new 'NetCDF Reader' from the full data path
         fname = os.path.join(dirname, "pv-data-3d.nc")
-        self.data = pvs.NetCDFReader(
+        self.celldata = pvs.NetCDFReader(
             registrationName='enlil-data', FileName=[fname])
-        self.data.Dimensions = '(longitude, latitude, radius)'
+        self.celldata.Dimensions = '(longitude, latitude, radius)'
+
+        # Force all cell data to point data in the volume
+        self.data = pvs.CellDatatoPointData(
+            registrationName=f"3D-CellDatatoPointData",
+            Input=self.celldata)
+        self.data.ProcessAllArrays = 1
+        self.data.PassCellData = 1
 
         self.time_string = pvs.Text(registrationName='Time')
         # Don't add in any text right now
         self.time_string.Text = ""
         # Need to keep track of whether the CME/Threshold should be visible
         # so that we can hide 0 value returns
-        self._CME_VISIBLE = True
         self._THRESHOLD_VISIBLE = False
         # Keep track of satellite labels
         self._sat_views = []
@@ -110,20 +116,16 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
         self.threshold_cme.Scalars = ['CELLS', 'DP']
-        # This resamples the CME to a uniform grid to make Volume rendering
-        # work better and faster
-        self.cme = pvs.ResampleToImage(registrationName='resampled_cme',
-                                       Input=self.threshold_cme)
-
-        # Move to point arrays for contouring
-        self._cme_points = pvs.CellDatatoPointData(
-            registrationName=f"CME-points",
-            Input=self.threshold_cme)
-        self._cme_points.ProcessAllArrays = 1
+        self.cme = pvs.Contour(registrationName='contoured_cme',
+                               Input=self.data)
+        self.cme.ContourBy = ['POINTS', 'DP']
+        self.cme.ComputeNormals = 0
+        self.cme.Isosurfaces = [1e-06]
+        self.cme.PointMergeMethod = 'Uniform Binning'
 
         self.cme_contours = pvs.Contour(
             registrationName='CME-contour',
-            Input=self._cme_points)
+            Input=self.threshold_cme)
         self.cme_contours.ContourBy = ['POINTS', 'Density']
         self.cme_contours.Isosurfaces = []
         self.cme_contours.PointMergeMethod = 'Uniform Binning'
@@ -140,23 +142,33 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Input=self.threshold_data)
 
         # Create a Longitude slice
-        self.lon_slice = pvs.Slice(
-            registrationName='Longitude', Input=self.data)
-        self.lon_slice.SliceType = 'Plane'
-        self.lon_slice.HyperTreeGridSlicer = 'Plane'
-        self.lon_slice.SliceOffsetValues = [0.0]
-        self.lon_slice.SliceType.Origin = [0, 0, 0]
-        self.lon_slice.SliceType.Normal = [0.0, 0.0, 1.0]
+        self.lon_slice_data = pvs.Slice(
+            registrationName='Longitude', Input=self.celldata)
+        self.lon_slice_data.SliceType = 'Plane'
+        self.lon_slice_data.HyperTreeGridSlicer = 'Plane'
+        self.lon_slice_data.SliceOffsetValues = [0.0]
+        self.lon_slice_data.SliceType.Origin = [0, 0, 0]
+        self.lon_slice_data.SliceType.Normal = [0.0, 0.0, 1.0]
+        # Now make point data on that slice
+        self.lon_slice = pvs.CellDatatoPointData(
+            registrationName=f"lon-slice-CellDatatoPointData",
+            Input=self.lon_slice_data)
+        self.lon_slice.ProcessAllArrays = 1
         self._add_streamlines("lon")
 
         # Create a Latitude slice
-        self.lat_slice = pvs.Slice(
-            registrationName='Latitude', Input=self.data)
-        self.lat_slice.SliceType = 'Plane'
-        self.lat_slice.HyperTreeGridSlicer = 'Plane'
-        self.lat_slice.SliceOffsetValues = [0.0]
-        self.lat_slice.SliceType.Origin = [0, 0, 0]
-        self.lat_slice.SliceType.Normal = [0.0, 1.0, 0.0]
+        self.lat_slice_data = pvs.Slice(
+            registrationName='Latitude', Input=self.celldata)
+        self.lat_slice_data.SliceType = 'Plane'
+        self.lat_slice_data.HyperTreeGridSlicer = 'Plane'
+        self.lat_slice_data.SliceOffsetValues = [0.0]
+        self.lat_slice_data.SliceType.Origin = [0, 0, 0]
+        self.lat_slice_data.SliceType.Normal = [0.0, 1.0, 0.0]
+        # Now make point data on that slice
+        self.lat_slice = pvs.CellDatatoPointData(
+            registrationName=f"lat-slice-CellDatatoPointData",
+            Input=self.lat_slice_data)
+        self.lat_slice.ProcessAllArrays = 1
         self._add_streamlines("lat")
 
         # Dictionary mapping of string names to the object
@@ -216,16 +228,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # CME Threshold
         disp = pvs.Show(self.cme, self.view,
-                        'UniformGridRepresentation')
+                        'GeometryRepresentation')
         self.displays[self.cme] = disp
-        disp.Representation = 'Volume'
-        disp.ColorArrayName = ['POINTS', 'Bz']
-        disp.LookupTable = bzLUT
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02
-        disp.OpacityArrayName = [None, '']
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = [None, '']
+        disp.Opacity = 0.25
 
         # CME Contours
         disp = pvs.Show(self.cme_contours, self.view,
@@ -252,14 +259,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                         'GeometryRepresentation')
         self.displays[self.lat_slice] = disp
         disp.Representation = 'Surface'
-        disp.ColorArrayName = ['CELLS', 'Bz']
+        disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
 
         # Longitude
         disp = pvs.Show(self.lon_slice, self.view, 'GeometryRepresentation')
         self.displays[self.lon_slice] = disp
         disp.Representation = 'Surface'
-        disp.ColorArrayName = ['CELLS', 'Bz']
+        disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
 
         # Streamlines
@@ -287,12 +294,45 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ColorArrayName = ["POINTS", 'Br']
         disp.LookupTable = bpLUT
 
+        # latitudinal plane
+        disp = pvs.Show(self.lat_slice, self.view, 'GeometryRepresentation')
+        self.displays[self.lat_slice] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.LookupTable = bzLUT
+
+        # Streamlines
+        disp = pvs.Show(self.lat_streamlines, self.view,
+                        'GeometryRepresentation')
+        # Add in a magnetic polarity colormap (radial in or out)
+        # with two values blue/red
+        # separate=True makes sure it doesn't overwrite the Br of the
+        # frontend choices
+        bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
+        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5,
+                           1e5, 0.9, 0.9, 0.9]
+        bpLUT.ScalarRangeInitialized = 1.0
+        bpLUT.NumberOfTableValues = 2
+        self.displays[self.lat_streamlines] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
+
+        # B-field vectors
+        disp = pvs.Show(self.lat_arrows, self.view,
+                        'GeometryRepresentation')
+        self.displays[self.lat_arrows] = disp
+        disp.Representation = 'Surface'
+        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.LookupTable = bpLUT
+
         # Set colormaps
         for name in VARIABLE_MAP:
             self.set_colormap(name)
 
         # hide this data from the default initial view
         for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines,
+                  self.lat_arrows, self.lat_streamlines,
                   self.threshold, self.cme_contours]:
             pvs.Hide(x, self.view)
 
@@ -390,38 +430,26 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             raise ValueError("The plane must be one of ('lon', 'lat').")
         # Our stream tracer source needs to have the same plane
         # as our slice, and 0.2 for the radius
-        curr_slice = getattr(self, f"{plane}_slice")
+        curr_slice_data = getattr(self, f"{plane}_slice_data")
         stream_source = pvs.Ellipse(registrationName=f"{plane}-StreamSource")
         stream_source.Center = [0.0, 0.0, 0.0]
-        stream_source.Normal = curr_slice.SliceType.Normal
+        stream_source.Normal = curr_slice_data.SliceType.Normal
         radius = [0.2, 0, 0] if plane == "lon" else [0, 0, 0.2]
         stream_source.MajorRadiusVector = radius
         # Controls how many streamlines we have
         stream_source.Resolution = 50
 
         # Create the magnetic field vectors through a PV Function
+        curr_slice = getattr(self, f"{plane}_slice")
         bvec = pvs.Calculator(registrationName=f"{plane}-Bvec",
                               Input=curr_slice)
-        bvec.AttributeType = 'Cell Data'
+        bvec.AttributeType = 'Point Data'
         bvec.ResultArrayName = 'Bvec'
         bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
-        # Make sure we are doing the CellDatatoPointData on the slice
-        # directly and not up above, so that it is perfectly on this plane,
-        # otherwise the streamlines will be out-of-plane potentially
-        point_data = pvs.CellDatatoPointData(
-            registrationName=f"{plane}-CellDatatoPointData",
-            Input=bvec)
-        # Limit the arrays to process to the vector components and
-        # direction (Br) for coloring the polarity
-        # NOTE: In the processing steps, we multiply
-        #       Br * sign(BP), meaning the Br here contains the
-        #       polarity implicitly.
-        point_data.ProcessAllArrays = 0
-        point_data.CellDataArraytoprocess = ['Br', 'Bvec']
 
         stream_input = pvs.StreamTracerWithCustomSource(
             registrationName=f"{plane}-StreamTracerWithCustomSource",
-            Input=point_data,
+            Input=bvec,
             SeedSource=stream_source)
         stream_input.Vectors = ['POINTS', 'Bvec']
         stream_input.SurfaceStreamlines = 1
@@ -488,7 +516,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         variable = VARIABLE_MAP[name]
-        return self.data.CellData.GetArray(variable).GetRange()
+        return self.celldata.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.enlil.directory")
     def update_dataset(self, dirname):
@@ -526,17 +554,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if obj == "lon_streamlines":
                 # We also want to turn on the vectors
                 pvs.Show(self.objs["lon_arrows"], self.view)
+            elif obj == "lat_streamlines":
+                # We also want to turn on the vectors
+                pvs.Show(self.objs["lat_arrows"], self.view)
         elif visibility == "off":
             pvs.Hide(self.objs[obj], self.view)
             if obj == "lon_streamlines":
                 # We also want to turn off the vectors
                 pvs.Hide(self.objs["lon_arrows"], self.view)
+            elif obj == "lat_streamlines":
+                # We also want to turn off the vectors
+                pvs.Hide(self.objs["lat_arrows"], self.view)
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
-        # Keep track of whether the CME and Threshold variables are visible
-        if obj == "cme":
-            self._CME_VISIBLE = {"on": True, "off": False}[visibility]
+        # Keep track of whether the Threshold variables are visible
         if obj == "threshold":
             self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
         self.update(None, None)
@@ -556,7 +588,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
             if obj in (self.lon_arrows, self.lon_streamlines,
-                       self.lat_arrows, self.lat_streamlines):
+                       self.lat_arrows, self.lat_streamlines,
+                       self.cme):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -579,6 +612,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         pvs.UpdateScalarBars(self.view)
         # But we want to hide the streamlines colorbar
         disp = self.displays[self.lon_streamlines]
+        disp.SetScalarBarVisibility(self.view, False)
+        disp = self.displays[self.lat_streamlines]
         disp.SetScalarBarVisibility(self.view, False)
 
         # restore active source
@@ -730,9 +765,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             raise ValueError('The snapping clip plane must be either '
                              '"ecliptic" or "equator"')
 
-        self.lon_slice.SliceType.Normal = loc
+        self.lon_slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
-        self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
+        self.lon_stream_source.Normal = loc
 
     @exportRpc("pv.enlil.rotate_plane")
     def rotate_plane(self, plane, angle):
@@ -751,17 +786,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # We want the normal to the plane, so we are really rotating the
             # normal vector here, which swaps the x/z and adds a negative
             # tilt is only in the xz plane
-            self.lon_slice.SliceType.Normal = [-y, 0, -x]
-            self.lon_stream_source.Normal = self.lon_slice.SliceType.Normal
+            loc = [-y, 0, -x]
+            self.lon_slice_data.SliceType.Normal = loc
+            self.lon_stream_source.Normal = loc
         elif plane == "lat":
-            raise NotImplementedError("Updating the latitudinal plane angle "
-                                      "is not implemented.")
-            # TODO: Implement the latitudinal adjustment.
-            #       Currently this fails with a segfault, which I
-            #       assume has to do with some slicing of grid cells changing
-            #       sizes when creating a new slice angle, but it is odd that
-            #       it only happens for the latitudinal plane...
-            # self.lat_slice.SliceType.Normal = [-y, x, 0]
+            loc = [-y, x, 0]
+            self.lat_slice_data.SliceType.Normal = loc
+            self.lat_stream_source.Normal = loc
         else:
             raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
@@ -860,21 +891,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if hasattr(self, x):
                 getattr(self, x).Center = self.evolutions[x].get_position(
                     curr_time)
-
-        if self._CME_VISIBLE:
-            # We need to force an update of the filters to populate the data.
-            # The CellData[variable] will be None if there is no data
-            # calculated based on the thresholding. In that case, we want to
-            # hide the object from view.
-            # NOTE: We only want to update the pipeline if necessary
-            pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_cme)
-            if self.cme.Input.CellData['DP'] is None:
-                pvs.Hide(self.cme, self.view)
-            else:
-                pvs.Show(self.cme, self.view)
-        else:
-            # CME isn't visible, so hide it
-            pvs.Hide(self.cme, self.view)
 
         if self._THRESHOLD_VISIBLE:
             # NOTE: Only update pipeline if necessary, same as the CME
