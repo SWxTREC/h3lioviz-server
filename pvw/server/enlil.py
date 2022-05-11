@@ -557,8 +557,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
-        self.update(None, None)
-
     @exportRpc("pv.enlil.colorby")
     def change_color_variable(self, name):
         """
@@ -826,7 +824,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         for sat in self._sat_views:
             # Hide() / Show()
             hide_show(sat, self.view)
-        self.update(None, None)
 
     @exportRpc("pv.enlil.get_satellite_times")
     def get_satellite_time(self, sat):
