@@ -103,9 +103,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.time_string = pvs.Text(registrationName='Time')
         # Don't add in any text right now
         self.time_string.Text = ""
-        # Need to keep track of whether the CME/Threshold should be visible
-        # so that we can hide 0 value returns
-        self._THRESHOLD_VISIBLE = False
         # Keep track of satellite labels
         self._sat_views = []
 
@@ -130,16 +127,23 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme_contours.Isosurfaces = []
         self.cme_contours.PointMergeMethod = 'Uniform Binning'
 
-        # Create a threshold that can be modified by the user
-        self.threshold_data = pvs.Threshold(registrationName='Threshold',
-                                            Input=self.data)
-        # We really only want a minimum value, so just set the maximum high
-        self.threshold_data.ThresholdRange = [10, 500]
-        # The quantity of interest
-        self.threshold_data.Scalars = ['CELLS', 'Density']
-        self.threshold = pvs.ResampleToImage(
-            registrationName='resampled_threshold',
-            Input=self.threshold_data)
+        # Create a threshold that can be modified by the user, we use
+        # two clips here instead because it looks a bit nicer.
+        self._low_clip = pvs.Clip(registrationName='Threshold-low-clip',
+                                  Input=self.data)
+        self._low_clip.ClipType = 'Scalar'
+        self._low_clip.Scalars = ['POINTS', 'Density']
+        self._low_clip.Value = 10.0
+        self._low_clip.Invert = 0
+
+        # call the high clip threshold because that is the one we want
+        # to hide/show from the user
+        self.threshold = pvs.Clip(registrationName='Threshold-high-clip',
+                                  Input=self._low_clip)
+        self.threshold.ClipType = 'Scalar'
+        self.threshold.Scalars = ['POINTS', 'Density']
+        self.threshold.Value = 50.0
+        self.threshold.Invert = 1
 
         # Create a Longitude slice
         self.lon_slice_data = pvs.Slice(
@@ -243,9 +247,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.LookupTable = bzLUT
 
         disp = pvs.Show(self.threshold, self.view,
-                        'UniformGridRepresentation')
+                        'UnstructuredGridRepresentation')
         self.displays[self.threshold] = disp
-        disp.Representation = 'Volume'
+        disp.Representation = 'Surface'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
         disp.OpacityArray = [None, '']
@@ -568,9 +572,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
-        # Keep track of whether the Threshold variables are visible
-        if obj == "threshold":
-            self._THRESHOLD_VISIBLE = {"on": True, "off": False}[visibility]
         self.update(None, None)
 
     @exportRpc("pv.enlil.colorby")
@@ -722,8 +723,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         variable = VARIABLE_MAP[name]
         # The quantity of interest
-        self.threshold_data.Scalars = ['CELLS', variable]
-        self.threshold_data.ThresholdRange = range
+        self._low_clip.Scalars = ['POINTS', variable]
+        self.threshold.Scalars = ['POINTS', variable]
+        # Unpack the range into the low/high threshold values
+        self._low_clip.Value = range[0]
+        self.threshold.Value = range[1]
 
     @exportRpc("pv.enlil.set_contours")
     def set_contours(self, name, values):
@@ -875,14 +879,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def update(self, caller, event):
         """
         Update function to call every time the time variable has changed.
-
-        The Threshold variables will ruin the view if they are shown and
-        there is no data present. So, if they are clicked "on" by the
-        frontend, but have no data we still want to force them to be hidden.
-        When they have data again, we want to show that value without needing
-        to click on/off by the user.
         """
-        pv_time = pvs.GetAnimationScene().TimeKeeper.Time
         curr_time = self.get_current_time()
         self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
 
@@ -891,20 +888,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             if hasattr(self, x):
                 getattr(self, x).Center = self.evolutions[x].get_position(
                     curr_time)
-
-        if self._THRESHOLD_VISIBLE:
-            # NOTE: Only update pipeline if necessary, same as the CME
-            pvs.UpdatePipeline(time=pv_time, proxy=self.threshold_data)
-            # Get the variable associated with this threshold operation
-            # and see if it is present within CellData
-            var = self.threshold_data.Scalars[1]
-            if self.threshold.Input.CellData[var] is None:
-                pvs.Hide(self.threshold, self.view)
-            else:
-                pvs.Show(self.threshold, self.view)
-        else:
-            # Hide the Threshold
-            pvs.Hide(self.threshold, self.view)
 
         # Update the rotation of the earth image
         self.rotate_earth()
