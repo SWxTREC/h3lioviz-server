@@ -128,22 +128,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme_contours.PointMergeMethod = 'Uniform Binning'
 
         # Create a threshold that can be modified by the user, we use
-        # two clips here instead because it looks a bit nicer.
-        self._low_clip = pvs.Clip(registrationName='Threshold-low-clip',
-                                  Input=self.data)
-        self._low_clip.ClipType = 'Scalar'
-        self._low_clip.Scalars = ['POINTS', 'Density']
-        self._low_clip.Value = 10.0
-        self._low_clip.Invert = 0
-
-        # call the high clip threshold because that is the one we want
-        # to hide/show from the user
-        self.threshold = pvs.Clip(registrationName='Threshold-high-clip',
-                                  Input=self._low_clip)
-        self.threshold.ClipType = 'Scalar'
-        self.threshold.Scalars = ['POINTS', 'Density']
-        self.threshold.Value = 50.0
-        self.threshold.Invert = 1
+        # two contours here instead because it looks a bit nicer.
+        self.threshold = pvs.Contour(registrationName='Threshold',
+                                     Input=self.data)
+        self.threshold.ContourBy = ['POINTS', 'Density']
+        self.threshold.Isosurfaces = [10, 50]
+        self.threshold.PointMergeMethod = 'Uniform Binning'
 
         # Create a Longitude slice
         self.lon_slice_data = pvs.Slice(
@@ -247,16 +237,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.LookupTable = bzLUT
 
         disp = pvs.Show(self.threshold, self.view,
-                        'UnstructuredGridRepresentation')
+                        'GeometryRepresentation')
         self.displays[self.threshold] = disp
         disp.Representation = 'Surface'
         disp.ColorArrayName = ['POINTS', 'Bz']
         disp.LookupTable = bzLUT
-        disp.OpacityArray = [None, '']
-        disp.OpacityTransferFunction = 'PiecewiseFunction'
-        disp.ScalarOpacityFunction = bzPWF
-        disp.ScalarOpacityUnitDistance = 0.02
-        disp.OpacityArrayName = [None, '']
 
         # Latitude
         disp = pvs.Show(self.lat_slice, self.view,
@@ -723,11 +708,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         variable = VARIABLE_MAP[name]
         # The quantity of interest
-        self._low_clip.Scalars = ['POINTS', variable]
-        self.threshold.Scalars = ['POINTS', variable]
-        # Unpack the range into the low/high threshold values
-        self._low_clip.Value = range[0]
-        self.threshold.Value = range[1]
+        self.threshold.ContourBy = ['POINTS', variable]
+        self.threshold.Isosurfaces = range
 
     @exportRpc("pv.enlil.set_contours")
     def set_contours(self, name, values):
