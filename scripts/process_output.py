@@ -82,6 +82,7 @@ def process_tim(ds):
     ds['Vr'] = ds['V1'] * velocity_conversion
     ds['Density'] = ds['Density'] * density_conversion / \
         (1 - ds.attrs['xalpha']) * ds['radius']**2
+    ds['DP'] *= ds['radius']**2
     # Ram pressure (rho * v**2)
     ds['Pressure'] = ds['Density'] * ds['Vr']**2
 
