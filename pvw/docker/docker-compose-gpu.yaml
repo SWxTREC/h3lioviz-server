@@ -1,0 +1,11 @@
+version: '3.2'
+
+services:
+  pvw:
+    image: public.ecr.aws/enlil/paraview_web_repo:${PVW_IMAGE_TAG:-pvw-enlil-egl}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
