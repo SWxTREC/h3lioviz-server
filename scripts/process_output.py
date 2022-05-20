@@ -50,7 +50,11 @@ def process_tim(ds):
     ds['n2'] = ds['X2']
     ds['n3'] = ds['X3']
 
-    t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    try:
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    except ValueError:
+        # May not be an hour given?
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%d')
     t = t0 + timedelta(seconds=ds['TIME'].item())
 
     # Change from Tesla to nT
@@ -113,7 +117,11 @@ def process_evo(ds):
 
     This does coordinate transformations and renaming.
     """
-    t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    try:
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    except ValueError:
+        # May not be an hour given?
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%d')
     t = np.datetime64(t0) + np.timedelta64(1, 's') * ds['TIME']
 
     # Change from Tesla to nT
