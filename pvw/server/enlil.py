@@ -65,7 +65,7 @@ VARIABLE_LABEL = {'velocity': 'Velocity (km/s)',
                   'bx': 'Bx (nT)',
                   'by': 'By (nT)',
                   'bz': 'Bz (nT)',
-                  'dp': 'DP (-) Cloud tracer'}
+                  'dp': 'Cloud tracer (-)'}
 
 # List of satellite colors
 SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],

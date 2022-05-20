@@ -216,7 +216,7 @@ def process_directory(path):
     print("Beginning processing, may take several minutes")
     t0 = time.time()
     # Load into a multi-file dataset to be able to concatenate along Time
-    ds = xr.open_mfdataset(fnames, concat_dim='time', combine='by_coords',
+    ds = xr.open_mfdataset(fnames, combine='by_coords',
                            preprocess=process_tim, engine='netcdf4')
     print(f"Dataset loaded: {time.time()-t0} s")
 
