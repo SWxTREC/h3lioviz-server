@@ -18,7 +18,8 @@ LUT_RANGE = {'Vr': [300, 900],
              'Br': [-10, 10],
              'Bx': [-10, 10],
              'By': [-10, 10],
-             'Bz': [-10, 10]}
+             'Bz': [-10, 10],
+             'DP': [0, 1]}
 
 # Control points for the opacity mapping
 # Can be either 2 or 3 values
@@ -31,7 +32,8 @@ OPACITY_VALUES = {'Vr': [0.2, 0.9],
                   'Br': [0.9, 0.2, 0.9],
                   'Bx': [0.9, 0.2, 0.9],
                   'By': [0.9, 0.2, 0.9],
-                  'Bz': [0.9, 0.2, 0.9]}
+                  'Bz': [0.9, 0.2, 0.9],
+                  'DP': [0.2, 0.9]}
 
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {'Vr': "Plasma (matplotlib)",
@@ -41,7 +43,8 @@ DEFAULT_CMAP = {'Vr': "Plasma (matplotlib)",
                 'Br': "Cool to Warm",
                 'Bx': "Cool to Warm",
                 'By': "Cool to Warm",
-                'Bz': "Cool to Warm"}
+                'Bz': "Cool to Warm",
+                'DP': "Plasma (matplotlib)"}
 
 # Name mapping from frontend to variables in dataset
 VARIABLE_MAP = {'velocity': 'Vr',
@@ -51,7 +54,8 @@ VARIABLE_MAP = {'velocity': 'Vr',
                 'b': 'Br',
                 'bx': 'Bx',
                 'by': 'By',
-                'bz': 'Bz'}
+                'bz': 'Bz',
+                'dp': 'DP'}
 
 VARIABLE_LABEL = {'velocity': 'Velocity (km/s)',
                   'density': 'Density (r$^2$N/cm$^3$)',
@@ -60,7 +64,8 @@ VARIABLE_LABEL = {'velocity': 'Velocity (km/s)',
                   'b': 'Br (nT)',
                   'bx': 'Bx (nT)',
                   'by': 'By (nT)',
-                  'bz': 'Bz (nT)'}
+                  'bz': 'Bz (nT)',
+                  'dp': 'DP (-) Cloud tracer'}
 
 # List of satellite colors
 SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
@@ -117,7 +122,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                                Input=self.data)
         self.cme.ContourBy = ['POINTS', 'DP']
         self.cme.ComputeNormals = 0
-        self.cme.Isosurfaces = [1e-06]
+        self.cme.Isosurfaces = [0.2]
         self.cme.PointMergeMethod = 'Uniform Binning'
 
         self.cme_contours = pvs.Contour(
