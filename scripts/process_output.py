@@ -50,7 +50,11 @@ def process_tim(ds):
     ds['n2'] = ds['X2']
     ds['n3'] = ds['X3']
 
-    t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    try:
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    except ValueError:
+        # May not be an hour given?
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%d')
     t = t0 + timedelta(seconds=ds['TIME'].item())
 
     # Change from Tesla to nT
@@ -82,6 +86,7 @@ def process_tim(ds):
     ds['Vr'] = ds['V1'] * velocity_conversion
     ds['Density'] = ds['Density'] * density_conversion / \
         (1 - ds.attrs['xalpha']) * ds['radius']**2
+    ds['DP'] *= ds['radius']**2
     # Ram pressure (rho * v**2)
     ds['Pressure'] = ds['Density'] * ds['Vr']**2
 
@@ -112,7 +117,11 @@ def process_evo(ds):
 
     This does coordinate transformations and renaming.
     """
-    t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    try:
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%dT%H')
+    except ValueError:
+        # May not be an hour given?
+        t0 = datetime.strptime(ds.attrs['rundate_cal'], '%Y-%m-%d')
     t = np.datetime64(t0) + np.timedelta64(1, 's') * ds['TIME']
 
     # Change from Tesla to nT
@@ -207,7 +216,7 @@ def process_directory(path):
     print("Beginning processing, may take several minutes")
     t0 = time.time()
     # Load into a multi-file dataset to be able to concatenate along Time
-    ds = xr.open_mfdataset(fnames, concat_dim='time', combine='by_coords',
+    ds = xr.open_mfdataset(fnames, combine='by_coords',
                            preprocess=process_tim, engine='netcdf4')
     print(f"Dataset loaded: {time.time()-t0} s")
 
