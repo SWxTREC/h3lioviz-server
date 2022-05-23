@@ -587,6 +587,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             cbar.TextPosition = 'Ticks left/bottom, annotations right/top'
             cbar.Title = label
             cbar.ComponentTitle = ""
+            # Disables the endpoints which can be formatted differently
+            cbar.AddRangeLabels = 0
 
         self.update_opacity(variable)
         self.update_lut(variable)
