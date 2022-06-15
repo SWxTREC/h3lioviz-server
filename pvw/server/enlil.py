@@ -11,71 +11,81 @@ from evolution import Evolution
 
 # Global definitions of variables
 # Range for each lookup table
-LUT_RANGE = {'Vr': [300, 900],
-             'Density': [0, 30],
-             'Pressure': [1e5, 1e7],
-             'T': [1e4, 1e6],
-             'Br': [-10, 10],
-             'Bx': [-10, 10],
-             'By': [-10, 10],
-             'Bz': [-10, 10],
-             'DP': [0, 1]}
+LUT_RANGE = {
+    "Vr": [300, 900],
+    "Density": [0, 30],
+    "Pressure": [1e5, 1e7],
+    "T": [1e4, 1e6],
+    "Br": [-10, 10],
+    "Bx": [-10, 10],
+    "By": [-10, 10],
+    "Bz": [-10, 10],
+    "DP": [0, 1],
+}
 
 # Control points for the opacity mapping
 # Can be either 2 or 3 values
 # 2: Min/max opacity corresponding to the min/max data
 # 3: Min, middle, max opacity corresponding to min/center/max data
-OPACITY_VALUES = {'Vr': [0.2, 0.9],
-                  'Density': [0.2, 0.9],
-                  'Pressure': [0.2, 0.9],
-                  'T': [0.2, 0.9],
-                  'Br': [0.9, 0.2, 0.9],
-                  'Bx': [0.9, 0.2, 0.9],
-                  'By': [0.9, 0.2, 0.9],
-                  'Bz': [0.9, 0.2, 0.9],
-                  'DP': [0.2, 0.9]}
+OPACITY_VALUES = {
+    "Vr": [0.2, 0.9],
+    "Density": [0.2, 0.9],
+    "Pressure": [0.2, 0.9],
+    "T": [0.2, 0.9],
+    "Br": [0.9, 0.2, 0.9],
+    "Bx": [0.9, 0.2, 0.9],
+    "By": [0.9, 0.2, 0.9],
+    "Bz": [0.9, 0.2, 0.9],
+    "DP": [0.2, 0.9]
+}
 
 # Default colormaps to use for the variables
-DEFAULT_CMAP = {'Vr': "Plasma (matplotlib)",
-                'Density': "Viridis (matplotlib)",
-                'Pressure': "Viridis (matplotlib)",
-                'T': "Inferno (matplotlib)",
-                'Br': "Cool to Warm",
-                'Bx': "Cool to Warm",
-                'By': "Cool to Warm",
-                'Bz': "Cool to Warm",
-                'DP': "Plasma (matplotlib)"}
+DEFAULT_CMAP = {
+    "Vr": "Plasma (matplotlib)",
+    "Density": "Viridis (matplotlib)",
+    "Pressure": "Viridis (matplotlib)",
+    "T": "Inferno (matplotlib)",
+    "Br": "Cool to Warm",
+    "Bx": "Cool to Warm",
+    "By": "Cool to Warm",
+    "Bz": "Cool to Warm",
+    "DP": "Plasma (matplotlib)",
+}
 
 # Name mapping from frontend to variables in dataset
-VARIABLE_MAP = {'velocity': 'Vr',
-                'density': 'Density',
-                'pressure': 'Pressure',
-                'temperature': 'T',
-                'b': 'Br',
-                'bx': 'Bx',
-                'by': 'By',
-                'bz': 'Bz',
-                'dp': 'DP'}
+VARIABLE_MAP = {
+    "velocity": "Vr",
+    "density": "Density",
+    "pressure": "Pressure",
+    "temperature": "T",
+    "b": "Br",
+    "bx": "Bx",
+    "by": "By",
+    "bz": "Bz",
+    "dp": "DP",
+}
 
-VARIABLE_LABEL = {'velocity': 'Velocity (km/s)',
-                  'density': 'Density (r$^2$N/cm$^3$)',
-                  'pressure': 'Ram pressure (r$^2$N/cm$^3$ * km$^2$/s$^2$)',
-                  'temperature': 'Temperature (K)',
-                  'b': 'Br (nT)',
-                  'bx': 'Bx (nT)',
-                  'by': 'By (nT)',
-                  'bz': 'Bz (nT)',
-                  'dp': 'Cloud tracer (-)'}
+VARIABLE_LABEL = {
+    "velocity": "Velocity (km/s)",
+    "density": "Density (r$^2$N/cm$^3$)",
+    "pressure": "Ram pressure (r$^2$N/cm$^3$ * km$^2$/s$^2$)",
+    "temperature": "Temperature (K)",
+    "b": "Br (nT)",
+    "bx": "Bx (nT)",
+    "by": "By (nT)",
+    "bz": "Bz (nT)",
+    "dp": "Cloud tracer (-)",
+}
 
 # List of satellite colors
-SATELLITE_COLORS = {"earth": [0.0, 0.3333333333333333, 0.0],
-                    "stereoa": [177/255, 138/255, 142/255],
-                    "stereob": [94/255, 96/255, 185/255]}
+SATELLITE_COLORS = {
+    "earth": [0.0, 0.3333333333333333, 0.0],
+    "stereoa": [177 / 255, 138 / 255, 142 / 255],
+    "stereob": [94 / 255, 96 / 255, 185 / 255],
+}
 
 # Keep track of the name mapping that we want to show to users
-SATELLITE_NAMES = {"earth": "Earth",
-                   "stereoa": "STEREO-A",
-                   "stereob": "STEREO-B"}
+SATELLITE_NAMES = {"earth": "Earth", "stereoa": "STEREO-A", "stereob": "STEREO-B"}
 
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
@@ -95,86 +105,97 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # create a new 'NetCDF Reader' from the full data path
         fname = os.path.join(dirname, "pv-data-3d.nc")
         self.celldata = pvs.NetCDFReader(
-            registrationName='enlil-data', FileName=[fname])
-        self.celldata.Dimensions = '(longitude, latitude, radius)'
+            registrationName="enlil-data", FileName=[fname]
+        )
+        self.celldata.Dimensions = "(longitude, latitude, radius)"
 
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
-            registrationName=f"3D-CellDatatoPointData",
-            Input=self.celldata)
+            registrationName=f"3D-CellDatatoPointData", Input=self.celldata
+        )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
 
-        self.time_string = pvs.Text(registrationName='Time')
+        self.time_string = pvs.Text(registrationName="Time")
         # Don't add in any text right now
         self.time_string.Text = ""
         # Keep track of satellite labels
         self._sat_views = []
 
         # create a new 'Threshold' to represent the CME
-        self.threshold_cme = pvs.Threshold(registrationName='CME',
-                                           Input=self.data)
+        self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
         # We really only want a minimum value, so just set the maximum high
         self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
-        self.threshold_cme.Scalars = ['CELLS', 'DP']
-        self.cme = pvs.Contour(registrationName='contoured_cme',
-                               Input=self.data)
-        self.cme.ContourBy = ['POINTS', 'DP']
+        self.threshold_cme.Scalars = ["CELLS", "DP"]
+        self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
+        self.cme.ContourBy = ["POINTS", "DP"]
         self.cme.ComputeNormals = 0
         self.cme.Isosurfaces = [0.2]
         self.cme.PointMergeMethod = 'Uniform Binning'
 
         self.cme_contours = pvs.Contour(
-            registrationName='CME-contour',
-            Input=self.threshold_cme)
-        self.cme_contours.ContourBy = ['POINTS', 'Density']
+            registrationName="CME-contour", Input=self.threshold_cme
+        )
+        self.cme_contours.ContourBy = ["POINTS", "Density"]
         self.cme_contours.Isosurfaces = []
-        self.cme_contours.PointMergeMethod = 'Uniform Binning'
+        self.cme_contours.PointMergeMethod = "Uniform Binning"
 
         # Create a threshold that can be modified by the user, we use
         # two contours here instead because it looks a bit nicer.
-        self.threshold = pvs.Contour(registrationName='Threshold',
-                                     Input=self.data)
-        self.threshold.ContourBy = ['POINTS', 'Density']
+        self.threshold = pvs.Contour(registrationName="Threshold", Input=self.data)
+        self.threshold.ContourBy = ["POINTS", "Density"]
         self.threshold.Isosurfaces = [10, 50]
-        self.threshold.PointMergeMethod = 'Uniform Binning'
+        self.threshold.PointMergeMethod = "Uniform Binning"
 
         # Create a Longitude slice
         self.lon_slice_data = pvs.Slice(
-            registrationName='Longitude', Input=self.celldata)
-        self.lon_slice_data.SliceType = 'Plane'
-        self.lon_slice_data.HyperTreeGridSlicer = 'Plane'
+            registrationName="Longitude", Input=self.celldata
+        )
+        self.lon_slice_data.SliceType = "Plane"
+        self.lon_slice_data.HyperTreeGridSlicer = "Plane"
         self.lon_slice_data.SliceOffsetValues = [0.0]
         self.lon_slice_data.SliceType.Origin = [0, 0, 0]
         self.lon_slice_data.SliceType.Normal = [0.0, 0.0, 1.0]
         # Now make point data on that slice
         self.lon_slice = pvs.CellDatatoPointData(
-            registrationName=f"lon-slice-CellDatatoPointData",
-            Input=self.lon_slice_data)
+            registrationName=f"lon-slice-CellDatatoPointData", Input=self.lon_slice_data
+        )
         self.lon_slice.ProcessAllArrays = 1
         self._add_streamlines("lon")
 
         # Create a Latitude slice
         self.lat_slice_data = pvs.Slice(
-            registrationName='Latitude', Input=self.celldata)
-        self.lat_slice_data.SliceType = 'Plane'
-        self.lat_slice_data.HyperTreeGridSlicer = 'Plane'
+            registrationName="Latitude", Input=self.celldata
+        )
+        self.lat_slice_data.SliceType = "Plane"
+        self.lat_slice_data.HyperTreeGridSlicer = "Plane"
         self.lat_slice_data.SliceOffsetValues = [0.0]
         self.lat_slice_data.SliceType.Origin = [0, 0, 0]
         self.lat_slice_data.SliceType.Normal = [0.0, 1.0, 0.0]
         # Now make point data on that slice
         self.lat_slice = pvs.CellDatatoPointData(
-            registrationName=f"lat-slice-CellDatatoPointData",
-            Input=self.lat_slice_data)
+            registrationName=f"lat-slice-CellDatatoPointData", Input=self.lat_slice_data
+        )
         self.lat_slice.ProcessAllArrays = 1
         self._add_streamlines("lat")
 
         # Dictionary mapping of string names to the object
-        self.objs = {s: getattr(self, s) for s in (
-            "lon_slice", "lat_slice", "cme", "data",
-            "lon_arrows", "lon_streamlines", "lat_arrows", "lat_streamlines",
-            "threshold", "cme_contours")}
+        self.objs = {
+            s: getattr(self, s)
+            for s in (
+                "lon_slice",
+                "lat_slice",
+                "cme",
+                "data",
+                "lon_arrows",
+                "lon_streamlines",
+                "lat_arrows",
+                "lat_streamlines",
+                "threshold",
+                "cme_contours",
+            )
+        }
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
@@ -185,7 +206,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The final 1.0 is optional, but sets it as high priority to first
         # do this before other rendering.
         pvs.GetAnimationScene().TimeKeeper.AddObserver(
-            "PropertyModifiedEvent", self.update, 1.0)
+            "PropertyModifiedEvent", self.update, 1.0
+        )
 
         # Set the default to have the slice go through Earth
         self.snap_solar_plane("ecliptic")
@@ -198,126 +220,125 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Get the initial 'Render View'
         self.view = pvs.GetActiveView()
         self.view.ViewSize = [600, 600]
-        self.view.AxesGrid = 'GridAxes3DActor'
+        self.view.AxesGrid = "GridAxes3DActor"
         self.view.CenterOfRotation = [0, 0, 0]
-        self.view.StereoType = 'Crystal Eyes'
+        self.view.StereoType = "Crystal Eyes"
         self.view.CameraPosition = [-3, 3, 3]
         self.view.CameraFocalPoint = [0, 0, 0]
         self.view.CameraViewUp = [0, 0, 1]
         self.view.CameraFocalDisk = 1.0
         self.view.CameraParallelScale = 2
-        self.view.BackEnd = 'OSPRay raycaster'
+        self.view.BackEnd = "OSPRay raycaster"
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
         # Time string
-        disp = pvs.Show(self.time_string, self.view,
-                        'TextSourceRepresentation')
+        disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
 
         # get color transfer function/color map for Bz initially
-        bzLUT = pvs.GetColorTransferFunction('Bz')
-        bzLUT.RGBPoints = [-10, 0.231373, 0.298039, 0.752941,
-                           0, 0.865003, 0.865003, 0.865003,
-                           10, 0.705882, 0.0156863, 0.14902]
+        bzLUT = pvs.GetColorTransferFunction("Bz")
+        bzLUT.RGBPoints = [
+            -10,
+            0.231373,
+            0.298039,
+            0.752941,
+            0,
+            0.865003,
+            0.865003,
+            0.865003,
+            10,
+            0.705882,
+            0.0156863,
+            0.14902,
+        ]
         bzLUT.ScalarRangeInitialized = 1.0
         # get opacity transfer function/opacity map for 'Bz'
-        bzPWF = pvs.GetOpacityTransferFunction('Bz')
-        bzPWF.Points = [-10, 0.0, 0.5, 0.0,
-                        10, 1.0, 0.5, 0.0]
+        bzPWF = pvs.GetOpacityTransferFunction("Bz")
+        bzPWF.Points = [-10, 0.0, 0.5, 0.0, 10, 1.0, 0.5, 0.0]
         bzPWF.ScalarRangeInitialized = 1
 
         # CME Threshold
-        disp = pvs.Show(self.cme, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.cme, self.view, "GeometryRepresentation")
         self.displays[self.cme] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = [None, '']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = [None, ""]
         disp.Opacity = 0.25
 
         # CME Contours
-        disp = pvs.Show(self.cme_contours, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.cme_contours, self.view, "GeometryRepresentation")
         self.displays[self.cme_contours] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
-        disp = pvs.Show(self.threshold, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.threshold, self.view, "GeometryRepresentation")
         self.displays[self.threshold] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
         # Latitude
-        disp = pvs.Show(self.lat_slice, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.lat_slice, self.view, "GeometryRepresentation")
         self.displays[self.lat_slice] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
         # Longitude
-        disp = pvs.Show(self.lon_slice, self.view, 'GeometryRepresentation')
+        disp = pvs.Show(self.lon_slice, self.view, "GeometryRepresentation")
         self.displays[self.lon_slice] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
         # Streamlines
-        disp = pvs.Show(self.lon_streamlines, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.lon_streamlines, self.view, "GeometryRepresentation")
         # Add in a magnetic polarity colormap (radial in or out)
         # with two values blue/red
         # separate=True makes sure it doesn't overwrite the Br of the
         # frontend choices
-        bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
-        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5,
-                           1e5, 0.9, 0.9, 0.9]
+        bpLUT = pvs.GetColorTransferFunction("Br", disp, separate=True)
+        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5, 1e5, 0.9, 0.9, 0.9]
         bpLUT.ScalarRangeInitialized = 1.0
         bpLUT.NumberOfTableValues = 2
         self.displays[self.lon_streamlines] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
         disp.LookupTable = bpLUT
 
         # B-field vectors
-        disp = pvs.Show(self.lon_arrows, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.lon_arrows, self.view, "GeometryRepresentation")
         self.displays[self.lon_arrows] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
         disp.LookupTable = bpLUT
 
         # latitudinal plane
-        disp = pvs.Show(self.lat_slice, self.view, 'GeometryRepresentation')
+        disp = pvs.Show(self.lat_slice, self.view, "GeometryRepresentation")
         self.displays[self.lat_slice] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ['POINTS', 'Bz']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
         # Streamlines
-        disp = pvs.Show(self.lat_streamlines, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.lat_streamlines, self.view, "GeometryRepresentation")
         # Add in a magnetic polarity colormap (radial in or out)
         # with two values blue/red
         # separate=True makes sure it doesn't overwrite the Br of the
         # frontend choices
-        bpLUT = pvs.GetColorTransferFunction('Br', disp, separate=True)
-        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5,
-                           1e5, 0.9, 0.9, 0.9]
+        bpLUT = pvs.GetColorTransferFunction("Br", disp, separate=True)
+        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5, 1e5, 0.9, 0.9, 0.9]
         bpLUT.ScalarRangeInitialized = 1.0
         bpLUT.NumberOfTableValues = 2
         self.displays[self.lat_streamlines] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
         disp.LookupTable = bpLUT
 
         # B-field vectors
-        disp = pvs.Show(self.lat_arrows, self.view,
-                        'GeometryRepresentation')
+        disp = pvs.Show(self.lat_arrows, self.view, "GeometryRepresentation")
         self.displays[self.lat_arrows] = disp
-        disp.Representation = 'Surface'
-        disp.ColorArrayName = ["POINTS", 'Br']
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
         disp.LookupTable = bpLUT
 
         # Set colormaps
@@ -325,9 +346,15 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.set_colormap(name)
 
         # hide this data from the default initial view
-        for x in [self.lon_slice, self.lon_arrows, self.lon_streamlines,
-                  self.lat_arrows, self.lat_streamlines,
-                  self.threshold, self.cme_contours]:
+        for x in [
+            self.lon_slice,
+            self.lon_arrows,
+            self.lon_streamlines,
+            self.lat_arrows,
+            self.lat_streamlines,
+            self.threshold,
+            self.cme_contours,
+        ]:
             pvs.Hide(x, self.view)
 
         # restore active source
@@ -361,23 +388,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             evo = self.evolutions[x]
             sat.Center = evo.get_position(curr_time)
 
-            disp = pvs.Show(sat, self.view,
-                            'GeometryRepresentation')
+            disp = pvs.Show(sat, self.view, "GeometryRepresentation")
             # trace defaults for the display properties.
-            disp.Representation = 'Surface'
+            disp.Representation = "Surface"
             disp.AmbientColor = SATELLITE_COLORS[x]
-            disp.ColorArrayName = [None, '']
+            disp.ColorArrayName = [None, ""]
             disp.DiffuseColor = SATELLITE_COLORS[x]
 
             if x != "earth":
                 # Label all non-earth satellites
                 sat_label = pvs.Text()
                 sat_label.Text = SATELLITE_NAMES[x]
-                disp = pvs.Show(sat_label, self.view,
-                                'TextSourceRepresentation')
-                disp.TextPropMode = 'Billboard 3D Text'
+                disp = pvs.Show(sat_label, self.view, "TextSourceRepresentation")
+                disp.TextPropMode = "Billboard 3D Text"
                 disp.FontSize = 14
-                disp.WindowLocation = 'AnyLocation'
+                disp.WindowLocation = "AnyLocation"
                 # Offset the center by the width to give some separation
                 disp.BillboardPosition = [x + sat.XLength for x in sat.Center]
                 disp.Color = [0, 0, 0]  # Black text
@@ -392,12 +417,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.sun.Radius = 0.074
         self.sun.ThetaResolution = 50
         self.sun.PhiResolution = 50
-        disp = pvs.Show(self.sun, self.view, 'GeometryRepresentation')
+        disp = pvs.Show(self.sun, self.view, "GeometryRepresentation")
 
         # trace defaults for the display properties.
-        disp.Representation = 'Surface'
+        disp.Representation = "Surface"
         disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.ColorArrayName = [None, '']
+        disp.ColorArrayName = [None, ""]
         disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
 
         # Apply an image to the Earth sphere
@@ -435,39 +460,40 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Create the magnetic field vectors through a PV Function
         curr_slice = getattr(self, f"{plane}_slice")
-        bvec = pvs.Calculator(registrationName=f"{plane}-Bvec",
-                              Input=curr_slice)
-        bvec.AttributeType = 'Point Data'
-        bvec.ResultArrayName = 'Bvec'
-        bvec.Function = 'Bx*iHat + By*jHat + Bz*kHat'
+        bvec = pvs.Calculator(registrationName=f"{plane}-Bvec", Input=curr_slice)
+        bvec.AttributeType = "Point Data"
+        bvec.ResultArrayName = "Bvec"
+        bvec.Function = "Bx*iHat + By*jHat + Bz*kHat"
 
         stream_input = pvs.StreamTracerWithCustomSource(
             registrationName=f"{plane}-StreamTracerWithCustomSource",
             Input=bvec,
-            SeedSource=stream_source)
-        stream_input.Vectors = ['POINTS', 'Bvec']
+            SeedSource=stream_source,
+        )
+        stream_input.Vectors = ["POINTS", "Bvec"]
         stream_input.SurfaceStreamlines = 1
         stream_input.MaximumStreamlineLength = 3.4
         stream_input.ComputeVorticity = 0
 
-        streamlines = pvs.Tube(registrationName=f"{plane}-Streamlines",
-                               Input=stream_input)
+        streamlines = pvs.Tube(
+            registrationName=f"{plane}-Streamlines", Input=stream_input
+        )
         streamlines.Capping = 1
         streamlines.Radius = 0.005
 
         # create a new 'Glyph' in the slice (Arrow/vectors)
         arrows = pvs.Glyph(
-            registrationName=f"{plane}-B-Arrows", Input=stream_input,
-            GlyphType='Cone')
-        arrows.OrientationArray = ['POINTS', 'Bvec']
-        arrows.ScaleArray = ['POINTS', 'No scale array']
+            registrationName=f"{plane}-B-Arrows", Input=stream_input, GlyphType="Cone"
+        )
+        arrows.OrientationArray = ["POINTS", "Bvec"]
+        arrows.ScaleArray = ["POINTS", "No scale array"]
         arrows.ScaleFactor = 1
         arrows.GlyphType.Resolution = 60
         arrows.GlyphType.Radius = 0.02
         arrows.GlyphType.Height = 0.08
-        arrows.GlyphTransform = 'Transform2'
-        arrows.GlyphMode = 'Every Nth Point'
-        arrows.GlyphMode = 'Uniform Spatial Distribution (Bounds Based)'
+        arrows.GlyphTransform = "Transform2"
+        arrows.GlyphMode = "Every Nth Point"
+        arrows.GlyphMode = "Uniform Spatial Distribution (Bounds Based)"
         arrows.MaximumNumberOfSamplePoints = 100
         # Store the objects we need for later as attributes on self
         # (self.lon_streamlines / self.lat_streamlines)
@@ -497,8 +523,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         dirs = [os.path.join(base_dir, x) for x in dirs]
         # Now search to see if there is a pv-data-3d.nc in that directory
         # and if not, ignore that entry
-        dirs = [x for x in dirs
-                if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
+        dirs = [x for x in dirs if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
         return dirs
 
     @exportRpc("pv.enlil.get_variable_range")
@@ -576,9 +601,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
-            if obj in (self.lon_arrows, self.lon_streamlines,
-                       self.lat_arrows, self.lat_streamlines,
-                       self.cme):
+            if obj in (
+                self.lon_arrows,
+                self.lon_streamlines,
+                self.lat_arrows,
+                self.lat_streamlines,
+                self.cme,
+            ):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -588,8 +617,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 continue
             cbar = pvs.GetScalarBar(disp.LookupTable, self.view)
             cbar.AutoOrient = 0
-            cbar.Orientation = 'Horizontal'
-            cbar.TextPosition = 'Ticks left/bottom, annotations right/top'
+            cbar.Orientation = "Horizontal"
+            cbar.TextPosition = "Ticks left/bottom, annotations right/top"
             cbar.Title = label
             cbar.ComponentTitle = ""
             # Disables the endpoints which can be formatted differently
@@ -621,7 +650,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         lut = pvs.GetColorTransferFunction(variable)
         lut.RescaleTransferFunction(LUT_RANGE[variable])
-        lut.AutomaticRescaleRangeMode = 'Never'
+        lut.AutomaticRescaleRangeMode = "Never"
 
     def update_opacity(self, variable):
         """
@@ -638,14 +667,32 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # (data-value, opacity, mid-point, sharpness)
         if len(points) == 2:
             # only min/max values to map
-            opacity_map.Points = [data_range[0], points[0], 0.5, 0,
-                                  data_range[1], points[1], 0.5, 0]
+            opacity_map.Points = [
+                data_range[0],
+                points[0],
+                0.5,
+                0,
+                data_range[1],
+                points[1],
+                0.5,
+                0,
+            ]
         elif len(points) == 3:
             # min/mid/max
-            opacity_map.Points = [data_range[0], points[0], 0.5, 0,
-                                  (data_range[0] + data_range[1]) / 2,
-                                  points[1], 0.5, 0,
-                                  data_range[1], points[2], 0.5, 0]
+            opacity_map.Points = [
+                data_range[0],
+                points[0],
+                0.5,
+                0,
+                (data_range[0] + data_range[1]) / 2,
+                points[1],
+                0.5,
+                0,
+                data_range[1],
+                points[2],
+                0.5,
+                0,
+            ]
         else:
             raise ValueError("Opacity needs 2 or 3 points to map")
 
@@ -713,7 +760,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         variable = VARIABLE_MAP[name]
         # The quantity of interest
-        self.threshold.ContourBy = ['POINTS', variable]
+        self.threshold.ContourBy = ["POINTS", variable]
         self.threshold.Isosurfaces = range
 
     @exportRpc("pv.enlil.set_contours")
@@ -728,7 +775,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         variable = VARIABLE_MAP[name]
         # The quantity of interest
-        self.cme_contours.ContourBy = ['POINTS', variable]
+        self.cme_contours.ContourBy = ["POINTS", variable]
         self.cme_contours.Isosurfaces = values
 
     @exportRpc("pv.enlil.snap_solar_plane")
@@ -753,8 +800,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # z is perpendicular
             loc = [0, 0, 1]
         else:
-            raise ValueError('The snapping clip plane must be either '
-                             '"ecliptic" or "equator"')
+            raise ValueError(
+                "The snapping clip plane must be either " '"ecliptic" or "equator"'
+            )
 
         self.lon_slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
@@ -809,8 +857,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             self.view.CameraPosition = [-3, 3, 3]
             self.view.CameraViewUp = [0, 0, 1]
         else:
-            raise ValueError('Invalid string, only "ecliptic", "meridional", '
-                             'and "initial" are allowed.')
+            raise ValueError(
+                'Invalid string, only "ecliptic", "meridional", '
+                'and "initial" are allowed.'
+            )
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
 
@@ -872,8 +922,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         for x in SATELLITE_COLORS:
             # Update the satellite positions based on the evolution data
             if hasattr(self, x):
-                getattr(self, x).Center = self.evolutions[x].get_position(
-                    curr_time)
+                getattr(self, x).Center = self.evolutions[x].get_position(curr_time)
 
         # Update the rotation of the earth image
         self.rotate_earth()
@@ -889,17 +938,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # We don't have earth's location, so just return
             return
         import pathlib
+
         # Path to the Earth texture on our local system
         # cwd() is where paraview is launched from
-        earth_path = pathlib.Path.cwd() / 'pvw' / 'server' / 'assets'
-        earth_path /= 'land_shallow_topo_2048.jpg'
+        earth_path = pathlib.Path.cwd() / "pvw" / "server" / "assets"
+        earth_path /= "land_shallow_topo_2048.jpg"
         # If we don't have the texture file, go download it.
         if not earth_path.exists():
             # Make the directories if they don't already exist
             earth_path.parent.mkdir(parents=True, exist_ok=True)
             import urllib.request
-            url = ("https://eoimages.gsfc.nasa.gov/images/imagerecords/"
-                   "57000/57752/land_shallow_topo_2048.jpg")
+
+            url = (
+                "https://eoimages.gsfc.nasa.gov/images/imagerecords/"
+                "57000/57752/land_shallow_topo_2048.jpg"
+            )
             # Make a request
             req = urllib.request.urlopen(url)
             # Write out the response to our local file
@@ -916,8 +969,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         sphere.StartTheta = 1e-3
         sphere.PhiResolution = 50
         # create a new 'Texture Map to Sphere'
-        texture_map = pvs.TextureMaptoSphere(registrationName='EarthImage',
-                                             Input=sphere)
+        texture_map = pvs.TextureMaptoSphere(
+            registrationName="EarthImage", Input=sphere
+        )
         texture_map.PreventSeam = 0
 
         # Move the Earth sphere center back to zero for a translation
@@ -931,33 +985,33 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # TODO: This could be turned into a rotation matrix eventually to
         #       only calculate this at one step, rather than three successive
         #       filters being applied.
-        t = pvs.Transform(registrationName='EarthTranslation1',
-                          Input=texture_map)
-        t.Transform = 'Transform'
+        t = pvs.Transform(registrationName="EarthTranslation1", Input=texture_map)
+        t.Transform = "Transform"
         t.Transform.Translate = [0.0, 0.0, 0.0]
         self.earth_translation1 = t
-        t = pvs.Transform(registrationName='EarthRotation',
-                          Input=self.earth_translation1)
-        t.Transform = 'Transform'
+        t = pvs.Transform(
+            registrationName="EarthRotation", Input=self.earth_translation1
+        )
+        t.Transform = "Transform"
         t.Transform.Rotate = [0.0, 0.0, 0.0]
         self.earth_rotation = t
-        t = pvs.Transform(registrationName='EarthTranslation2',
-                          Input=self.earth_rotation)
-        t.Transform = 'Transform'
+        t = pvs.Transform(
+            registrationName="EarthTranslation2", Input=self.earth_rotation
+        )
+        t.Transform = "Transform"
         t.Transform.Translate = [0.0, 0.0, -1]
         self.earth_translation2 = t
 
         # show data from the image and hide the plain sphere
         pvs.Hide(self.earth)
-        texture_map_disp = pvs.Show(t, self.view,
-                                    'GeometryRepresentation')
+        texture_map_disp = pvs.Show(t, self.view, "GeometryRepresentation")
 
         # trace defaults for the display properties.
-        texture_map_disp.Representation = 'Surface'
-        texture_map_disp.ColorArrayName = [None, '']
-        texture_map_disp.SelectTCoordArray = 'Texture Coordinates'
-        texture_map_disp.SelectNormalArray = 'Normals'
-        texture_map_disp.SelectTangentArray = 'None'
+        texture_map_disp.Representation = "Surface"
+        texture_map_disp.ColorArrayName = [None, ""]
+        texture_map_disp.SelectTCoordArray = "Texture Coordinates"
+        texture_map_disp.SelectNormalArray = "Normals"
+        texture_map_disp.SelectTangentArray = "None"
         texture_map_disp.Texture = earth_image
         # To get the proper orientation
         texture_map_disp.FlipTextures = 1
@@ -968,12 +1022,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         This will look for a local image asset to use, and if not found,
         try to go download it for the user.
         """
-        solar_dir = self._data_dir + '/solar_images'
+        solar_dir = self._data_dir + "/solar_images"
         if not os.path.exists(solar_dir):
             return
         # Store a list of the solar images
-        self._solar_images = [os.path.basename(x)
-                              for x in glob.glob(solar_dir + '/*.jpg')]
+        self._solar_images = [
+            os.path.basename(x) for x in glob.glob(solar_dir + "/*.jpg")
+        ]
         self._solar_images = sorted(self._solar_images)
 
         # Sun representation
@@ -988,8 +1043,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # For the solar imagery we want texture map to plane because it is
         # a flat image instead of an unwrapped image.
-        texture_map = pvs.TextureMaptoPlane(registrationName='SunImage',
-                                            Input=sun)
+        texture_map = pvs.TextureMaptoPlane(registrationName="SunImage", Input=sun)
         # Make the points form a square of radius r
         # Earth is in the -X direction, so we want our image plane to be
         # in the Y-Z direction, with the origin at (+Y, -Z) and the base
@@ -1000,33 +1054,31 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # We also want to clip the sphere so we don't get any wrapping
         # into the back plane
-        clip = pvs.Clip(registrationName='ClipSun', Input=texture_map)
-        clip.ClipType = 'Plane'
-        clip.HyperTreeGridClipper = 'Plane'
-        clip.Scalars = ['POINTS', '']
+        clip = pvs.Clip(registrationName="ClipSun", Input=texture_map)
+        clip.ClipType = "Plane"
+        clip.HyperTreeGridClipper = "Plane"
+        clip.Scalars = ["POINTS", ""]
         clip.Invert = 1
 
         # This is the plane to clip on. It doesn't cover the entire
         # half-sphere, so limit it a little bit in the X direction
         clip.ClipType.Origin = [-0.03, 0.0, 0.0]
 
-        sun_display = pvs.Show(clip, self.view,
-                               'GeometryRepresentation')
+        sun_display = pvs.Show(clip, self.view, "GeometryRepresentation")
 
         # Create a texture from the first image
-        sun_texture = pvs.CreateTexture(
-            solar_dir + '/' + self._solar_images[0])
+        sun_texture = pvs.CreateTexture(solar_dir + "/" + self._solar_images[0])
         self._previous_time = self.get_current_time()
 
         # trace defaults for the display properties.
-        sun_display.Representation = 'Surface'
-        sun_display.ColorArrayName = [None, '']
-        sun_display.SelectTCoordArray = 'Texture Coordinates'
-        sun_display.SelectNormalArray = 'Normals'
-        sun_display.SelectTangentArray = 'None'
+        sun_display.Representation = "Surface"
+        sun_display.ColorArrayName = [None, ""]
+        sun_display.SelectTCoordArray = "Texture Coordinates"
+        sun_display.SelectNormalArray = "Normals"
+        sun_display.SelectTangentArray = "None"
         sun_display.Texture = sun_texture
         # This hides the HMI image when looking from behind
-        sun_display.BackfaceRepresentation = 'Cull Backface'
+        sun_display.BackfaceRepresentation = "Cull Backface"
         self.sun_display = sun_display
 
     def get_current_time(self):
@@ -1039,11 +1091,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         pv_time = pvs.GetAnimationScene().TimeKeeper.Time
         # The internal time variable on the ViewTime attribute is stored as
         # seconds from 1970-01-01, so we use that epoch directly internally.
-        return (datetime.datetime(1970, 1, 1) +
-                datetime.timedelta(seconds=pv_time))
+        return datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=pv_time)
 
     def update_solar_image(self):
-        if not hasattr(self, '_solar_images'):
+        if not hasattr(self, "_solar_images"):
             # No solar images
             return
         if self._previous_time == self.get_current_time():
@@ -1061,22 +1112,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             i -= 1
 
         # We have our image_name now, so update the texture
-        solar_dir = self._data_dir + '/solar_images'
-        self.sun_display.Texture = pvs.CreateTexture(
-            solar_dir + '/' + image_name)
+        solar_dir = self._data_dir + "/solar_images"
+        self.sun_display.Texture = pvs.CreateTexture(solar_dir + "/" + image_name)
         # Set the time for the next update
         self._previous_time = self.get_current_time()
 
     def rotate_earth(self):
         """Rotates the Earth image around with the hour of day."""
-        if not hasattr(self, 'earth_rotation'):
+        if not hasattr(self, "earth_rotation"):
             # There is no earth image to rotate
             return
         curr_time = self.get_current_time()
         # We want rotation to be from 0 -> 360
-        rot = (curr_time.hour + curr_time.minute/60) / 24 * 360
+        rot = (curr_time.hour + curr_time.minute / 60) / 24 * 360
         # Rotate around Z with the hours of the day
-        earth_pos = self.evolutions['earth'].get_position(curr_time)
+        earth_pos = self.evolutions["earth"].get_position(curr_time)
         # Move it negative first to apply the rotation
         self.earth_translation1.Transform.Translate = [-x for x in earth_pos]
         self.earth_rotation.Transform.Rotate = [0.0, 0.0, rot]
@@ -1096,6 +1146,6 @@ def load_evolution_files(dirname):
     A list of Evolution objects.
     """
     # Find all json files in our current directory
-    files = glob.glob(os.path.join(dirname, '*.json'))
+    files = glob.glob(os.path.join(dirname, "*.json"))
     # Iterate over the files and create an Evolution object for each one
     return [Evolution(f) for f in files]

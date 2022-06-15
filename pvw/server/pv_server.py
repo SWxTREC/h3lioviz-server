@@ -1,4 +1,3 @@
-
 # import paraview modules.
 from paraview.web import pv_wslink
 from paraview.web import protocols as pv_protocols
@@ -22,19 +21,34 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--viewport-scale", default=1.0, type=float,
-                            help="Viewport scaling factor",
-                            dest="viewportScale")
-        parser.add_argument("--viewport-max-width", default=2560, type=int,
-                            help="Viewport maximum size in width",
-                            dest="viewportMaxWidth")
-        parser.add_argument("--viewport-max-height", default=1440, type=int,
-                            help="Viewport maximum size in height",
-                            dest="viewportMaxHeight")
-        parser.add_argument("--settings-lod-threshold", default=102400,
-                            type=int,
-                            help="LOD Threshold in Megabytes",
-                            dest="settingsLODThreshold")
+        parser.add_argument(
+            "--viewport-scale",
+            default=1.0,
+            type=float,
+            help="Viewport scaling factor",
+            dest="viewportScale",
+        )
+        parser.add_argument(
+            "--viewport-max-width",
+            default=2560,
+            type=int,
+            help="Viewport maximum size in width",
+            dest="viewportMaxWidth",
+        )
+        parser.add_argument(
+            "--viewport-max-height",
+            default=1440,
+            type=int,
+            help="Viewport maximum size in height",
+            dest="viewportMaxHeight",
+        )
+        parser.add_argument(
+            "--settings-lod-threshold",
+            default=102400,
+            type=int,
+            help="LOD Threshold in Megabytes",
+            dest="settingsLODThreshold",
+        )
 
     @staticmethod
     def configure(args):
@@ -50,7 +64,8 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebMouseHandler())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebViewPort())
         self.registerVtkWebProtocol(
-            pv_protocols.ParaViewWebPublishImageDelivery(decode=False))
+            pv_protocols.ParaViewWebPublishImageDelivery(decode=False)
+        )
         self.updateSecret(_DemoServer.authKey)
 
         # tell the C++ web app to use no encoding.
@@ -66,11 +81,19 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
         # Update interaction mode
         pxm = simple.servermanager.ProxyManager()
-        interactionProxy = pxm.GetProxy(
-            'settings', 'RenderViewInteractionSettings')
-        interactionProxy.Camera3DManipulators = ['Rotate', 'Pan', 'Zoom',
-                                                 'Pan', 'Roll', 'Pan',
-                                                 'Zoom', 'Rotate', 'Zoom']
+        interactionProxy = pxm.GetProxy("settings", "RenderViewInteractionSettings")
+        interactionProxy.Camera3DManipulators = [
+            "Rotate",
+            "Pan",
+            "Zoom",
+            "Pan",
+            "Roll",
+            "Pan",
+            "Zoom",
+            "Rotate",
+            "Zoom",
+        ]
+
 
 # =============================================================================
 # Main: Parse args and start server

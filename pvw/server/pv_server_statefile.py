@@ -8,6 +8,7 @@ from paraview import simple
 from wslink import server
 
 from enlil import EnlilDataset
+
 # =============================================================================
 # Create custom PVServerProtocol class to handle clients requests
 # =============================================================================
@@ -23,22 +24,40 @@ class _DemoServer(pv_wslink.PVServerProtocol):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--dir", default="/data",
-                            help=("Path to the NetCDF file to load"),
-                            dest="data_dir")
-        parser.add_argument("--viewport-scale", default=1.0, type=float,
-                            help="Viewport scaling factor",
-                            dest="viewportScale")
-        parser.add_argument("--viewport-max-width", default=2560, type=int,
-                            help="Viewport maximum size in width",
-                            dest="viewportMaxWidth")
-        parser.add_argument("--viewport-max-height", default=1440, type=int,
-                            help="Viewport maximum size in height",
-                            dest="viewportMaxHeight")
-        parser.add_argument("--settings-lod-threshold", default=102400,
-                            type=int,
-                            help="LOD Threshold in Megabytes",
-                            dest="settingsLODThreshold")
+        parser.add_argument(
+            "--dir",
+            default="/data",
+            help=("Path to the NetCDF file to load"),
+            dest="data_dir",
+        )
+        parser.add_argument(
+            "--viewport-scale",
+            default=1.0,
+            type=float,
+            help="Viewport scaling factor",
+            dest="viewportScale",
+        )
+        parser.add_argument(
+            "--viewport-max-width",
+            default=2560,
+            type=int,
+            help="Viewport maximum size in width",
+            dest="viewportMaxWidth",
+        )
+        parser.add_argument(
+            "--viewport-max-height",
+            default=1440,
+            type=int,
+            help="Viewport maximum size in height",
+            dest="viewportMaxHeight",
+        )
+        parser.add_argument(
+            "--settings-lod-threshold",
+            default=102400,
+            type=int,
+            help="LOD Threshold in Megabytes",
+            dest="settingsLODThreshold",
+        )
 
     @staticmethod
     def configure(args):
@@ -56,7 +75,8 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebViewPort())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebTimeHandler())
         self.registerVtkWebProtocol(
-            pv_protocols.ParaViewWebPublishImageDelivery(decode=False))
+            pv_protocols.ParaViewWebPublishImageDelivery(decode=False)
+        )
         self.updateSecret(_DemoServer.authKey)
 
         # tell the C++ web app to use no encoding.
