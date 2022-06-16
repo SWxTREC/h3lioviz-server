@@ -1,13 +1,12 @@
 import datetime
-import glob
 import math
-import os
+import pathlib
 
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
-from evolution import Evolution
+import satellite
 
 # Global definitions of variables
 # Range for each lookup table
@@ -77,16 +76,6 @@ VARIABLE_LABEL = {
     "dp": "Cloud tracer (-)",
 }
 
-# List of satellite colors
-SATELLITE_COLORS = {
-    "earth": [0.0, 0.3333333333333333, 0.0],
-    "stereoa": [177 / 255, 138 / 255, 142 / 255],
-    "stereob": [94 / 255, 96 / 255, 185 / 255],
-}
-
-# Keep track of the name mapping that we want to show to users
-SATELLITE_NAMES = {"earth": "Earth", "stereoa": "STEREO-A", "stereob": "STEREO-B"}
-
 
 class EnlilDataset(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
@@ -100,10 +89,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize the PV web protocols
         super().__init__()
         # Save the data directory
-        self._data_dir = dirname
-        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        self._data_dir = pathlib.Path(dirname)
+
         # create a new 'NetCDF Reader' from the full data path
-        fname = os.path.join(dirname, "pv-data-3d.nc")
+        fname = str(self._data_dir / "pv-data-3d.nc")
         self.celldata = pvs.NetCDFReader(
             registrationName="enlil-data", FileName=[fname]
         )
@@ -119,8 +108,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.time_string = pvs.Text(registrationName="Time")
         # Don't add in any text right now
         self.time_string.Text = ""
-        # Keep track of satellite labels
-        self._sat_views = []
+        self._previous_time = None
 
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
@@ -199,6 +187,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Initialize an empty dictionary to store the displays of the objects
         self.displays = {}
         self._setup_views()
+        # After we have a view, we can start adding the satellites
         self._setup_satellites()
         self.update(None, None)
 
@@ -364,70 +353,21 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellites locations and plots them as spheres.
         """
-        curr_time = self.get_current_time()
-
-        for x in SATELLITE_COLORS:
-            # Skip this satellite if it isn't in the data
-            if x not in self.evolutions:
-                continue
-
-            # All satellites are represented as a box, except the Earth
-            if x == "earth":
-                sat = pvs.Sphere()
-                sat.Radius = 0.025
-            else:
-                sat = pvs.Box()
-                radius = 0.02
-                sat.XLength = radius
-                sat.YLength = radius
-                sat.ZLength = radius
-            setattr(self, x, sat)
-            # TODO: What coordinate system do we want x/y/z to be in?
-            #       The base model is rotated 180 degrees, should we
-            #       automatically rotate it for the users?
-            evo = self.evolutions[x]
-            sat.Center = evo.get_position(curr_time)
-
-            disp = pvs.Show(sat, self.view, "GeometryRepresentation")
-            # trace defaults for the display properties.
-            disp.Representation = "Surface"
-            disp.AmbientColor = SATELLITE_COLORS[x]
-            disp.ColorArrayName = [None, ""]
-            disp.DiffuseColor = SATELLITE_COLORS[x]
-
-            if x != "earth":
-                # Label all non-earth satellites
-                sat_label = pvs.Text()
-                sat_label.Text = SATELLITE_NAMES[x]
-                disp = pvs.Show(sat_label, self.view, "TextSourceRepresentation")
-                disp.TextPropMode = "Billboard 3D Text"
-                disp.FontSize = 14
-                disp.WindowLocation = "AnyLocation"
-                # Offset the center by the width to give some separation
-                disp.BillboardPosition = [x + sat.XLength for x in sat.Center]
-                disp.Color = [0, 0, 0]  # Black text
-                # Store the satellite and text here to be able to toggle them
-                # on/off
-                self._sat_views.append(sat)
-                self._sat_views.append(sat_label)
-
-        # Sun representation
-        self.sun = pvs.Sphere()
-        self.sun.Center = [0.0, 0.0, 0.0]
-        self.sun.Radius = 0.074
-        self.sun.ThetaResolution = 50
-        self.sun.PhiResolution = 50
-        disp = pvs.Show(self.sun, self.view, "GeometryRepresentation")
-
-        # trace defaults for the display properties.
-        disp.Representation = "Surface"
-        disp.AmbientColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-        disp.ColorArrayName = [None, ""]
-        disp.DiffuseColor = [0.8313725490196079, 0.8313725490196079, 0.0]
-
-        # Apply an image to the Earth sphere
-        self.apply_earth_texture()
-        self.apply_solar_texture()
+        sats = list(self._data_dir.glob("*.json"))
+        # strip evo.name.json to only keep "name"
+        # TODO: Use the other satellites eventually
+        #       For now, we are only using the stereo spacecraft
+        # self.satellites = {x.name[4:-5]: satellite.Satellite(x.name[4:-5], x, view=self.view) for x in sats if "earth" not in x.name}
+        self.satellites = {
+            x.name[4:-5]: satellite.Satellite(x.name[4:-5], x, view=self.view)
+            for x in sats
+            if "stereo" in x.name
+        }
+        # Filter for Earth in the name
+        self.earth = satellite.Earth(
+            list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
+        )
+        self.sun = satellite.Sun(self._data_dir / "solar_images", view=self.view)
 
     def _add_streamlines(self, plane):
         """
@@ -517,13 +457,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # If we have loaded /data/run1/pv-data-3d.nc, then this
         # will return ["/data/run1", "/data/run2"] listing all directories
         # up one level from the current data file
-        base_dir = os.path.abspath(os.path.join(self._data_dir, ".."))
-        dirs = os.listdir(base_dir)
-        # Add the base path into the listed directory
-        dirs = [os.path.join(base_dir, x) for x in dirs]
-        # Now search to see if there is a pv-data-3d.nc in that directory
+        base_dir = self._data_dir / ".."
+        # Now search to see if there is a pv-data-3d.nc in the directories
         # and if not, ignore that entry
-        dirs = [x for x in dirs if os.path.exists(os.path.join(x, "pv-data-3d.nc"))]
+        dirs = [x for x in base_dir.iterdir() if (x / "pv-data-3d.nc").exists()]
         return dirs
 
     @exportRpc("pv.enlil.get_variable_range")
@@ -545,15 +482,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         dirname : str
             Path to the dataset file (/dirname/pv-data-3d.nc)
         """
-        self._data_dir = dirname
+        self._data_dir = pathlib.Path(dirname)
         # Update the evolution files associated with the run
         # NOTE: We need to delete the evolutions first, there must be a
         #       dangling reference within the cpp that causes a segfault
         #       if we just update the object dictionary without removal
-        del self.evolutions
-        self.evolutions = {x.name: x for x in load_evolution_files(dirname)}
+        del self.satellites
+        del self.earth
+        del self.sun
+        self._setup_satellites()
         # Update the primary data 3D data file
-        self.data.FileName = os.path.join(dirname, "pv-data-3d.nc")
+        self.data.FileName = str(dirname / "pv-data-3d.nc")
         # Force an update and re-render
         self.data.UpdatePipeline()
         pvs.Render(self.view)
@@ -794,7 +733,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # (-z, 0, x), y is frozen, so tilt is only in the xz plane
             # -z rotates by 90 degrees to get the normal vector to the plane
             # that contains Earth
-            loc = [-self.earth.Center[2], 0, self.earth.Center[0]]
+            loc = [-self.earth.sat.Center[2], 0, self.earth.sat.Center[0]]
         elif clip == "equator":
             # Standard coordinates, so the plane is purely in xy and
             # z is perpendicular
@@ -873,14 +812,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             What to set the visibility to
         """
         if visibility == "on":
-            hide_show = pvs.Show
+            hide_show = "show"
         elif visibility == "off":
-            hide_show = pvs.Hide
+            hide_show = "hide"
         else:
             return ["Visibility can only be 'on' or 'off'"]
-        for sat in self._sat_views:
-            # Hide() / Show()
-            hide_show(sat, self.view)
+        for sat in self.satellites:
+            # Call the hide() or show() method
+            getattr(self.satellites[sat], hide_show)()
 
     @exportRpc("pv.enlil.get_satellite_times")
     def get_satellite_time(self, sat):
@@ -896,7 +835,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         -------
         List of times from epoch
         """
-        return self.evolutions[sat].get_times()
+        if sat == "earth":
+            return self.earth.get_times()
+        return self.satellites[sat].get_times()
 
     @exportRpc("pv.enlil.get_satellite_data")
     def get_satellite_data(self, sat):
@@ -910,176 +851,29 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         -------
         JSON formatted similarly to a LaTiS-response
         """
-        return self.evolutions[sat].as_latis()
+        if sat == "earth":
+            return self.earth.evolution.as_latis()
+        return self.satellites[sat].evolution.as_latis()
 
     def update(self, caller, event):
         """
         Update function to call every time the time variable has changed.
         """
         curr_time = self.get_current_time()
+        if self._previous_time == curr_time:
+            # This is the same timestep, so we don't need to
+            # update anything now
+            return
         self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
 
-        for x in SATELLITE_COLORS:
+        for x in self.satellites:
             # Update the satellite positions based on the evolution data
-            if hasattr(self, x):
-                getattr(self, x).Center = self.evolutions[x].get_position(curr_time)
+            self.satellites[x].update(curr_time)
 
-        # Update the rotation of the earth image
-        self.rotate_earth()
-        self.update_solar_image()
-
-    def apply_earth_texture(self):
-        """Applies a texture (image) to the Earth sphere.
-
-        This will look for a local image asset to use, and if not found,
-        try to go download it for the user.
-        """
-        if not hasattr(self, "earth"):
-            # We don't have earth's location, so just return
-            return
-        import pathlib
-
-        # Path to the Earth texture on our local system
-        # cwd() is where paraview is launched from
-        earth_path = pathlib.Path.cwd() / "pvw" / "server" / "assets"
-        earth_path /= "land_shallow_topo_2048.jpg"
-        # If we don't have the texture file, go download it.
-        if not earth_path.exists():
-            # Make the directories if they don't already exist
-            earth_path.parent.mkdir(parents=True, exist_ok=True)
-            import urllib.request
-
-            url = (
-                "https://eoimages.gsfc.nasa.gov/images/imagerecords/"
-                "57000/57752/land_shallow_topo_2048.jpg"
-            )
-            # Make a request
-            req = urllib.request.urlopen(url)
-            # Write out the response to our local file
-            with open(earth_path, "wb") as f:
-                f.write(req.read())
-
-        # We should have a local image file to use as a texture
-        earth_image = pvs.CreateTexture(str(earth_path))
-        # Set up the sphere source
-        sphere = self.earth
-        sphere.ThetaResolution = 50
-        # We need to perturb the StartTheta a small amount to not have a
-        # seam/mismatch in the texture at 0
-        sphere.StartTheta = 1e-3
-        sphere.PhiResolution = 50
-        # create a new 'Texture Map to Sphere'
-        texture_map = pvs.TextureMaptoSphere(
-            registrationName="EarthImage", Input=sphere
-        )
-        texture_map.PreventSeam = 0
-
-        # Move the Earth sphere center back to zero for a translation
-        # after rotation later.
-        self.earth.Center = [0, 0, 0]
-
-        # We want to rotate the Earth image with the hour of the day
-        # To do that, we need to translate our object to the opposite
-        # location of what it truly is, then rotate about the origin's
-        # z-axis, then translate to the final location after the rotation.
-        # TODO: This could be turned into a rotation matrix eventually to
-        #       only calculate this at one step, rather than three successive
-        #       filters being applied.
-        t = pvs.Transform(registrationName="EarthTranslation1", Input=texture_map)
-        t.Transform = "Transform"
-        t.Transform.Translate = [0.0, 0.0, 0.0]
-        self.earth_translation1 = t
-        t = pvs.Transform(
-            registrationName="EarthRotation", Input=self.earth_translation1
-        )
-        t.Transform = "Transform"
-        t.Transform.Rotate = [0.0, 0.0, 0.0]
-        self.earth_rotation = t
-        t = pvs.Transform(
-            registrationName="EarthTranslation2", Input=self.earth_rotation
-        )
-        t.Transform = "Transform"
-        t.Transform.Translate = [0.0, 0.0, -1]
-        self.earth_translation2 = t
-
-        # show data from the image and hide the plain sphere
-        pvs.Hide(self.earth)
-        texture_map_disp = pvs.Show(t, self.view, "GeometryRepresentation")
-
-        # trace defaults for the display properties.
-        texture_map_disp.Representation = "Surface"
-        texture_map_disp.ColorArrayName = [None, ""]
-        texture_map_disp.SelectTCoordArray = "Texture Coordinates"
-        texture_map_disp.SelectNormalArray = "Normals"
-        texture_map_disp.SelectTangentArray = "None"
-        texture_map_disp.Texture = earth_image
-        # To get the proper orientation
-        texture_map_disp.FlipTextures = 1
-
-    def apply_solar_texture(self):
-        """Applies a texture (image) to the Sun.
-
-        This will look for a local image asset to use, and if not found,
-        try to go download it for the user.
-        """
-        solar_dir = self._data_dir + "/solar_images"
-        if not os.path.exists(solar_dir):
-            return
-        # Store a list of the solar images
-        self._solar_images = [
-            os.path.basename(x) for x in glob.glob(solar_dir + "/*.jpg")
-        ]
-        self._solar_images = sorted(self._solar_images)
-
-        # Sun representation
-        # Note we don't use the self.sun here because we want this
-        # to be slightly larger than the sun sphere when representing it
-        sun = pvs.Sphere()
-        sun.Center = [0.0, 0.0, 0.0]
-        r = 0.075
-        sun.Radius = 0.075
-        sun.ThetaResolution = 50
-        sun.PhiResolution = 50
-
-        # For the solar imagery we want texture map to plane because it is
-        # a flat image instead of an unwrapped image.
-        texture_map = pvs.TextureMaptoPlane(registrationName="SunImage", Input=sun)
-        # Make the points form a square of radius r
-        # Earth is in the -X direction, so we want our image plane to be
-        # in the Y-Z direction, with the origin at (+Y, -Z) and the base
-        # of the image extending out in the Y direction to (-Y, -Z).
-        texture_map.Origin = [0, r, -r]
-        texture_map.Point1 = [0, -r, -r]
-        texture_map.Point2 = [0, r, r]
-
-        # We also want to clip the sphere so we don't get any wrapping
-        # into the back plane
-        clip = pvs.Clip(registrationName="ClipSun", Input=texture_map)
-        clip.ClipType = "Plane"
-        clip.HyperTreeGridClipper = "Plane"
-        clip.Scalars = ["POINTS", ""]
-        clip.Invert = 1
-
-        # This is the plane to clip on. It doesn't cover the entire
-        # half-sphere, so limit it a little bit in the X direction
-        clip.ClipType.Origin = [-0.03, 0.0, 0.0]
-
-        sun_display = pvs.Show(clip, self.view, "GeometryRepresentation")
-
-        # Create a texture from the first image
-        sun_texture = pvs.CreateTexture(solar_dir + "/" + self._solar_images[0])
-        self._previous_time = self.get_current_time()
-
-        # trace defaults for the display properties.
-        sun_display.Representation = "Surface"
-        sun_display.ColorArrayName = [None, ""]
-        sun_display.SelectTCoordArray = "Texture Coordinates"
-        sun_display.SelectNormalArray = "Normals"
-        sun_display.SelectTangentArray = "None"
-        sun_display.Texture = sun_texture
-        # This hides the HMI image when looking from behind
-        sun_display.BackfaceRepresentation = "Cull Backface"
-        self.sun_display = sun_display
+        # Update the solar image and rotate the Earth image
+        self.sun.update(curr_time)
+        self.earth.update(curr_time)
+        self._previous_time == curr_time
 
     def get_current_time(self):
         """Retrieves the current time of the view.
@@ -1092,60 +886,3 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # The internal time variable on the ViewTime attribute is stored as
         # seconds from 1970-01-01, so we use that epoch directly internally.
         return datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=pv_time)
-
-    def update_solar_image(self):
-        if not hasattr(self, "_solar_images"):
-            # No solar images
-            return
-        if self._previous_time == self.get_current_time():
-            # This is the same timestep, so we don't need to
-            # update anything now
-            return
-        # Iterate through the solar images, choosing
-        # the one before this timestep.
-        # filename looks like: 20170906_000000_M_color_4k.jpg
-        i = len(self._solar_images) - 1
-        image_name = self._solar_images[i]
-        t = self.get_current_time().strftime("%Y%m%d_%H0000_M_color_4k.jpg")
-        while image_name > t and i > 0:
-            image_name = self._solar_images[i]
-            i -= 1
-
-        # We have our image_name now, so update the texture
-        solar_dir = self._data_dir + "/solar_images"
-        self.sun_display.Texture = pvs.CreateTexture(solar_dir + "/" + image_name)
-        # Set the time for the next update
-        self._previous_time = self.get_current_time()
-
-    def rotate_earth(self):
-        """Rotates the Earth image around with the hour of day."""
-        if not hasattr(self, "earth_rotation"):
-            # There is no earth image to rotate
-            return
-        curr_time = self.get_current_time()
-        # We want rotation to be from 0 -> 360
-        rot = (curr_time.hour + curr_time.minute / 60) / 24 * 360
-        # Rotate around Z with the hours of the day
-        earth_pos = self.evolutions["earth"].get_position(curr_time)
-        # Move it negative first to apply the rotation
-        self.earth_translation1.Transform.Translate = [-x for x in earth_pos]
-        self.earth_rotation.Transform.Rotate = [0.0, 0.0, rot]
-        # Then move it back positive to its actual location
-        self.earth_translation2.Transform.Translate = earth_pos
-
-
-def load_evolution_files(dirname):
-    """
-    Loads evolution files relative to the given file.
-
-    dirname : str
-        Directory path for the evolution files.
-
-    Returns
-    -------
-    A list of Evolution objects.
-    """
-    # Find all json files in our current directory
-    files = glob.glob(os.path.join(dirname, "*.json"))
-    # Iterate over the files and create an Evolution object for each one
-    return [Evolution(f) for f in files]
