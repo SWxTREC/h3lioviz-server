@@ -7,6 +7,7 @@ from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
 import satellite
+import slice
 
 # Global definitions of variables
 # Range for each lookup table
@@ -136,37 +137,13 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.threshold.Isosurfaces = [10, 50]
         self.threshold.PointMergeMethod = "Uniform Binning"
 
-        # Create a Longitude slice
-        self.lon_slice_data = pvs.Slice(
-            registrationName="Longitude", Input=self.celldata
+        # Create the slices
+        self.lon_slice = slice.Slice(
+            self.celldata, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
         )
-        self.lon_slice_data.SliceType = "Plane"
-        self.lon_slice_data.HyperTreeGridSlicer = "Plane"
-        self.lon_slice_data.SliceOffsetValues = [0.0]
-        self.lon_slice_data.SliceType.Origin = [0, 0, 0]
-        self.lon_slice_data.SliceType.Normal = [0.0, 0.0, 1.0]
-        # Now make point data on that slice
-        self.lon_slice = pvs.CellDatatoPointData(
-            registrationName=f"lon-slice-CellDatatoPointData", Input=self.lon_slice_data
+        self.lat_slice = slice.Slice(
+            self.celldata, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
         )
-        self.lon_slice.ProcessAllArrays = 1
-        self._add_streamlines("lon")
-
-        # Create a Latitude slice
-        self.lat_slice_data = pvs.Slice(
-            registrationName="Latitude", Input=self.celldata
-        )
-        self.lat_slice_data.SliceType = "Plane"
-        self.lat_slice_data.HyperTreeGridSlicer = "Plane"
-        self.lat_slice_data.SliceOffsetValues = [0.0]
-        self.lat_slice_data.SliceType.Origin = [0, 0, 0]
-        self.lat_slice_data.SliceType.Normal = [0.0, 1.0, 0.0]
-        # Now make point data on that slice
-        self.lat_slice = pvs.CellDatatoPointData(
-            registrationName=f"lat-slice-CellDatatoPointData", Input=self.lat_slice_data
-        )
-        self.lat_slice.ProcessAllArrays = 1
-        self._add_streamlines("lat")
 
         # Dictionary mapping of string names to the object
         self.objs = {
@@ -176,10 +153,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 "lat_slice",
                 "cme",
                 "data",
-                "lon_arrows",
-                "lon_streamlines",
-                "lat_arrows",
-                "lat_streamlines",
                 "threshold",
                 "cme_contours",
             )
@@ -265,86 +238,20 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp.ColorArrayName = ["POINTS", "Bz"]
         disp.LookupTable = bzLUT
 
-        # Latitude
-        disp = pvs.Show(self.lat_slice, self.view, "GeometryRepresentation")
-        self.displays[self.lat_slice] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Bz"]
-        disp.LookupTable = bzLUT
-
-        # Longitude
-        disp = pvs.Show(self.lon_slice, self.view, "GeometryRepresentation")
-        self.displays[self.lon_slice] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Bz"]
-        disp.LookupTable = bzLUT
-
-        # Streamlines
-        disp = pvs.Show(self.lon_streamlines, self.view, "GeometryRepresentation")
-        # Add in a magnetic polarity colormap (radial in or out)
-        # with two values blue/red
-        # separate=True makes sure it doesn't overwrite the Br of the
-        # frontend choices
-        bpLUT = pvs.GetColorTransferFunction("Br", disp, separate=True)
-        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5, 1e5, 0.9, 0.9, 0.9]
-        bpLUT.ScalarRangeInitialized = 1.0
-        bpLUT.NumberOfTableValues = 2
-        self.displays[self.lon_streamlines] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Br"]
-        disp.LookupTable = bpLUT
-
-        # B-field vectors
-        disp = pvs.Show(self.lon_arrows, self.view, "GeometryRepresentation")
-        self.displays[self.lon_arrows] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Br"]
-        disp.LookupTable = bpLUT
-
-        # latitudinal plane
-        disp = pvs.Show(self.lat_slice, self.view, "GeometryRepresentation")
-        self.displays[self.lat_slice] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Bz"]
-        disp.LookupTable = bzLUT
-
-        # Streamlines
-        disp = pvs.Show(self.lat_streamlines, self.view, "GeometryRepresentation")
-        # Add in a magnetic polarity colormap (radial in or out)
-        # with two values blue/red
-        # separate=True makes sure it doesn't overwrite the Br of the
-        # frontend choices
-        bpLUT = pvs.GetColorTransferFunction("Br", disp, separate=True)
-        bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5, 1e5, 0.9, 0.9, 0.9]
-        bpLUT.ScalarRangeInitialized = 1.0
-        bpLUT.NumberOfTableValues = 2
-        self.displays[self.lat_streamlines] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Br"]
-        disp.LookupTable = bpLUT
-
-        # B-field vectors
-        disp = pvs.Show(self.lat_arrows, self.view, "GeometryRepresentation")
-        self.displays[self.lat_arrows] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Br"]
-        disp.LookupTable = bpLUT
-
         # Set colormaps
         for name in VARIABLE_MAP:
             self.set_colormap(name)
 
         # hide this data from the default initial view
         for x in [
-            self.lon_slice,
-            self.lon_arrows,
-            self.lon_streamlines,
-            self.lat_arrows,
-            self.lat_streamlines,
             self.threshold,
             self.cme_contours,
         ]:
             pvs.Hide(x, self.view)
+
+        self.lon_slice.hide()
+        # We don't want any lat streamlines
+        self.lat_slice.hide_streamlines()
 
         # restore active source
         pvs.SetActiveSource(None)
@@ -368,78 +275,6 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
         )
         self.sun = satellite.Sun(self._data_dir / "solar_images", view=self.view)
-
-    def _add_streamlines(self, plane):
-        """
-        Add streamlines to the desired slice plane
-
-        This requires creating several sources and filters.
-
-        1. Ellipse source (Circle at 0.2 AU) in the proper plane
-        2. Calculator filter for creating the vector components
-        3. CellData -> PointData filter on the plane
-        4. StreamTracer with custom source from (1)
-        5. Tubes for better display of (4)
-        6. Arrows to indicate direction of the arrows
-
-        plane : str
-            Name of the plane to add the streamlines on (lon, lat)
-        """
-        if plane not in ("lon", "lat"):
-            raise ValueError("The plane must be one of ('lon', 'lat').")
-        # Our stream tracer source needs to have the same plane
-        # as our slice, and 0.2 for the radius
-        curr_slice_data = getattr(self, f"{plane}_slice_data")
-        stream_source = pvs.Ellipse(registrationName=f"{plane}-StreamSource")
-        stream_source.Center = [0.0, 0.0, 0.0]
-        stream_source.Normal = curr_slice_data.SliceType.Normal
-        radius = [0.2, 0, 0] if plane == "lon" else [0, 0, 0.2]
-        stream_source.MajorRadiusVector = radius
-        # Controls how many streamlines we have
-        stream_source.Resolution = 50
-
-        # Create the magnetic field vectors through a PV Function
-        curr_slice = getattr(self, f"{plane}_slice")
-        bvec = pvs.Calculator(registrationName=f"{plane}-Bvec", Input=curr_slice)
-        bvec.AttributeType = "Point Data"
-        bvec.ResultArrayName = "Bvec"
-        bvec.Function = "Bx*iHat + By*jHat + Bz*kHat"
-
-        stream_input = pvs.StreamTracerWithCustomSource(
-            registrationName=f"{plane}-StreamTracerWithCustomSource",
-            Input=bvec,
-            SeedSource=stream_source,
-        )
-        stream_input.Vectors = ["POINTS", "Bvec"]
-        stream_input.SurfaceStreamlines = 1
-        stream_input.MaximumStreamlineLength = 3.4
-        stream_input.ComputeVorticity = 0
-
-        streamlines = pvs.Tube(
-            registrationName=f"{plane}-Streamlines", Input=stream_input
-        )
-        streamlines.Capping = 1
-        streamlines.Radius = 0.005
-
-        # create a new 'Glyph' in the slice (Arrow/vectors)
-        arrows = pvs.Glyph(
-            registrationName=f"{plane}-B-Arrows", Input=stream_input, GlyphType="Cone"
-        )
-        arrows.OrientationArray = ["POINTS", "Bvec"]
-        arrows.ScaleArray = ["POINTS", "No scale array"]
-        arrows.ScaleFactor = 1
-        arrows.GlyphType.Resolution = 60
-        arrows.GlyphType.Radius = 0.02
-        arrows.GlyphType.Height = 0.08
-        arrows.GlyphTransform = "Transform2"
-        arrows.GlyphMode = "Every Nth Point"
-        arrows.GlyphMode = "Uniform Spatial Distribution (Bounds Based)"
-        arrows.MaximumNumberOfSamplePoints = 100
-        # Store the objects we need for later as attributes on self
-        # (self.lon_streamlines / self.lat_streamlines)
-        setattr(self, f"{plane}_stream_source", stream_source)
-        setattr(self, f"{plane}_streamlines", streamlines)
-        setattr(self, f"{plane}_arrows", arrows)
 
     @exportRpc("pv.enlil.get_available_runs")
     def get_available_runs(self):
@@ -508,21 +343,28 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             What to set the visibility to for the given object
         """
         if visibility == "on":
-            pvs.Show(self.objs[obj], self.view)
-            if obj == "lon_streamlines":
-                # We also want to turn on the vectors
-                pvs.Show(self.objs["lon_arrows"], self.view)
+            if obj == "lon_slice":
+                self.lon_slice.show()
+            elif obj == "lat_slice":
+                self.lat_slice.show()
+            elif obj == "lon_streamlines":
+                self.lon_slice.show_streamlines()
             elif obj == "lat_streamlines":
-                # We also want to turn on the vectors
-                pvs.Show(self.objs["lat_arrows"], self.view)
+                self.lat_slice.show_streamlines()
+            else:
+                pvs.Show(self.objs[obj], self.view)
+
         elif visibility == "off":
-            pvs.Hide(self.objs[obj], self.view)
-            if obj == "lon_streamlines":
-                # We also want to turn off the vectors
-                pvs.Hide(self.objs["lon_arrows"], self.view)
+            if obj == "lon_slice":
+                self.lon_slice.hide()
+            elif obj == "lat_slice":
+                self.lat_slice.hide()
+            elif obj == "lon_streamlines":
+                self.lon_slice.hide_streamlines()
             elif obj == "lat_streamlines":
-                # We also want to turn off the vectors
-                pvs.Hide(self.objs["lat_arrows"], self.view)
+                self.lat_slice.hide_streamlines()
+            else:
+                pvs.Hide(self.objs[obj], self.view)
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
@@ -540,13 +382,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         # Update all displays to be colored by this variable
         for obj, disp in self.displays.items():
-            if obj in (
-                self.lon_arrows,
-                self.lon_streamlines,
-                self.lat_arrows,
-                self.lat_streamlines,
-                self.cme,
-            ):
+            if obj in (self.cme,):
                 # We don't want to update the longitude arrow colors
                 continue
             pvs.ColorBy(disp, variable)
@@ -563,6 +399,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # Disables the endpoints which can be formatted differently
             cbar.AddRangeLabels = 0
 
+        self.lon_slice.variable = variable
+        self.lat_slice.variable = variable
         self.update_opacity(variable)
         self.update_lut(variable)
 
@@ -570,10 +408,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # shows the new variable we are using now
         pvs.UpdateScalarBars(self.view)
         # But we want to hide the streamlines colorbar
-        disp = self.displays[self.lon_streamlines]
-        disp.SetScalarBarVisibility(self.view, False)
-        disp = self.displays[self.lat_streamlines]
-        disp.SetScalarBarVisibility(self.view, False)
+        disp = self.lon_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
+        disp = self.lat_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
 
         # restore active source
         pvs.SetActiveSource(None)
@@ -743,9 +579,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 "The snapping clip plane must be either " '"ecliptic" or "equator"'
             )
 
-        self.lon_slice_data.SliceType.Normal = loc
+        self.lon_slice.slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
-        self.lon_stream_source.Normal = loc
+        self.lon_slice.stream_source.Normal = loc
 
     @exportRpc("pv.enlil.rotate_plane")
     def rotate_plane(self, plane, angle):
@@ -765,12 +601,12 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             # normal vector here, which swaps the x/z and adds a negative
             # tilt is only in the xz plane
             loc = [-y, 0, -x]
-            self.lon_slice_data.SliceType.Normal = loc
-            self.lon_stream_source.Normal = loc
+            self.lon_slice.slice_data.SliceType.Normal = loc
+            self.lon_slice.stream_source.Normal = loc
         elif plane == "lat":
             loc = [-y, x, 0]
-            self.lat_slice_data.SliceType.Normal = loc
-            self.lat_stream_source.Normal = loc
+            self.lat_slice.slice_data.SliceType.Normal = loc
+            self.lat_slice.stream_source.Normal = loc
         else:
             raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
