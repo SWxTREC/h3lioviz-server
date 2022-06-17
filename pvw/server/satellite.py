@@ -50,12 +50,14 @@ class Satellite:
             raise ValueError("Satellite representation can only be 'box' or 'sphere'")
 
         self.evolution = Evolution(fname)
-        color = SATELLITE_COLORS[name] if name in SATELLITE_COLORS else [0.5, 0.5, 0.5]
+        self.color = (
+            SATELLITE_COLORS[name] if name in SATELLITE_COLORS else [0.5, 0.5, 0.5]
+        )
         self.sat_disp = pvs.Show(self.sat, self.view, "GeometryRepresentation")
         self.sat_disp.Representation = "Surface"
-        self.sat_disp.AmbientColor = color
+        self.sat_disp.AmbientColor = self.color
         self.sat_disp.ColorArrayName = [None, ""]
-        self.sat_disp.DiffuseColor = color
+        self.sat_disp.DiffuseColor = self.color
 
         self.label = pvs.Text()
         self.label.Text = SATELLITE_NAMES[name] if name in SATELLITE_NAMES else name
@@ -118,11 +120,11 @@ class Sun:
         disp = pvs.Show(self.sphere, self.view, "GeometryRepresentation")
 
         # Yellow color
-        color = [0.8313725490196079, 0.8313725490196079, 0.0]
+        self.color = [0.8313725490196079, 0.8313725490196079, 0.0]
         disp.Representation = "Surface"
-        disp.AmbientColor = color
+        disp.AmbientColor = self.color
         disp.ColorArrayName = [None, ""]
-        disp.DiffuseColor = color
+        disp.DiffuseColor = self.color
 
         # Now try to create the solar texture
         self._create_solar_texture()
