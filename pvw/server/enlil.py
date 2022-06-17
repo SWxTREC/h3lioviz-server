@@ -144,13 +144,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.lat_slice = slice.Slice(
             self.celldata, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
         )
+        self.radial_slice = slice.Slice(
+            self.celldata, slice_type="Sphere", radius=1, name="Radial"
+        )
 
         # Dictionary mapping of string names to the object
         self.objs = {
             s: getattr(self, s)
             for s in (
-                "lon_slice",
-                "lat_slice",
                 "cme",
                 "data",
                 "threshold",
@@ -250,6 +251,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             pvs.Hide(x, self.view)
 
         self.lon_slice.hide()
+        self.radial_slice.hide()
         # We don't want any lat streamlines
         self.lat_slice.hide_streamlines()
 
@@ -347,6 +349,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 self.lon_slice.show()
             elif obj == "lat_slice":
                 self.lat_slice.show()
+            elif obj == "radial_slice":
+                self.radial_slice.show()
             elif obj == "lon_streamlines":
                 self.lon_slice.show_streamlines()
             elif obj == "lat_streamlines":
@@ -359,6 +363,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 self.lon_slice.hide()
             elif obj == "lat_slice":
                 self.lat_slice.hide()
+            elif obj == "radial_slice":
+                self.radial_slice.hide()
             elif obj == "lon_streamlines":
                 self.lon_slice.hide_streamlines()
             elif obj == "lat_streamlines":
@@ -401,6 +407,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
 
         self.lon_slice.variable = variable
         self.lat_slice.variable = variable
+        self.radial_slice.variable = variable
         self.update_opacity(variable)
         self.update_lut(variable)
 

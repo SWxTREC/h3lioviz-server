@@ -38,10 +38,11 @@ class Slice:
         self.slice_data.SliceType = slice_type
         self.slice_data.HyperTreeGridSlicer = "Plane"
         self.slice_data.SliceOffsetValues = [0.0]
-        self.slice_data.SliceType.Origin = [0, 0, 0]
         if slice_type == "Plane":
+            self.slice_data.SliceType.Origin = [0, 0, 0]
             self.slice_data.SliceType.Normal = normal
         elif slice_type == "Sphere":
+            self.slice_data.SliceType.Center = [0, 0, 0]
             self.slice_data.SliceType.Radius = radius
         else:
             raise ValueError("Can only use a Plane or Sphere slice type")
@@ -50,6 +51,20 @@ class Slice:
             registrationName=f"{name}-Slice-CellDatatoPointData", Input=self.slice_data
         )
         self.slice.ProcessAllArrays = 1
+
+        # Set up the display
+        self.slice_disp = pvs.Show(self.slice, self.view, "GeometryRepresentation")
+        self.slice_disp.Representation = "Surface"
+        self._variable = "Bz"
+        self.slice_disp.ColorArrayName = ["POINTS", self._variable]
+        self.slice_disp.LookupTable = pvs.GetColorTransferFunction(
+            "Bz", self.slice_disp
+        )
+
+        # TODO: Handle spherical sources as well?
+        #       Trying out spherical sources didn't look great at first glance
+        if slice_type == "Sphere":
+            return
 
         # Set up additional filters for streamlines
         # 1. Ellipse source (Circle at 0.2 AU) in the proper plane
@@ -61,7 +76,6 @@ class Slice:
 
         # Our stream tracer source needs to have the same plane
         # as our slice, and 0.2 for the radius
-        # TODO: Handle spherical sources as well?
         stream_source = pvs.Ellipse(registrationName=f"{self.name}-StreamSource")
         stream_source.Center = [0.0, 0.0, 0.0]
         stream_source.Normal = self.slice_data.SliceType.Normal
@@ -114,15 +128,6 @@ class Slice:
         self.stream_source = stream_source
         self.streamlines = streamlines
         self.arrows = arrows
-
-        # Set up the displays
-        self.slice_disp = pvs.Show(self.slice, self.view, "GeometryRepresentation")
-        self.slice_disp.Representation = "Surface"
-        self._variable = "Bz"
-        self.slice_disp.ColorArrayName = ["POINTS", self._variable]
-        self.slice_disp.LookupTable = pvs.GetColorTransferFunction(
-            "Bz", self.slice_disp
-        )
 
         # Streamlines
         self.streamlines_disp = pvs.Show(
