@@ -36,7 +36,7 @@ OPACITY_VALUES = {
     "Bx": [0.9, 0.2, 0.9],
     "By": [0.9, 0.2, 0.9],
     "Bz": [0.9, 0.2, 0.9],
-    "DP": [0.2, 0.9]
+    "DP": [0.2, 0.9],
 }
 
 # Default colormaps to use for the variables
@@ -106,6 +106,11 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
 
+        self.bvec = pvs.Calculator(registrationName="3D-Bvec", Input=self.data)
+        self.bvec.AttributeType = "Point Data"
+        self.bvec.ResultArrayName = "Bvec"
+        self.bvec.Function = "Bx*iHat + By*jHat + Bz*kHat"
+
         self.time_string = pvs.Text(registrationName="Time")
         # Don't add in any text right now
         self.time_string.Text = ""
@@ -121,7 +126,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme.ContourBy = ["POINTS", "DP"]
         self.cme.ComputeNormals = 0
         self.cme.Isosurfaces = [0.2]
-        self.cme.PointMergeMethod = 'Uniform Binning'
+        self.cme.PointMergeMethod = "Uniform Binning"
 
         self.cme_contours = pvs.Contour(
             registrationName="CME-contour", Input=self.threshold_cme
@@ -277,6 +282,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
         )
         self.sun = satellite.Sun(self._data_dir / "solar_images", view=self.view)
+        # Add the fieldlines to the satellites + Earth
+        for sat in self.satellites:
+            self.satellites[sat].add_fieldline(self.bvec)
+        self.earth.add_fieldline(self.bvec)
 
     @exportRpc("pv.enlil.get_available_runs")
     def get_available_runs(self):
@@ -355,6 +364,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 self.lon_slice.show_streamlines()
             elif obj == "lat_streamlines":
                 self.lat_slice.show_streamlines()
+            elif obj == "sat_fieldlines":
+                for sat in self.satellites:
+                    self.satellites[sat].show_fieldline()
+                self.earth.show_fieldline()
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -369,6 +382,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
                 self.lon_slice.hide_streamlines()
             elif obj == "lat_streamlines":
                 self.lat_slice.hide_streamlines()
+            elif obj == "sat_fieldlines":
+                for sat in self.satellites:
+                    self.satellites[sat].hide_fieldline()
+                self.earth.hide_fieldline()
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:

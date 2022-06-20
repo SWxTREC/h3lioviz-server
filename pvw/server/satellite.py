@@ -69,6 +69,50 @@ class Satellite:
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
 
+    def add_fieldline(self, data):
+        """
+        Add a fieldline trace to this satellite.
+
+        The seed point is at the satellite location and the tube
+        uses the same color as the satellite.
+
+        Parameters
+        ----------
+        data : Paraview point dataset
+            3D Point dataset used for fieldline integration
+        """
+        stream_input = pvs.StreamTracer(
+            registrationName=f"{self.name}-StreamTracer",
+            Input=data,
+            SeedType="Point Cloud",
+        )
+        stream_input.Vectors = ["POINTS", "Bvec"]
+        # One point, at the satellite's center
+        stream_input.SeedType.NumberOfPoints = 1
+        stream_input.SeedType.Center = self.sat.Center
+        stream_input.SeedType.Radius = 0.0
+        stream_input.MaximumStreamlineLength = 3.4
+        stream_input.ComputeVorticity = 0
+
+        streamlines = pvs.Tube(
+            registrationName=f"{self.name}-Streamlines", Input=stream_input
+        )
+        streamlines.Capping = 1
+        streamlines.Radius = 0.0025
+
+        # Store the objects we need for later as attributes on self
+        self.stream_input = stream_input
+        self.streamlines = streamlines
+
+        # Streamlines
+        self.streamlines_disp = pvs.Show(
+            self.streamlines, self.view, "GeometryRepresentation"
+        )
+        self.streamlines_disp.Representation = "Surface"
+        self.streamlines_disp.ColorArrayName = [None, ""]
+        self.streamlines_disp.AmbientColor = self.color
+        self.streamlines_disp.DiffuseColor = self.color
+
     def show(self):
         """Make the satellite visible"""
         pvs.Show(self.sat, self.view)
@@ -78,6 +122,12 @@ class Satellite:
         """Hide the satellite"""
         pvs.Hide(self.sat, self.view)
         pvs.Hide(self.label, self.view)
+
+    def show_fieldline(self):
+        pvs.Show(self.streamlines, self.view)
+
+    def hide_fieldline(self):
+        pvs.Hide(self.streamlines, self.view)
 
     def update(self, time):
         """
@@ -90,6 +140,8 @@ class Satellite:
         """
         self.sat.Center = self.evolution.get_position(time=time)
         self.label_disp.BillboardPosition = [x + self.size for x in self.sat.Center]
+        if hasattr(self, "stream_input"):
+            self.stream_input.SeedType.Center = self.sat.Center
 
 
 class Sun:
