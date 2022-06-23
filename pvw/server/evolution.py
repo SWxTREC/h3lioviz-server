@@ -14,19 +14,18 @@ class Evolution:
         """
         # fname will be something like: evo.earth.json
         # so, we will split on the periods and take the middle entry
-        self.name = os.path.basename(fname).split('.')[1]
+        self.name = os.path.basename(fname).split(".")[1]
         with open(fname) as f:
             self.json = json.loads(f.read())
             # all times are based off of unix epoch
-            self.times = (np.datetime64('1970-01-01') +
-                          np.array(self.json['coords']['time']
-                                   ['data']).astype('timedelta64[s]'))
+            self.times = np.datetime64("1970-01-01") + np.array(
+                self.json["coords"]["time"]["data"]
+            ).astype("timedelta64[s]")
 
             # iterate over all data variables and set those as
             # attributes on the object
-            for var in ['X', 'Y', 'Z']:
-                setattr(self, var,
-                        np.array(self.json['data_vars'][var]['data']))
+            for var in ["X", "Y", "Z"]:
+                setattr(self, var, np.array(self.json["data_vars"][var]["data"]))
 
     def get_position(self, time):
         """
@@ -54,7 +53,7 @@ class Evolution:
         -------
         List of data for this satellite
         """
-        return self.json['data_vars'][variable]['data']
+        return self.json["data_vars"][variable]["data"]
 
     def get_times(self):
         """
@@ -64,7 +63,7 @@ class Evolution:
         -------
         List of times for this satellite
         """
-        return self.json['coords']['time']['data']
+        return self.json["coords"]["time"]["data"]
 
     def as_latis(self):
         """Create a Latis-style return for front-end use."""
@@ -80,60 +79,63 @@ class Evolution:
                 curr_row.append(self.get_data(var)[i][0])
             timestep_data.append(curr_row)
 
-        json_out = {f"{self.name}": {
-            "metadata": {
-                "time": {
-                    "units": "milliseconds since 1970-01-01",
-                    "length": f"{ntimes}"
+        json_out = {
+            f"{self.name}": {
+                "metadata": {
+                    "time": {
+                        "units": "milliseconds since 1970-01-01",
+                        "length": f"{ntimes}",
+                    },
+                    "density": {
+                        "missing_value": "99999.99",
+                        "description": "Density",
+                        "units": "r<sup>2</sup>N/cm<sup>3</sup>",
+                    },
+                    "velocity": {
+                        "missing_value": "99999.99",
+                        "description": "Velocity",
+                        "units": "km/s",
+                    },
+                    "pressure": {
+                        "missing_value": "99999.99",
+                        "description": "Ram pressure",
+                        "units": (
+                            "r<sup>2</sup>N/cm<sup>3</sup> * "
+                            "km<sup>2</sup>/s<sup>2</sup>"
+                        ),
+                    },
+                    "temperature": {
+                        "missing_value": "99999.99",
+                        "description": "Temperature",
+                        "units": "K",
+                    },
+                    "bx": {
+                        "missing_value": "99999.99",
+                        "description": "BX",
+                        "units": "nT",
+                    },
+                    "by": {
+                        "missing_value": "99999.99",
+                        "description": "BX",
+                        "units": "nT",
+                    },
+                    "bz": {
+                        "missing_value": "99999.99",
+                        "description": "BX",
+                        "units": "nT",
+                    },
                 },
-                "density": {
-                    "missing_value": "99999.99",
-                    "description": "Density",
-                    "units": "r<sup>2</sup>N/cm<sup>3</sup>"
-                },
-                "velocity": {
-                    "missing_value": "99999.99",
-                    "description": "Velocity",
-                    "units": "km/s"
-                },
-                "pressure": {
-                    "missing_value": "99999.99",
-                    "description": "Ram pressure",
-                    "units": ("r<sup>2</sup>N/cm<sup>3</sup> * "
-                              "km<sup>2</sup>/s<sup>2</sup>")
-                },
-                "temperature": {
-                    "missing_value": "99999.99",
-                    "description": "Temperature",
-                    "units": "K"
-                },
-                "bx": {
-                    "missing_value": "99999.99",
-                    "description": "BX",
-                    "units": "nT"
-                },
-                "by": {
-                    "missing_value": "99999.99",
-                    "description": "BX",
-                    "units": "nT"
-                },
-                "bz": {
-                    "missing_value": "99999.99",
-                    "description": "BX",
-                    "units": "nT"
-                }
-            },
-            "parameters": [
-                "time",
-                "density",
-                "velocity",
-                "pressure",
-                "temperature",
-                "bx",
-                "by",
-                "bz"
-            ],
-            "data": timestep_data
+                "parameters": [
+                    "time",
+                    "density",
+                    "velocity",
+                    "pressure",
+                    "temperature",
+                    "bx",
+                    "by",
+                    "bz",
+                ],
+                "data": timestep_data,
             }
         }
         return json.dumps(json_out)
