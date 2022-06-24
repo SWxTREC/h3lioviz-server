@@ -76,7 +76,7 @@ class Evolution:
             # the units to be in milliseconds
             curr_row = [int(self.get_times()[i]) * 1000]
             for var in ["Density", "Vr", "Pressure", "T", "Bx", "By", "Bz"]:
-                curr_row.append(self.get_data(var)[i][0])
+                curr_row.append(self.get_data(var)[i])
             timestep_data.append(curr_row)
 
         json_out = {
