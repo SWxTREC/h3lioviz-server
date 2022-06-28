@@ -277,7 +277,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
 
-    @exportRpc("pv.enlil.get_available_runs")
+    @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
         """
         Get a list of available runs to choose from.
@@ -299,7 +299,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         dirs = [x for x in base_dir.iterdir() if (x / "pv-data-3d.nc").exists()]
         return dirs
 
-    @exportRpc("pv.enlil.get_variable_range")
+    @exportRpc("pv.h3lioviz.get_variable_range")
     def get_variable_range(self, name):
         """
         Get the range of values for a variable at the current timestep.
@@ -310,7 +310,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         variable = getattr(self.model, name)
         return self.celldata.CellData.GetArray(variable).GetRange()
 
-    @exportRpc("pv.enlil.directory")
+    @exportRpc("pv.h3lioviz.directory")
     def update_dataset(self, dirname):
         """
         Change the dataset directory to the one specified by dirname
@@ -333,7 +333,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.data.UpdatePipeline()
         pvs.Render(self.view)
 
-    @exportRpc("pv.enlil.visibility")
+    @exportRpc("pv.h3lioviz.visibility")
     def change_visibility(self, obj, visibility):
         """
         Change the visibility of an object.
@@ -381,7 +381,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
 
-    @exportRpc("pv.enlil.colorby")
+    @exportRpc("pv.h3lioviz.colorby")
     def change_color_variable(self, name):
         """
         Change the visibility of an object.
@@ -487,7 +487,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         else:
             raise ValueError("Opacity needs 2 or 3 points to map")
 
-    @exportRpc("pv.enlil.set_colormap")
+    @exportRpc("pv.h3lioviz.set_colormap")
     def set_colormap(self, name, cmap_name=None):
         """
         Set the colormap for the variable.
@@ -504,7 +504,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
         lut.EnableOpacityMapping = 1
 
-    @exportRpc("pv.enlil.set_range")
+    @exportRpc("pv.h3lioviz.set_range")
     def set_range(self, name, range):
         """
         Set the range of values used for colormapping.
@@ -517,7 +517,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         LUT_RANGE[name] = range
         self.update_lut(name)
 
-    @exportRpc("pv.enlil.set_opacity")
+    @exportRpc("pv.h3lioviz.set_opacity")
     def set_opacity(self, name, range):
         """
         Set the range of values used for opacity-mapping.
@@ -535,7 +535,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         OPACITY_VALUES[name] = range
         self.update_opacity(name)
 
-    @exportRpc("pv.enlil.set_threshold")
+    @exportRpc("pv.h3lioviz.set_threshold")
     def set_threshold(self, name, range):
         """
         Set the variable and range of values to be used for the threshold.
@@ -550,7 +550,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.threshold.ContourBy = ["POINTS", variable]
         self.threshold.Isosurfaces = range
 
-    @exportRpc("pv.enlil.set_contours")
+    @exportRpc("pv.h3lioviz.set_contours")
     def set_contours(self, name, values):
         """
         Set the variable and a list of values to be used for the contours.
@@ -565,7 +565,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.cme_contours.ContourBy = ["POINTS", variable]
         self.cme_contours.Isosurfaces = values
 
-    @exportRpc("pv.enlil.snap_solar_plane")
+    @exportRpc("pv.h3lioviz.snap_solar_plane")
     def snap_solar_plane(self, clip):
         """Snap the solar plane to either the solar equator or Sun-Earth plane.
 
@@ -595,7 +595,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Also update the stream source so they stay in-sync
         self.lon_slice.stream_source.Normal = loc
 
-    @exportRpc("pv.enlil.rotate_plane")
+    @exportRpc("pv.h3lioviz.rotate_plane")
     def rotate_plane(self, plane, angle):
         """
         Rotate the desired plane to the given angle.
@@ -622,7 +622,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         else:
             raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
-    @exportRpc("pv.enlil.snap_to_view")
+    @exportRpc("pv.h3lioviz.snap_to_view")
     def snap_to_view(self, plane):
         """Snap to the given planar view
 
@@ -651,7 +651,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Force the focal point to be the sun
         self.view.CameraFocalPoint = [0, 0, 0]
 
-    @exportRpc("pv.enlil.toggle_satellites")
+    @exportRpc("pv.h3lioviz.toggle_satellites")
     def toggle_satellites(self, visibility):
         """
         Toggles the visibility of the satellites on/off from the view
@@ -669,7 +669,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Call the hide() or show() method
             getattr(self.satellites[sat], hide_show)()
 
-    @exportRpc("pv.enlil.get_satellite_times")
+    @exportRpc("pv.h3lioviz.get_satellite_times")
     def get_satellite_time(self, sat):
         """
         Returns a time-series of data for the given satellite and variable.
@@ -687,7 +687,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             return self.earth.get_times()
         return self.satellites[sat].get_times()
 
-    @exportRpc("pv.enlil.get_satellite_data")
+    @exportRpc("pv.h3lioviz.get_satellite_data")
     def get_satellite_data(self, sat):
         """
         Returns a time-series of data for the given satellite and variable.
