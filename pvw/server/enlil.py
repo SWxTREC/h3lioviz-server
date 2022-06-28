@@ -81,7 +81,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self._data_dir = pathlib.Path(dirname)
 
         self.model = models.Enlil(self._data_dir)
-        # create a new 'NetCDF Reader' from the full data path
+        # TODO: Implement a check for whether we are given Enlil or EUHFORIA data
+        # self.model = models.Euhforia(self._data_dir / "euhforia_cone_cme_example")
+
+        # Store the data locally as well
         self.celldata = self.model.data
 
         # Force all cell data to point data in the volume
