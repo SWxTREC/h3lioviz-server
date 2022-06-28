@@ -6,21 +6,22 @@ import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
+import models
 import satellite
 import slice
 
 # Global definitions of variables
 # Range for each lookup table
 LUT_RANGE = {
-    "Vr": [300, 900],
-    "Density": [0, 30],
-    "Pressure": [1e5, 1e7],
-    "T": [1e4, 1e6],
-    "Br": [-10, 10],
-    "Bx": [-10, 10],
-    "By": [-10, 10],
-    "Bz": [-10, 10],
-    "DP": [0, 1],
+    "velocity": [300, 900],
+    "density": [0, 30],
+    "pressure": [1e5, 1e7],
+    "temperature": [1e4, 1e6],
+    "b": [-10, 10],
+    "bx": [-10, 10],
+    "by": [-10, 10],
+    "bz": [-10, 10],
+    "dp": [0, 1],
 }
 
 # Control points for the opacity mapping
@@ -28,41 +29,28 @@ LUT_RANGE = {
 # 2: Min/max opacity corresponding to the min/max data
 # 3: Min, middle, max opacity corresponding to min/center/max data
 OPACITY_VALUES = {
-    "Vr": [0.2, 0.9],
-    "Density": [0.2, 0.9],
-    "Pressure": [0.2, 0.9],
-    "T": [0.2, 0.9],
-    "Br": [0.9, 0.2, 0.9],
-    "Bx": [0.9, 0.2, 0.9],
-    "By": [0.9, 0.2, 0.9],
-    "Bz": [0.9, 0.2, 0.9],
-    "DP": [0.2, 0.9],
+    "velocity": [0.2, 0.9],
+    "density": [0.2, 0.9],
+    "pressure": [0.2, 0.9],
+    "temperature": [0.2, 0.9],
+    "b": [0.9, 0.2, 0.9],
+    "bx": [0.9, 0.2, 0.9],
+    "by": [0.9, 0.2, 0.9],
+    "bz": [0.9, 0.2, 0.9],
+    "dp": [0.2, 0.9],
 }
 
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {
-    "Vr": "Plasma (matplotlib)",
-    "Density": "Viridis (matplotlib)",
-    "Pressure": "Viridis (matplotlib)",
-    "T": "Inferno (matplotlib)",
-    "Br": "Cool to Warm",
-    "Bx": "Cool to Warm",
-    "By": "Cool to Warm",
-    "Bz": "Cool to Warm",
-    "DP": "Plasma (matplotlib)",
-}
-
-# Name mapping from frontend to variables in dataset
-VARIABLE_MAP = {
-    "velocity": "Vr",
-    "density": "Density",
-    "pressure": "Pressure",
-    "temperature": "T",
-    "b": "Br",
-    "bx": "Bx",
-    "by": "By",
-    "bz": "Bz",
-    "dp": "DP",
+    "velocity": "Plasma (matplotlib)",
+    "density": "Viridis (matplotlib)",
+    "pressure": "Viridis (matplotlib)",
+    "temperature": "Inferno (matplotlib)",
+    "b": "Cool to Warm",
+    "bx": "Cool to Warm",
+    "by": "Cool to Warm",
+    "bz": "Cool to Warm",
+    "dp": "Plasma (matplotlib)",
 }
 
 VARIABLE_LABEL = {
@@ -92,12 +80,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Save the data directory
         self._data_dir = pathlib.Path(dirname)
 
+        self.model = models.Enlil(self._data_dir)
         # create a new 'NetCDF Reader' from the full data path
-        fname = str(self._data_dir / "pv-data-3d.nc")
-        self.celldata = pvs.NetCDFReader(
-            registrationName="enlil-data", FileName=[fname]
-        )
-        self.celldata.Dimensions = "(longitude, latitude, radius)"
+        self.celldata = self.model.data
 
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
@@ -109,7 +94,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.bvec = pvs.Calculator(registrationName="3D-Bvec", Input=self.data)
         self.bvec.AttributeType = "Point Data"
         self.bvec.ResultArrayName = "Bvec"
-        self.bvec.Function = "Bx*iHat + By*jHat + Bz*kHat"
+        self.bvec.Function = (
+            f"{self.model.bx}*iHat + {self.model.by}*jHat + {self.model.bz}*kHat"
+        )
 
         self.time_string = pvs.Text(registrationName="Time")
         # Don't add in any text right now
@@ -121,9 +108,9 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # We really only want a minimum value, so just set the maximum high
         self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
-        self.threshold_cme.Scalars = ["CELLS", "DP"]
+        self.threshold_cme.Scalars = ["CELLS", self.model.dp]
         self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
-        self.cme.ContourBy = ["POINTS", "DP"]
+        self.cme.ContourBy = ["POINTS", self.model.dp]
         self.cme.ComputeNormals = 0
         self.cme.Isosurfaces = [0.2]
         self.cme.PointMergeMethod = "Uniform Binning"
@@ -131,14 +118,14 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.cme_contours = pvs.Contour(
             registrationName="CME-contour", Input=self.threshold_cme
         )
-        self.cme_contours.ContourBy = ["POINTS", "Density"]
+        self.cme_contours.ContourBy = ["POINTS", self.model.density]
         self.cme_contours.Isosurfaces = []
         self.cme_contours.PointMergeMethod = "Uniform Binning"
 
         # Create a threshold that can be modified by the user, we use
         # two contours here instead because it looks a bit nicer.
         self.threshold = pvs.Contour(registrationName="Threshold", Input=self.data)
-        self.threshold.ContourBy = ["POINTS", "Density"]
+        self.threshold.ContourBy = ["POINTS", self.model.density]
         self.threshold.Isosurfaces = [10, 50]
         self.threshold.PointMergeMethod = "Uniform Binning"
 
@@ -203,7 +190,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
 
         # get color transfer function/color map for Bz initially
-        bzLUT = pvs.GetColorTransferFunction("Bz")
+        bzLUT = pvs.GetColorTransferFunction(self.model.bz)
         bzLUT.RGBPoints = [
             -10,
             0.231373,
@@ -220,7 +207,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         ]
         bzLUT.ScalarRangeInitialized = 1.0
         # get opacity transfer function/opacity map for 'Bz'
-        bzPWF = pvs.GetOpacityTransferFunction("Bz")
+        bzPWF = pvs.GetOpacityTransferFunction(self.model.bz)
         bzPWF.Points = [-10, 0.0, 0.5, 0.0, 10, 1.0, 0.5, 0.0]
         bzPWF.ScalarRangeInitialized = 1
 
@@ -235,17 +222,17 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.cme_contours, self.view, "GeometryRepresentation")
         self.displays[self.cme_contours] = disp
         disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Bz"]
+        disp.ColorArrayName = ["POINTS", self.model.bz]
         disp.LookupTable = bzLUT
 
         disp = pvs.Show(self.threshold, self.view, "GeometryRepresentation")
         self.displays[self.threshold] = disp
         disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", "Bz"]
+        disp.ColorArrayName = ["POINTS", self.model.bz]
         disp.LookupTable = bzLUT
 
         # Set colormaps
-        for name in VARIABLE_MAP:
+        for name in DEFAULT_CMAP:
             self.set_colormap(name)
 
         # hide this data from the default initial view
@@ -317,7 +304,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to colormap all of the surfaces by
         """
-        variable = VARIABLE_MAP[name]
+        variable = getattr(self.model, name)
         return self.celldata.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.enlil.directory")
@@ -400,7 +387,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         # Use a dictionary to map the variable received to the internal name
-        variable = VARIABLE_MAP[name]
+        variable = getattr(self.model, name)
         label = VARIABLE_LABEL[name]
 
         # Update all displays to be colored by this variable
@@ -425,8 +412,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         self.lon_slice.variable = variable
         self.lat_slice.variable = variable
         self.radial_slice.variable = variable
-        self.update_opacity(variable)
-        self.update_lut(variable)
+        self.update_opacity(name)
+        self.update_lut(name)
 
         # hides old scalarbars that aren't in the view and
         # shows the new variable we are using now
@@ -440,28 +427,30 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         # Render the view
         pvs.Render(self.view)
 
-    def update_lut(self, variable):
+    def update_lut(self, name):
         """
         Set the variable range of the lookup table.
 
-        variable : str
+        name : str
             Name of variable to update
         """
+        variable = getattr(self.model, name)
         lut = pvs.GetColorTransferFunction(variable)
-        lut.RescaleTransferFunction(LUT_RANGE[variable])
+        lut.RescaleTransferFunction(LUT_RANGE[name])
         lut.AutomaticRescaleRangeMode = "Never"
 
-    def update_opacity(self, variable):
+    def update_opacity(self, name):
         """
         Set the variable range of the opacity lookup table.
 
-        variable : str
+        name : str
             Name of variable to update
         """
+        variable = getattr(self.model, name)
         opacity_map = pvs.GetOpacityTransferFunction(variable)
         # Create the control points
-        points = OPACITY_VALUES[variable]
-        data_range = LUT_RANGE[variable]
+        points = OPACITY_VALUES[name]
+        data_range = LUT_RANGE[name]
         # opacity_map.Points order of flattened list is
         # (data-value, opacity, mid-point, sharpness)
         if len(points) == 2:
@@ -506,10 +495,10 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             Name of the colormap to apply
         """
         # Use a dictionary to map the variable received to the internal name
-        variable = VARIABLE_MAP[name]
+        variable = getattr(self.model, name)
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
-        lut.ApplyPreset(cmap_name or DEFAULT_CMAP[variable])
+        lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
         lut.EnableOpacityMapping = 1
 
     @exportRpc("pv.enlil.set_range")
@@ -522,10 +511,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
-        # Use a dictionary to map the variable received to the internal name
-        variable = VARIABLE_MAP[name]
-        LUT_RANGE[variable] = range
-        self.update_lut(variable)
+        LUT_RANGE[name] = range
+        self.update_lut(name)
 
     @exportRpc("pv.enlil.set_opacity")
     def set_opacity(self, name, range):
@@ -542,10 +529,8 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
             are given, or the minimum, midpoint, and maximum if 3 elements
             are given.
         """
-        # Use a dictionary to map the variable received to the internal name
-        variable = VARIABLE_MAP[name]
-        OPACITY_VALUES[variable] = range
-        self.update_opacity(variable)
+        OPACITY_VALUES[name] = range
+        self.update_opacity(name)
 
     @exportRpc("pv.enlil.set_threshold")
     def set_threshold(self, name, range):
@@ -557,7 +542,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
-        variable = VARIABLE_MAP[name]
+        variable = getattr(self.model, name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
         self.threshold.Isosurfaces = range
@@ -572,7 +557,7 @@ class EnlilDataset(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
-        variable = VARIABLE_MAP[name]
+        variable = getattr(self.model, name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
         self.cme_contours.Isosurfaces = values
