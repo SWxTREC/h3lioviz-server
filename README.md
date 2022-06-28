@@ -1,7 +1,7 @@
-# Enlil 3D Server
+# H3LIO Viz
 
 This repository hosts the code to run a Paraview server for
-the 3D Enlil output.
+the 3D heliospheric output, from codes such as Enlil and EUHFORIA.
 
 ## Local Development and Testing
 
@@ -102,7 +102,7 @@ pip install wslink
 Now, you can run the server with
 
 ```bash
-pvpython pvw/server/pv_server_statefile.py --port 1234 --dir /path/to/<pv-data-3d.nc>
+pvpython pvw/server/app_server.py --port 1234 --dir /path/to/<pv-data-3d.nc>
 ```
 
 where the port is `1234` for local development, and the path to the input file is

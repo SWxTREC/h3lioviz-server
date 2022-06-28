@@ -36,7 +36,7 @@
         "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
         "${python_exec}",
         EXTRA_PVPYTHON_ARGS
-        "/pvw/server/pv_server_statefile.py",
+        "/pvw/server/app_server.py",
         "--port", "${port}",
         "--authKey", "${secret}",
         "--dir", "/data",

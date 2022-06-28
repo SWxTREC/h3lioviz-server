@@ -7,16 +7,15 @@ from paraview.web import protocols as pv_protocols
 from paraview import simple
 from wslink import server
 
-from enlil import EnlilDataset
+from app import App
 
 # =============================================================================
 # Create custom PVServerProtocol class to handle clients requests
 # =============================================================================
 
 
-class _DemoServer(pv_wslink.PVServerProtocol):
+class _AppServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
-    data_file = "/data/pv-data-3d.nc"
     viewportScale = 1.0
     viewportMaxWidth = 2560
     viewportMaxHeight = 1440
@@ -27,7 +26,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         parser.add_argument(
             "--dir",
             default="/data",
-            help=("Path to the NetCDF file to load"),
+            help=("Path to the data directory to load"),
             dest="data_dir",
         )
         parser.add_argument(
@@ -62,12 +61,12 @@ class _DemoServer(pv_wslink.PVServerProtocol):
     @staticmethod
     def configure(args):
         # Update this server based on the passed in arguments
-        _DemoServer.authKey = args.authKey
-        _DemoServer.data_dir = args.data_dir
-        _DemoServer.viewportScale = args.viewportScale
-        _DemoServer.viewportMaxWidth = args.viewportMaxWidth
-        _DemoServer.viewportMaxHeight = args.viewportMaxHeight
-        _DemoServer.settingsLODThreshold = args.settingsLODThreshold
+        _AppServer.authKey = args.authKey
+        _AppServer.data_dir = args.data_dir
+        _AppServer.viewportScale = args.viewportScale
+        _AppServer.viewportMaxWidth = args.viewportMaxWidth
+        _AppServer.viewportMaxHeight = args.viewportMaxHeight
+        _AppServer.settingsLODThreshold = args.settingsLODThreshold
 
     def initialize(self):
         # Bring used components
@@ -77,7 +76,7 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         self.registerVtkWebProtocol(
             pv_protocols.ParaViewWebPublishImageDelivery(decode=False)
         )
-        self.updateSecret(_DemoServer.authKey)
+        self.updateSecret(_AppServer.authKey)
 
         # tell the C++ web app to use no encoding.
         # ParaViewWebPublishImageDelivery must be set to decode=False to match.
@@ -87,22 +86,22 @@ class _DemoServer(pv_wslink.PVServerProtocol):
         simple.GetRenderView().EnableRenderOnInteraction = 0
 
         # The directory containing the NetCDF file with the data
-        self.enlil = EnlilDataset(self.data_dir)
+        self.app = App(self.data_dir)
         # Register the Paraview protocols for dispatching methods
-        self.registerVtkWebProtocol(self.enlil)
+        self.registerVtkWebProtocol(self.app)
 
 
 if __name__ == "__main__":
     # Create argument parser
-    parser = argparse.ArgumentParser(description="ParaViewWeb Demo")
+    parser = argparse.ArgumentParser(description="H3LIO Viewer")
 
     # Add default arguments
     server.add_arguments(parser)
-    _DemoServer.add_arguments(parser)
+    _AppServer.add_arguments(parser)
 
     # Extract arguments
     args = parser.parse_args()
-    _DemoServer.configure(args)
+    _AppServer.configure(args)
 
     # Start server
-    server.start_webserver(options=args, protocol=_DemoServer)
+    server.start_webserver(options=args, protocol=_AppServer)

@@ -66,14 +66,14 @@ VARIABLE_LABEL = {
 }
 
 
-class EnlilDataset(pv_protocols.ParaViewWebProtocol):
+class App(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
         """
-        Enlil 4D dataset representation in Paraview.
+        Heliosphere 4D dataset representation in Paraview.
 
-        This class will read in the given NetCDF file that contains
-        the Enlil output. It is designed to enable an easy storage
-        and access layer to the data.
+        This class is the base app designed to enable an easy storage
+        and access layer to the data, which is stored in the models
+        module.
         """
         # Initialize the PV web protocols
         super().__init__()
