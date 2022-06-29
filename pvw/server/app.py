@@ -98,7 +98,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.bvec.AttributeType = "Point Data"
         self.bvec.ResultArrayName = "Bvec"
         self.bvec.Function = (
-            f"{self.model.bx}*iHat + {self.model.by}*jHat + {self.model.bz}*kHat"
+            f"{self.model.get_variable('bx')}*iHat"
+            f" + {self.model.get_variable('by')}*jHat"
+            f" + {self.model.get_variable('bz')}*kHat"
         )
 
         self.time_string = pvs.Text(registrationName="Time")
@@ -111,9 +113,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         # We really only want a minimum value, so just set the maximum high
         self.threshold_cme.ThresholdRange = [1e-5, 1e5]
         # DP is the variable name in Enlil
-        self.threshold_cme.Scalars = ["CELLS", self.model.dp]
+        self.threshold_cme.Scalars = ["CELLS", self.model.get_variable("dp")]
         self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
-        self.cme.ContourBy = ["POINTS", self.model.dp]
+        self.cme.ContourBy = ["POINTS", self.model.get_variable("dp")]
         self.cme.ComputeNormals = 0
         self.cme.Isosurfaces = [0.2]
         self.cme.PointMergeMethod = "Uniform Binning"
@@ -121,14 +123,14 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.cme_contours = pvs.Contour(
             registrationName="CME-contour", Input=self.threshold_cme
         )
-        self.cme_contours.ContourBy = ["POINTS", self.model.density]
+        self.cme_contours.ContourBy = ["POINTS", self.model.get_variable("density")]
         self.cme_contours.Isosurfaces = []
         self.cme_contours.PointMergeMethod = "Uniform Binning"
 
         # Create a threshold that can be modified by the user, we use
         # two contours here instead because it looks a bit nicer.
         self.threshold = pvs.Contour(registrationName="Threshold", Input=self.data)
-        self.threshold.ContourBy = ["POINTS", self.model.density]
+        self.threshold.ContourBy = ["POINTS", self.model.get_variable("density")]
         self.threshold.Isosurfaces = [10, 50]
         self.threshold.PointMergeMethod = "Uniform Binning"
 
@@ -193,7 +195,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
 
         # get color transfer function/color map for Bz initially
-        bzLUT = pvs.GetColorTransferFunction(self.model.bz)
+        bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
         bzLUT.RGBPoints = [
             -10,
             0.231373,
@@ -210,7 +212,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         ]
         bzLUT.ScalarRangeInitialized = 1.0
         # get opacity transfer function/opacity map for 'Bz'
-        bzPWF = pvs.GetOpacityTransferFunction(self.model.bz)
+        bzPWF = pvs.GetOpacityTransferFunction(self.model.get_variable("bz"))
         bzPWF.Points = [-10, 0.0, 0.5, 0.0, 10, 1.0, 0.5, 0.0]
         bzPWF.ScalarRangeInitialized = 1
 
@@ -225,13 +227,13 @@ class App(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.cme_contours, self.view, "GeometryRepresentation")
         self.displays[self.cme_contours] = disp
         disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.bz]
+        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
         disp.LookupTable = bzLUT
 
         disp = pvs.Show(self.threshold, self.view, "GeometryRepresentation")
         self.displays[self.threshold] = disp
         disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.bz]
+        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
         disp.LookupTable = bzLUT
 
         # Set colormaps
@@ -307,7 +309,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to colormap all of the surfaces by
         """
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         return self.celldata.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.h3lioviz.directory")
@@ -390,7 +392,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         # Use a dictionary to map the variable received to the internal name
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         label = VARIABLE_LABEL[name]
 
         # Update all displays to be colored by this variable
@@ -437,7 +439,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to update
         """
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
         lut.RescaleTransferFunction(LUT_RANGE[name])
         lut.AutomaticRescaleRangeMode = "Never"
@@ -449,7 +451,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to update
         """
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         opacity_map = pvs.GetOpacityTransferFunction(variable)
         # Create the control points
         points = OPACITY_VALUES[name]
@@ -498,7 +500,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the colormap to apply
         """
         # Use a dictionary to map the variable received to the internal name
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
         lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
@@ -545,7 +547,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
         self.threshold.Isosurfaces = range
@@ -560,7 +562,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
-        variable = getattr(self.model, name)
+        variable = self.model.get_variable(name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
         self.cme_contours.Isosurfaces = values
