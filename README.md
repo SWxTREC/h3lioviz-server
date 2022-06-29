@@ -1,7 +1,7 @@
-# H3LIO Viz
+# H3lioViz
 
 This repository hosts the code to run a Paraview server for
-the 3D heliospheric output, from codes such as Enlil and EUHFORIA.
+the 3D heliospheric output, from codes such as Enlil and Euhforia.
 
 ## Local Development and Testing
 

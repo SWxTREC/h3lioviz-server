@@ -93,7 +93,7 @@ class _AppServer(pv_wslink.PVServerProtocol):
 
 if __name__ == "__main__":
     # Create argument parser
-    parser = argparse.ArgumentParser(description="H3LIO Viewer")
+    parser = argparse.ArgumentParser(description="H3lioViz")
 
     # Add default arguments
     server.add_arguments(parser)
