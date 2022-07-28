@@ -80,6 +80,26 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Save the data directory
         self._data_dir = pathlib.Path(dirname)
 
+        # disable automatic camera reset on 'Show'
+        pvs._DisableFirstRenderCameraReset()
+
+        # Get the initial 'Render View'
+        self.view = pvs.GetActiveView()
+        self.view.ViewSize = [600, 600]
+        self.view.AxesGrid = "GridAxes3DActor"
+        self.view.CenterOfRotation = [0, 0, 0]
+        self.view.StereoType = "Crystal Eyes"
+        self.view.CameraPosition = [-3, 3, 3]
+        self.view.CameraFocalPoint = [0, 0, 0]
+        self.view.CameraViewUp = [0, 0, 1]
+        self.view.CameraFocalDisk = 1.0
+        self.view.CameraParallelScale = 2
+        self.view.BackEnd = "OSPRay raycaster"
+        self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
+
+        self._load_model()
+
+    def _load_model(self):
         self.model = models.Enlil(self._data_dir)
         # TODO: Implement a check for whether we are given Enlil or EUHFORIA data
         # self.model = models.Euhforia(self._data_dir / "euhforia_cone_cme_example")
@@ -174,22 +194,6 @@ class App(pv_protocols.ParaViewWebProtocol):
 
     def _setup_views(self):
         """Setup the rendering view."""
-        # disable automatic camera reset on 'Show'
-        pvs._DisableFirstRenderCameraReset()
-
-        # Get the initial 'Render View'
-        self.view = pvs.GetActiveView()
-        self.view.ViewSize = [600, 600]
-        self.view.AxesGrid = "GridAxes3DActor"
-        self.view.CenterOfRotation = [0, 0, 0]
-        self.view.StereoType = "Crystal Eyes"
-        self.view.CameraPosition = [-3, 3, 3]
-        self.view.CameraFocalPoint = [0, 0, 0]
-        self.view.CameraViewUp = [0, 0, 1]
-        self.view.CameraFocalDisk = 1.0
-        self.view.CameraParallelScale = 2
-        self.view.BackEnd = "OSPRay raycaster"
-        self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
         # Time string
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
