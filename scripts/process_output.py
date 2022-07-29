@@ -22,6 +22,18 @@ density_conversion = 1./m_hydrogen * m3_to_cm3
 velocity_conversion = 1./1000.
 
 
+class NumpyEncoder(json.JSONEncoder):
+    """Convert numpy int/float/array to JSON serializable objects."""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
 def spherical_to_cartesian(r, theta, phi, v1, v2, v3):
     """
     Transform vector field components from spherical to cartesian.
