@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import glob
+import hashlib
 import json
 import os
 import pathlib
@@ -184,28 +185,52 @@ def process_evo(ds):
 
 
 def process_directory(path):
-    # Start off with evolution files
+    print("Beginning processing, may take several minutes")
+    t0 = time.time()
+
+    # ---------
+    # TIM file processing
+    # ---------
+    fnames = sorted(glob.glob(path + '/tim.*.nc'))
+    if len(fnames) == 0:
+        raise ValueError("No files found to process in the current directory.")
+
+    # Load into a multi-file dataset to be able to concatenate along Time
+    ds = xr.open_mfdataset(fnames, combine='by_coords',
+                           preprocess=process_tim, engine='netcdf4')
+    print(f"Dataset loaded: {time.time()-t0} s")
+    # New path based on the metadata
+    s = json.dumps(ds.attrs, cls=NumpyEncoder)
+    
+
+    newpath = path + '/pv-ready-data-' + hashlib.sha256(s.encode('utf-8')).hexdigest()[:8]
+    if not os.path.exists(newpath):
+        os.mkdir(newpath)
+
+    with open(f"{newpath}/metadata.json", "w") as f:
+        f.write(s)
+
+    ds.to_netcdf(f"{newpath}/pv-data-3d.nc", engine='scipy',
+                 encoding={'time': {'units': 'seconds since 1970-01-01'}})
+    # _, datasets = zip(*ds.groupby('time'))
+    # paths = [f"{newpath}/tim.{i:04d}.nc" for i in range(len(fnames))]
+    # xr.save_mfdataset(datasets, paths, engine='scipy')
+    print(f"Dataset saved: {time.time()-t0} s")
+
+    # Load and process the evolution (evo) file
     fnames = sorted(glob.glob(path + '/evo.*.nc'))
     if len(fnames) == 0:
         raise ValueError("No evolution files found to process in the "
                          "current directory.")
 
-    print("Beginning processing, may take several minutes")
-    t0 = time.time()
-    # Load and process the evo file
     datasets = [process_evo(xr.open_dataset(fname, engine='netcdf4'))
                 for fname in fnames]
 
-    # New path
-    newpath = path + '/pv-ready-data'
-    if not os.path.exists(newpath):
-        os.mkdir(newpath)
-
-    for ds, fname in zip(datasets, fnames):
+    for ds_evo, fname in zip(datasets, fnames):
         # Save a single evolution file to NetCDF
         newfile = f"{newpath}/{os.path.basename(fname)}"
-        ds.to_netcdf(newfile,
-                     encoding={'time': {'units':
+        ds_evo.to_netcdf(newfile,
+                         encoding={'time': {'units':
                                         'seconds since 1970-01-01'}})
         # Reload that file and save it to json
         # Loading with decode_times=False makes it so the datetimes
@@ -218,26 +243,7 @@ def process_directory(path):
             f.write(json.dumps(json.loads(json.dumps(newds.to_dict()),
                     parse_float=lambda x: round(float(x), 3))))
 
-    # ---------
-    # TIM file processing
-    # ---------
-    fnames = sorted(glob.glob(path + '/tim.*.nc'))
-    if len(fnames) == 0:
-        raise ValueError("No files found to process in the current directory.")
-
-    print("Beginning processing, may take several minutes")
-    t0 = time.time()
-    # Load into a multi-file dataset to be able to concatenate along Time
-    ds = xr.open_mfdataset(fnames, combine='by_coords',
-                           preprocess=process_tim, engine='netcdf4')
-    print(f"Dataset loaded: {time.time()-t0} s")
-
-    ds.to_netcdf(f"{newpath}/pv-data-3d.nc", engine='scipy',
-                 encoding={'time': {'units': 'seconds since 1970-01-01'}})
-    # _, datasets = zip(*ds.groupby('time'))
-    # paths = [f"{newpath}/tim.{i:04d}.nc" for i in range(len(fnames))]
-    # xr.save_mfdataset(datasets, paths, engine='scipy')
-    print(f"Dataset saved: {time.time()-t0} s")
+    print(f"Evo datasets saved: {time.time()-t0} s")
 
     # Downloading images now, we want to download for every day in the dataset
     # Convert numpy datetime64 (strip nanoseconds component),
@@ -249,6 +255,8 @@ def process_directory(path):
     while curr_date <= end_date:
         download_hmi(curr_date, outdir=newpath + "/solar_images")
         curr_date += dt
+    
+    print(f"Images saved: {time.time()-t0} s")
 
 
 def download_hmi(date: datetime, outdir=None, resolution='1k'):
