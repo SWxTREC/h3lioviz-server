@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import pathlib
 
@@ -77,8 +78,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         # Initialize the PV web protocols
         super().__init__()
-        # Save the data directory
-        self._data_dir = pathlib.Path(dirname)
+        # Save the run directory
+        self._run_dir = pathlib.Path(dirname)
 
         # disable automatic camera reset on 'Show'
         pvs._DisableFirstRenderCameraReset()
@@ -97,16 +98,43 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.view.BackEnd = "OSPRay raycaster"
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
-        self._load_model()
+        runs = self.get_available_runs()
+        if runs:
+            # Load the first run
+            run = runs[0]
+            self.load_model(run["run_id"], program=run["program"])
 
-    def _load_model(self):
-        self.model = models.Enlil(self._data_dir)
-        # TODO: Implement a check for whether we are given Enlil or EUHFORIA data
-        # self.model = models.Euhforia(self._data_dir / "euhforia_cone_cme_example")
+            # Initialize the filters based on that dataset
+            self._init_filters()
 
+    def load_model(self, run_id, program="enlil"):
+        """
+        Load a specific model run, identified by the *run_id*
+
+        run_id : str
+            identifier for the run to be loaded
+        program : str
+            Name of the program (enlil or euhforia)
+        """
+
+        data_dir = self._run_dir / f"pv-ready-data-{run_id}"
+        if not data_dir.exists():
+            raise ValueError("No run available for this ID")
+
+        if program == "enlil":
+            self.model = models.Enlil(data_dir)
+        elif program == "euhforia":
+            self.model = models.Euhforia(data_dir)
+        else:
+            raise ValueError(
+                f"We cannot load {program} data at this time, only enlil and euhforia are supported"
+            )
+        self._data_dir = data_dir
         # Store the data locally as well
         self.celldata = self.model.data
 
+    def _init_filters(self):
+        """Initialize all of the paraview filters"""
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
             registrationName=f"3D-CellDatatoPointData", Input=self.celldata
@@ -290,20 +318,24 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         Returns
         -------
-        List of available runs
+        List of available runs and metadata
         """
-        # We need to go up a directory from where we are currently.
-        # This expects a flat list of available runs currently.
+        # Each run will have a metadata.json associated with it
+        # in the directory for the run.
         #   /data/run1/pv-data-3d.nc
+        #   /data/run1/metadata.json
         #   /data/run2/pv-data-3d.nc
-        # If we have loaded /data/run1/pv-data-3d.nc, then this
-        # will return ["/data/run1", "/data/run2"] listing all directories
-        # up one level from the current data file
-        base_dir = self._data_dir / ".."
-        # Now search to see if there is a pv-data-3d.nc in the directories
-        # and if not, ignore that entry
-        dirs = [x for x in base_dir.iterdir() if (x / "pv-data-3d.nc").exists()]
-        return dirs
+        runs = []
+        # Get all folders in this directory
+        for path in self._run_dir.glob("**/"):
+            # If there is a metadata item in the
+            # directory, append that to our run list
+            run_info = path / "metadata.json"
+            if run_info.exists():
+                with open(run_info, "r") as f:
+                    runs.append(json.loads(f.read()))
+
+        return runs
 
     @exportRpc("pv.h3lioviz.get_variable_range")
     def get_variable_range(self, name):
