@@ -107,6 +107,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Initialize the filters based on that dataset
             self._init_filters()
 
+    @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
         Load a specific model run, identified by the *run_id*
