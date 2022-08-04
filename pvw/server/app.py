@@ -121,6 +121,25 @@ class App(pv_protocols.ParaViewWebProtocol):
         if not data_dir.exists():
             raise ValueError("No run available for this ID")
 
+        if hasattr(self, "model"):
+            # We already have a model initialized, so we just need to switch
+            # the directory underneath the hood without recreating all the filters
+            self.model.change_run(data_dir)
+            # Update the evolution files associated with the run
+            # NOTE: We need to delete the evolutions first, there must be a
+            #       dangling reference within the cpp that causes a segfault
+            #       if we just update the object dictionary without removal
+            del self.satellites
+            del self.earth
+            del self.sun
+            self._setup_satellites()
+            # Force an update and re-render
+            self.model.data.UpdatePipeline()
+            pvs.Render(self.view)
+            return
+
+        # We are in initialization and don't have a model yet, so
+        # we need to create one
         if program == "enlil":
             self.model = models.Enlil(data_dir)
         elif program == "euhforia":
@@ -129,15 +148,12 @@ class App(pv_protocols.ParaViewWebProtocol):
             raise ValueError(
                 f"We cannot load {program} data at this time, only enlil and euhforia are supported"
             )
-        self._data_dir = data_dir
-        # Store the data locally as well
-        self.celldata = self.model.data
 
     def _init_filters(self):
         """Initialize all of the paraview filters"""
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
-            registrationName=f"3D-CellDatatoPointData", Input=self.celldata
+            registrationName=f"3D-CellDatatoPointData", Input=self.model.data
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
@@ -184,13 +200,13 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Create the slices
         self.lon_slice = slice.Slice(
-            self.celldata, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
+            self.model.data, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
         )
         self.lat_slice = slice.Slice(
-            self.celldata, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
+            self.model.data, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
         )
         self.radial_slice = slice.Slice(
-            self.celldata, slice_type="Sphere", radius=1, name="Radial"
+            self.model.data, slice_type="Sphere", radius=1, name="Radial"
         )
 
         # Dictionary mapping of string names to the object
@@ -291,7 +307,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellites locations and plots them as spheres.
         """
-        sats = list(self._data_dir.glob("*.json"))
+        sats = list(self.model.dir.glob("*.json"))
         # strip evo.name.json to only keep "name"
         # TODO: Use the other satellites eventually
         #       For now, we are only using the stereo spacecraft
@@ -305,7 +321,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.earth = satellite.Earth(
             list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
         )
-        self.sun = satellite.Sun(self._data_dir / "solar_images", view=self.view)
+        self.sun = satellite.Sun(self.model.dir / "solar_images", view=self.view)
         # Add the fieldlines to the satellites + Earth
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)
@@ -346,30 +362,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         variable = self.model.get_variable(name)
-        return self.celldata.CellData.GetArray(variable).GetRange()
-
-    @exportRpc("pv.h3lioviz.directory")
-    def update_dataset(self, dirname):
-        """
-        Change the dataset directory to the one specified by dirname
-
-        dirname : str
-            Path to the dataset file (/dirname/pv-data-3d.nc)
-        """
-        self._data_dir = pathlib.Path(dirname)
-        # Update the evolution files associated with the run
-        # NOTE: We need to delete the evolutions first, there must be a
-        #       dangling reference within the cpp that causes a segfault
-        #       if we just update the object dictionary without removal
-        del self.satellites
-        del self.earth
-        del self.sun
-        self._setup_satellites()
-        # Update the primary data 3D data file
-        self.data.FileName = str(dirname / "pv-data-3d.nc")
-        # Force an update and re-render
-        self.data.UpdatePipeline()
-        pvs.Render(self.view)
+        return self.model.data.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.h3lioviz.visibility")
     def change_visibility(self, obj, visibility):
