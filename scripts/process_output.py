@@ -181,7 +181,7 @@ def process_evo(ds):
 
     ds["Vr"] = ds["V1"] * velocity_conversion
     ds["Density"] = (
-        ds["Density"] * density_conversion / (1 - ds.attrs["xalpha"]) * rad ** 2
+        ds["Density"] * density_conversion / (1 - ds.attrs["xalpha"]) * rad**2
     )
     # Ram pressure (rho * v**2)
     ds["Pressure"] = ds["Density"] * ds["Vr"] ** 2
