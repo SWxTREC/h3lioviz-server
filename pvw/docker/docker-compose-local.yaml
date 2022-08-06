@@ -1,0 +1,6 @@
+services:
+  pvw:
+    volumes:
+      - type: bind
+        source: ${PVW_BACKEND:-/data/pvw}
+        target: /pvw

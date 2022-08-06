@@ -7,6 +7,8 @@ USER root
 
 # Need to force noninteractive for apt-get updates
 ARG DEBIAN_FRONTEND=noninteractive
+# Can be egl (GPU) or osmesa (CPU)
+ARG RENDERER=osmesa
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
@@ -14,10 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libapr1-dev \
         libglapi-mesa \
         apache2-utils \
-        python3-dev \
-        python3-pip \
-        python3-setuptools \
-        software-properties-common \
         sudo && \
     rm -rf /var/lib/apt/lists/*
 
@@ -34,12 +32,10 @@ RUN groupadd proxy-mapping && \
     chmod 660 /opt/launcher/proxy-mapping.txt
 
 # Copy the apache configuration file into place
-COPY config/apache/001-pvw.conf /etc/apache2/sites-available/001-pvw.conf
+COPY docker/config/apache/001-pvw.conf /etc/apache2/sites-available/001-pvw.conf
 
 # Copy the script into place
-COPY scripts/start.sh /opt/paraviewweb/scripts/
-COPY scripts/addEndpoints.sh /opt/paraviewweb/scripts/
-COPY scripts/server.sh /opt/paraviewweb/scripts/
+COPY docker/scripts/* /opt/paraviewweb/scripts/
 
 # Configure the apache web server
 RUN a2enmod vhost_alias && \
@@ -55,19 +51,6 @@ RUN a2enmod vhost_alias && \
 # Open port 80 to the world outside the container
 EXPOSE 80
 
-# Copy the launcher config template
-COPY config/launcher/config.json /opt/launcher/config-template.json
-
-#
-# Now we run this script which will update the apache vhost file.  We use bash
-# instead of "sh" due to the use of "read -d" in the script.  Also, it is bash, not
-# docker which manages the env variable interpolation, so we must use bash if we
-# want that convenience.
-#
-# To add more endpoints, simply add more pairs of arguments beyond "visualizer" and
-# "/opt/paraview/.../www".
-#
-
 # Copy in the tar file, extract it, then rename it /opt/paraview/...
 # COPY binaries/ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz /opt
 # RUN cd /opt && \
@@ -79,28 +62,15 @@ COPY config/launcher/config.json /opt/launcher/config-template.json
 #     tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
 #     mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
 
-COPY binaries/ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz /opt
+COPY docker/binaries/ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz /opt
 RUN cd /opt && \
-    tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz && \
-    mv ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64 paraview && \
-    rm ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz
+    tar -xzvf ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz && \
+    mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
+    rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz
 
-# Replacing a bad wslink file
-# COPY extras/launcher.py /opt/paraview/lib/python3.9/site-packages/wslink/
-# Install missing packages
-# RUN python3 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ --upgrade aiohttp wslink
-# RUN python3 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ wslink==0.2.0
-
-# XXX: This is if we want to install with Python 3.9
-RUN add-apt-repository ppa:deadsnakes/ppa && apt update && \
-        apt-get install -y --no-install-recommends python3.9
-RUN python3.9 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ --upgrade aiohttp wslink
-
-# Replace the bad wslink file import
-# RUN sed -i 's/from . import/from wslink.backends.aiohttp import/' /opt/paraview/lib/python3.9/site-packages/wslink/backends/aiohttp/launcher.py
-# RUN ["/opt/paraviewweb/scripts/addEndpoints.sh", \
-#   "enlil", "/opt/paraview/share/paraview-5.9/web/visualizer/www" \
-# ]
+# Copy our server release into the container as well
+# This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
+COPY pvw /pvw
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
