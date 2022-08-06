@@ -1,6 +1,6 @@
-# ARG BASE_IMAGE=ubuntu:20.04
+ARG BASE_IMAGE=ubuntu:20.04
 
-ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
+# ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE}
 
 USER root
@@ -12,10 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
         apache2 \
         libapr1-dev \
+        libglapi-mesa \
         apache2-utils \
         python3-dev \
         python3-pip \
         python3-setuptools \
+        software-properties-common \
         sudo && \
     rm -rf /var/lib/apt/lists/*
 
@@ -47,7 +49,8 @@ RUN a2enmod vhost_alias && \
     a2enmod rewrite && \
     a2enmod headers && \
     a2dissite 000-default.conf && \
-    a2ensite 001-pvw.conf
+    a2ensite 001-pvw.conf && \
+    a2dismod autoindex -f
 
 # Open port 80 to the world outside the container
 EXPOSE 80
@@ -71,16 +74,30 @@ COPY config/launcher/config.json /opt/launcher/config-template.json
 #     tar -xzvf ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz && \
 #     mv ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit paraview
 
-COPY binaries/ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz /opt
+# COPY binaries/ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz /opt
+# RUN cd /opt && \
+#     tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
+#     mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
+
+COPY binaries/ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz /opt
 RUN cd /opt && \
-    tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
-    mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
+    tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz && \
+    mv ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64 paraview && \
+    rm ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz
 
 # Replacing a bad wslink file
-# COPY extras/launcher.py /opt/paraview/lib/python3.8/site-packages/wslink/
+# COPY extras/launcher.py /opt/paraview/lib/python3.9/site-packages/wslink/
 # Install missing packages
-RUN pip install --target=/opt/paraview/lib/python3.8/site-packages/ --upgrade wslink cryptography
+# RUN python3 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ --upgrade aiohttp wslink
+# RUN python3 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ wslink==0.2.0
 
+# XXX: This is if we want to install with Python 3.9
+RUN add-apt-repository ppa:deadsnakes/ppa && apt update && \
+        apt-get install -y --no-install-recommends python3.9
+RUN python3.9 -mpip install --target=/opt/paraview/lib/python3.9/site-packages/ --upgrade aiohttp wslink
+
+# Replace the bad wslink file import
+# RUN sed -i 's/from . import/from wslink.backends.aiohttp import/' /opt/paraview/lib/python3.9/site-packages/wslink/backends/aiohttp/launcher.py
 # RUN ["/opt/paraviewweb/scripts/addEndpoints.sh", \
 #   "enlil", "/opt/paraview/share/paraview-5.9/web/visualizer/www" \
 # ]

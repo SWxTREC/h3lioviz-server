@@ -1,33 +1,20 @@
 {
-  "resources": [ {"port_range": [9010, 9100], "host": "localhost"} ],
+  "resources": [ {"port_range": [9010, 9100], "host": "0.0.0.0"} ],
   "sessionData": {
     "updir": "/Home"
   },
   "configuration": {
     "log_dir": "/pvw/launcher/log",
-    "host": "localhost",
+    "host": "0.0.0.0",
+    "port": 9000,
     "endpoint": "paraview",
     "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=ws",
-    "timeout": 25,
-    "fields": [],
-    "port": 9000,
-    "proxy_file": "/opt/launcher/proxy-mapping.txt",
-    "sanitize": {
-      "version": {
-          "type": "regexp",
-          "regexp": "^v[0-9]+.[0-9]+.[0-9]+$",
-          "default": "v0.0.0"
-      },
-      "file": {
-          "type": "regexp",
-          "regexp": "^[-\\\\w./]+$",
-          "default": "emptyFile"
-      }
-    }
+    "timeout": 45,
+    "fields": ["file", "host", "port"],
+    "proxy_file": "/opt/launcher/proxy-mapping.txt"
   },
   "properties": {
     "dataDir": "/data",
-    "webapps_dir": "/opt/paraview/share/paraview-5.9/web",
     "python_exec": "/opt/paraview/bin/pvpython"
   },
   "apps": {
@@ -38,7 +25,6 @@
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
         "--port", "${port}",
-        "--authKey", "${secret}",
         "--dir", "/data",
         "--viewport-max-width", "1920",
         "--viewport-max-height", "1080",
