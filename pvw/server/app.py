@@ -11,6 +11,13 @@ import models
 import satellite
 import slice
 
+
+# TODO: Try and use faster plugins where possible
+#       Investigate the use of various speedups. FlyingEdges3D requires image datasets
+# pvs.LoadDistributedPlugin("AcceleratedAlgorithms", remote=False, ns=globals())
+# contour = simple.Contour(Input=reader) # Default filter => no plugin but slow
+# pvs.Contour = FlyingEdges3D  # Faster processing => make it interactive
+
 # Global definitions of variables
 # Range for each lookup table
 LUT_RANGE = {
@@ -83,6 +90,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # disable automatic camera reset on 'Show'
         pvs._DisableFirstRenderCameraReset()
+        pvs.GetRenderView().EnableRenderOnInteraction = 0
 
         # Get the initial 'Render View'
         self.view = pvs.GetActiveView()
@@ -175,14 +183,14 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # create a new 'Threshold' to represent the CME
         self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
-        # We really only want a minimum value, so just set the maximum high
-        self.threshold_cme.ThresholdRange = [1e-5, 1e5]
+        self.threshold_cme.UpperThreshold = 0.01
+        self.threshold_cme.ThresholdMethod = "Above Upper Threshold"
         # DP is the variable name in Enlil
         self.threshold_cme.Scalars = ["CELLS", self.model.get_variable("dp")]
         self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
         self.cme.ContourBy = ["POINTS", self.model.get_variable("dp")]
         self.cme.ComputeNormals = 0
-        self.cme.Isosurfaces = [0.2]
+        self.cme.Isosurfaces = [0.01]
         self.cme.PointMergeMethod = "Uniform Binning"
 
         self.cme_contours = pvs.Contour(

@@ -4,7 +4,6 @@ import argparse
 from paraview.web import pv_wslink
 from paraview.web import protocols as pv_protocols
 
-from paraview import simple
 from wslink import server
 
 from app import App
@@ -67,6 +66,7 @@ class _AppServer(pv_wslink.PVServerProtocol):
         _AppServer.viewportMaxWidth = args.viewportMaxWidth
         _AppServer.viewportMaxHeight = args.viewportMaxHeight
         _AppServer.settingsLODThreshold = args.settingsLODThreshold
+        _AppServer.host = args.host
 
     def initialize(self):
         # Bring used components
@@ -81,9 +81,6 @@ class _AppServer(pv_wslink.PVServerProtocol):
         # tell the C++ web app to use no encoding.
         # ParaViewWebPublishImageDelivery must be set to decode=False to match.
         self.getApplication().SetImageEncoding(0)
-
-        # Disable interactor-based render calls
-        simple.GetRenderView().EnableRenderOnInteraction = 0
 
         # The directory containing the NetCDF file with the data
         self.app = App(self.data_dir)
@@ -104,4 +101,5 @@ if __name__ == "__main__":
     _AppServer.configure(args)
 
     # Start server
+    args.host = "0.0.0.0"  # aiohttp doesn't like "localhost" here
     server.start_webserver(options=args, protocol=_AppServer)
