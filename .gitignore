@@ -6,6 +6,9 @@ pv-ready-data*
 pvw/www/swt
 pvw/launcher/log/*.txt
 pvw/launcher/log/*.log
+test-data/pv-ready-data*
+*/launcher/log/*.txt
+*/launcher/log/*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
