@@ -182,11 +182,18 @@ class App(pv_protocols.ParaViewWebProtocol):
         self._previous_time = None
 
         # create a new 'Threshold' to represent the CME
-        self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
-        self.threshold_cme.UpperThreshold = 0.01
-        self.threshold_cme.ThresholdMethod = "Above Upper Threshold"
+        # self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
+        # self.threshold_cme.UpperThreshold = 0.001
+        # self.threshold_cme.Scalars = ["POINTS", self.model.get_variable("dp")]
+        # self.threshold_cme.ThresholdMethod = "Above Upper Threshold"
         # DP is the variable name in Enlil
-        self.threshold_cme.Scalars = ["CELLS", self.model.get_variable("dp")]
+        self.threshold_cme = pvs.Clip(registrationName="CME", Input=self.data)
+        self.threshold_cme.ClipType = "Scalar"
+        # 0 == above the value, 1 == below
+        self.threshold_cme.Invert = 0
+        self.threshold_cme.Scalars = ["POINTS", self.model.get_variable("dp")]
+        self.threshold_cme.Value = 0.001
+
         self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
         self.cme.ContourBy = ["POINTS", self.model.get_variable("dp")]
         self.cme.ComputeNormals = 0
