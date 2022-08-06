@@ -25,19 +25,33 @@ Pull the container to your local system. (Note: the `osmesa` container is for CP
 docker pull 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
 ```
 
-### Getting the test data locally
+### Test data
 
-This is a 4 GB archive containing the relevant data products. You will need AWS credentials to access this bucket as well, which can be given as a profile `--profile swx-trec-base`
+Two timesteps are included in the test-data directory. To generate the test data for
+the docker container you will need to run the processing code to transform the data,
+which will expand the data to ~100 MB in size. This can be included in the container
+for distribution, so others don't need to deal with any processing.
 
 ```bash
-aws s3 cp s3://enlil-data/pv-ready-data.tar .
-tar -xf pv-ready-data.tar
+python scripts/process_output.py test-data
 ```
+
+We will store the actual model output files in git, and then the processing files
+will be moved to the container. This allows us to update the processing code and
+produce new processing routines without blowing up the repository size.
 
 ### Running the package locally
 
+Included test cases:
+
 ```bash
-docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/pv-ready-data:/data -it 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
+docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
+```
+
+With your own server modifications and data mounted internally:
+
+```bash
+docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
 ```
 
 ## Building the Dockerfile
@@ -55,7 +69,7 @@ copied into the container.
 
     ```bash
     cd docker
-    docker build --rm -t pvw-enlil-osmesa .
+    docker build --rm -t pvw-h3lioviz-osmesa .
     ```
 
 3. Run the image setting the proper environment variables and mounting the proper directories.

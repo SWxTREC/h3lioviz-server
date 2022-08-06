@@ -72,6 +72,11 @@ RUN cd /opt && \
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
 
+# COPY the test data into the container for a default launch case
+RUN mkdir /data
+COPY test-data/launcher /data/launcher
+COPY test-data/pv-ready-data-9a68f9e9/ /data/pv-ready-data-9a68f9e9/
+
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
 # overridden in the child container.  In that case, use the "start.sh"
