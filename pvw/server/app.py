@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import pathlib
 
@@ -9,6 +10,13 @@ from wslink import register as exportRpc
 import models
 import satellite
 import slice
+
+
+# TODO: Try and use faster plugins where possible
+#       Investigate the use of various speedups. FlyingEdges3D requires image datasets
+# pvs.LoadDistributedPlugin("AcceleratedAlgorithms", remote=False, ns=globals())
+# contour = simple.Contour(Input=reader) # Default filter => no plugin but slow
+# pvs.Contour = FlyingEdges3D  # Faster processing => make it interactive
 
 # Global definitions of variables
 # Range for each lookup table
@@ -77,19 +85,84 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         # Initialize the PV web protocols
         super().__init__()
-        # Save the data directory
-        self._data_dir = pathlib.Path(dirname)
+        # Save the run directory
+        self._run_dir = pathlib.Path(dirname)
 
-        self.model = models.Enlil(self._data_dir)
-        # TODO: Implement a check for whether we are given Enlil or EUHFORIA data
-        # self.model = models.Euhforia(self._data_dir / "euhforia_cone_cme_example")
+        # disable automatic camera reset on 'Show'
+        pvs._DisableFirstRenderCameraReset()
+        pvs.GetRenderView().EnableRenderOnInteraction = 0
 
-        # Store the data locally as well
-        self.celldata = self.model.data
+        # Get the initial 'Render View'
+        self.view = pvs.GetActiveView()
+        self.view.ViewSize = [600, 600]
+        self.view.AxesGrid = "GridAxes3DActor"
+        self.view.CenterOfRotation = [0, 0, 0]
+        self.view.StereoType = "Crystal Eyes"
+        self.view.CameraPosition = [-3, 3, 3]
+        self.view.CameraFocalPoint = [0, 0, 0]
+        self.view.CameraViewUp = [0, 0, 1]
+        self.view.CameraFocalDisk = 1.0
+        self.view.CameraParallelScale = 2
+        self.view.BackEnd = "OSPRay raycaster"
+        self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
+        runs = self.get_available_runs()
+        if runs:
+            # Load the first run
+            run = runs[0]
+            self.load_model(run["run_id"], program=run["program"])
+
+            # Initialize the filters based on that dataset
+            self._init_filters()
+
+    @exportRpc("pv.h3lioviz.load_model")
+    def load_model(self, run_id, program="enlil"):
+        """
+        Load a specific model run, identified by the *run_id*
+
+        run_id : str
+            identifier for the run to be loaded
+        program : str
+            Name of the program (enlil or euhforia)
+        """
+
+        data_dir = self._run_dir / f"pv-ready-data-{run_id}"
+        if not data_dir.exists():
+            raise ValueError("No run available for this ID")
+
+        if hasattr(self, "model"):
+            # We already have a model initialized, so we just need to switch
+            # the directory underneath the hood without recreating all the filters
+            self.model.change_run(data_dir)
+            # Update the evolution files associated with the run
+            # NOTE: We need to delete the evolutions first, there must be a
+            #       dangling reference within the cpp that causes a segfault
+            #       if we just update the object dictionary without removal
+            del self.satellites
+            del self.earth
+            del self.sun
+            self._setup_satellites()
+            # Force an update and re-render
+            self.model.data.UpdatePipeline()
+            pvs.Render(self.view)
+            return
+
+        # We are in initialization and don't have a model yet, so
+        # we need to create one
+        if program == "enlil":
+            self.model = models.Enlil(data_dir)
+        elif program == "euhforia":
+            self.model = models.Euhforia(data_dir)
+        else:
+            raise ValueError(
+                f"We cannot load {program} data at this time, only enlil and euhforia are supported"
+            )
+
+    def _init_filters(self):
+        """Initialize all of the paraview filters"""
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
-            registrationName=f"3D-CellDatatoPointData", Input=self.celldata
+            registrationName=f"3D-CellDatatoPointData", Input=self.model.data
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
@@ -109,15 +182,22 @@ class App(pv_protocols.ParaViewWebProtocol):
         self._previous_time = None
 
         # create a new 'Threshold' to represent the CME
-        self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
-        # We really only want a minimum value, so just set the maximum high
-        self.threshold_cme.ThresholdRange = [1e-5, 1e5]
+        # self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
+        # self.threshold_cme.UpperThreshold = 0.001
+        # self.threshold_cme.Scalars = ["POINTS", self.model.get_variable("dp")]
+        # self.threshold_cme.ThresholdMethod = "Above Upper Threshold"
         # DP is the variable name in Enlil
-        self.threshold_cme.Scalars = ["CELLS", self.model.get_variable("dp")]
+        self.threshold_cme = pvs.Clip(registrationName="CME", Input=self.data)
+        self.threshold_cme.ClipType = "Scalar"
+        # 0 == above the value, 1 == below
+        self.threshold_cme.Invert = 0
+        self.threshold_cme.Scalars = ["POINTS", self.model.get_variable("dp")]
+        self.threshold_cme.Value = 0.001
+
         self.cme = pvs.Contour(registrationName="contoured_cme", Input=self.data)
         self.cme.ContourBy = ["POINTS", self.model.get_variable("dp")]
         self.cme.ComputeNormals = 0
-        self.cme.Isosurfaces = [0.2]
+        self.cme.Isosurfaces = [0.01]
         self.cme.PointMergeMethod = "Uniform Binning"
 
         self.cme_contours = pvs.Contour(
@@ -136,13 +216,13 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Create the slices
         self.lon_slice = slice.Slice(
-            self.celldata, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
+            self.model.data, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
         )
         self.lat_slice = slice.Slice(
-            self.celldata, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
+            self.model.data, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
         )
         self.radial_slice = slice.Slice(
-            self.celldata, slice_type="Sphere", radius=1, name="Radial"
+            self.model.data, slice_type="Sphere", radius=1, name="Radial"
         )
 
         # Dictionary mapping of string names to the object
@@ -174,22 +254,6 @@ class App(pv_protocols.ParaViewWebProtocol):
 
     def _setup_views(self):
         """Setup the rendering view."""
-        # disable automatic camera reset on 'Show'
-        pvs._DisableFirstRenderCameraReset()
-
-        # Get the initial 'Render View'
-        self.view = pvs.GetActiveView()
-        self.view.ViewSize = [600, 600]
-        self.view.AxesGrid = "GridAxes3DActor"
-        self.view.CenterOfRotation = [0, 0, 0]
-        self.view.StereoType = "Crystal Eyes"
-        self.view.CameraPosition = [-3, 3, 3]
-        self.view.CameraFocalPoint = [0, 0, 0]
-        self.view.CameraViewUp = [0, 0, 1]
-        self.view.CameraFocalDisk = 1.0
-        self.view.CameraParallelScale = 2
-        self.view.BackEnd = "OSPRay raycaster"
-        self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
         # Time string
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
@@ -259,7 +323,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellites locations and plots them as spheres.
         """
-        sats = list(self._data_dir.glob("*.json"))
+        sats = list(self.model.dir.glob("*.json"))
         # strip evo.name.json to only keep "name"
         # TODO: Use the other satellites eventually
         #       For now, we are only using the stereo spacecraft
@@ -273,7 +337,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.earth = satellite.Earth(
             list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
         )
-        self.sun = satellite.Sun(self._data_dir / "solar_images", view=self.view)
+        self.sun = satellite.Sun(self.model.dir / "solar_images", view=self.view)
         # Add the fieldlines to the satellites + Earth
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)
@@ -286,20 +350,24 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         Returns
         -------
-        List of available runs
+        List of available runs and metadata
         """
-        # We need to go up a directory from where we are currently.
-        # This expects a flat list of available runs currently.
+        # Each run will have a metadata.json associated with it
+        # in the directory for the run.
         #   /data/run1/pv-data-3d.nc
+        #   /data/run1/metadata.json
         #   /data/run2/pv-data-3d.nc
-        # If we have loaded /data/run1/pv-data-3d.nc, then this
-        # will return ["/data/run1", "/data/run2"] listing all directories
-        # up one level from the current data file
-        base_dir = self._data_dir / ".."
-        # Now search to see if there is a pv-data-3d.nc in the directories
-        # and if not, ignore that entry
-        dirs = [x for x in base_dir.iterdir() if (x / "pv-data-3d.nc").exists()]
-        return dirs
+        runs = []
+        # Get all folders in this directory
+        for path in self._run_dir.glob("**/"):
+            # If there is a metadata item in the
+            # directory, append that to our run list
+            run_info = path / "metadata.json"
+            if run_info.exists():
+                with open(run_info, "r") as f:
+                    runs.append(json.loads(f.read()))
+
+        return runs
 
     @exportRpc("pv.h3lioviz.get_variable_range")
     def get_variable_range(self, name):
@@ -310,30 +378,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of variable to colormap all of the surfaces by
         """
         variable = self.model.get_variable(name)
-        return self.celldata.CellData.GetArray(variable).GetRange()
-
-    @exportRpc("pv.h3lioviz.directory")
-    def update_dataset(self, dirname):
-        """
-        Change the dataset directory to the one specified by dirname
-
-        dirname : str
-            Path to the dataset file (/dirname/pv-data-3d.nc)
-        """
-        self._data_dir = pathlib.Path(dirname)
-        # Update the evolution files associated with the run
-        # NOTE: We need to delete the evolutions first, there must be a
-        #       dangling reference within the cpp that causes a segfault
-        #       if we just update the object dictionary without removal
-        del self.satellites
-        del self.earth
-        del self.sun
-        self._setup_satellites()
-        # Update the primary data 3D data file
-        self.data.FileName = str(dirname / "pv-data-3d.nc")
-        # Force an update and re-render
-        self.data.UpdatePipeline()
-        pvs.Render(self.view)
+        return self.model.data.CellData.GetArray(variable).GetRange()
 
     @exportRpc("pv.h3lioviz.visibility")
     def change_visibility(self, obj, visibility):

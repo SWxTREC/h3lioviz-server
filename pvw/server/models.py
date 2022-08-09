@@ -17,7 +17,7 @@ class Model:
             helpful for keeping the app with a consistent naming
             while letting the models handle the variables themselves.
         """
-        self._data_dir = dirname
+        self.dir = dirname
         required_variables = {
             "velocity",
             "density",
@@ -70,9 +70,21 @@ class Enlil(Model):
             "dp": "DP",
         }
         super().__init__(dirname=dirname, variable_mapping=variable_mapping)
-        fname = str(self._data_dir / "pv-data-3d.nc")
+        fname = str(self.dir / "pv-data-3d.nc")
         self.data = pvs.NetCDFReader(registrationName="enlil-data", FileName=[fname])
         self.data.Dimensions = "(longitude, latitude, radius)"
+
+    def change_run(self, dirname):
+        """
+        Change to a different model run.
+
+        Parameters
+        ----------
+        dirname : Path
+            Path of the directory containing the EUHFORIA model output
+        """
+        self.dir = dirname
+        self.data.FileName = str(dirname / "pv-data-3d.nc")
 
 
 class Euhforia(Model):
@@ -100,17 +112,17 @@ class Euhforia(Model):
         }
         super().__init__(dirname=dirname, variable_mapping=variable_mapping)
         # Glob to list all files in the data directory
-        fnames = [str(fname) for fname in self._data_dir.glob("data_*.vts")]
+        fnames = [str(fname) for fname in self.dir.glob("data_*.vts")]
         # create a new 'XML Structured Grid Reader'
-        self.data = pvs.XMLStructuredGridReader(
+        self._input_data = pvs.XMLStructuredGridReader(
             registrationName="euhforia-data", FileName=fnames
         )
-        self.data.CellArrayStatus = ["vr", "n", "P", "Br", "Bx", "By", "Bz"]
-        self.data.TimeArray = "None"
+        self._input_data.CellArrayStatus = ["vr", "n", "P", "Br", "Bx", "By", "Bz"]
+        self._input_data.TimeArray = "None"
 
         # Now scale all the arrays we need to work with
         self.data = pvs.CellDatatoPointData(
-            registrationName="euhforia-pointdata", Input=self.data
+            registrationName="euhforia-pointdata", Input=self._input_data
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
@@ -122,3 +134,16 @@ class Euhforia(Model):
         self.data.AttributeType = "Point Data"
         self.data.ResultArrayName = "n-scaled"
         self.data.Function = "n * (coordsX^2 + coordsY^2 + coordsZ^2)"
+
+    def change_run(self, dirname):
+        """
+        Change to a different model run.
+
+        Parameters
+        ----------
+        dirname : Path
+            Path of the directory containing the EUHFORIA model output
+        """
+        self.dir = dirname
+        fnames = [str(fname) for fname in self.dir.glob("data_*.vts")]
+        self._input_data.FileName = fnames

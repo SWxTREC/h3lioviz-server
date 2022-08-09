@@ -64,7 +64,7 @@ class Satellite:
         self.label_disp = pvs.Show(self.label, self.view, "TextSourceRepresentation")
         self.label_disp.TextPropMode = "Billboard 3D Text"
         self.label_disp.FontSize = 14
-        self.label_disp.WindowLocation = "AnyLocation"
+        self.label_disp.WindowLocation = "Any Location"
         # Offset the center by the width to give some separation
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
