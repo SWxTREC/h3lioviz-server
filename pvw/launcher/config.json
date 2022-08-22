@@ -32,7 +32,7 @@
         "--viewport-max-height", "1080",
         "--timeout", "30"
       ],
-      "ready_line" : "Starting h3lioviz factory"
+      "ready_line" : "Starting factory"
     },
     "visualizer-mpi": {
       "cmd": ["env", "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
@@ -47,7 +47,7 @@
         "--viewport-max-height", "1080",
         "--timeout", "30"
       ],
-      "ready_line" : "Starting MPI h3lioviz factory"
+      "ready_line" : "Starting factory"
     }
   }
 }
