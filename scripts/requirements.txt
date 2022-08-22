@@ -1,0 +1,6 @@
+# Unforutnately, all of these are required for the netcdf io here :(
+dask
+netcdf4
+numpy
+scipy
+xarray
