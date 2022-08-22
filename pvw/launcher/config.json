@@ -15,7 +15,9 @@
   },
   "properties": {
     "dataDir": "/data",
-    "python_exec": "/opt/paraview/bin/pvpython"
+    "python_exec": "/opt/paraview/bin/pvpython",
+    "mpi_run": "/opt/paraview/bin/mpiexec",
+    "batch_exec": "/opt/paraview/bin/pvbatch"
   },
   "apps": {
     "visualizer": {
@@ -30,7 +32,22 @@
         "--viewport-max-height", "1080",
         "--timeout", "30"
       ],
-      "ready_line" : "Starting factory"
+      "ready_line" : "Starting h3lioviz factory"
+    },
+    "visualizer-mpi": {
+      "cmd": ["env", "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
+        "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
+        "${mpi_run}", "-np", "4",
+        "${batch_exec}",
+        EXTRA_PVPYTHON_ARGS
+        "/pvw/server/app_server.py",
+        "--port", "${port}",
+        "--dir", "/data",
+        "--viewport-max-width", "1920",
+        "--viewport-max-height", "1080",
+        "--timeout", "30"
+      ],
+      "ready_line" : "Starting MPI h3lioviz factory"
     }
   }
 }
