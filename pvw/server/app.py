@@ -135,13 +135,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # the directory underneath the hood without recreating all the filters
             self.model.change_run(data_dir)
             # Update the evolution files associated with the run
-            # NOTE: We need to delete the evolutions first, there must be a
-            #       dangling reference within the cpp that causes a segfault
-            #       if we just update the object dictionary without removal
-            del self.satellites
-            del self.earth
-            del self.sun
-            self._setup_satellites()
+            self._update_satellites()
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
@@ -321,7 +315,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
     def _setup_satellites(self):
         """
-        Initializes the satellites locations and plots them as spheres.
+        Initializes the satellite locations and objects.
         """
         sats = list(self.model.dir.glob("*.json"))
         # strip evo.name.json to only keep "name"
@@ -342,6 +336,17 @@ class App(pv_protocols.ParaViewWebProtocol):
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
+
+    def _update_satellites(self):
+        """Update the underlying satellite files."""
+        # We only need to update the underlying files, not create new objects
+        sats = list(self.model.dir.glob("*.json"))
+        for sat in self.satellites.values():
+            # Go through the list to see where the current satellite name is
+            # in the current model directory list
+            sat.change_evolution_file([x for x in sats if sat.name in str(x)][0])
+
+        self.earth.change_evolution_file([x for x in sats if "earth" in str(x)][0])
 
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):

@@ -69,6 +69,20 @@ class Satellite:
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
 
+    def change_evolution_file(self, fname):
+        """Change the underlying evolution file
+
+        This adds the ability to change the data file of the
+        satellite without recreating all of the underlying objects.
+
+        Parameters
+        ----------
+
+        fname : Path
+            Path of the evolution data file for this satellite
+        """
+        self.evolution = Evolution(fname)
+
     def add_fieldline(self, data):
         """
         Add a fieldline trace to this satellite.
