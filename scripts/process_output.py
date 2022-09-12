@@ -207,7 +207,7 @@ def process_evo(ds):
     return ds
 
 
-def process_directory(path):
+def process_directory(path, download_images=False):
     print("Beginning processing, may take several minutes")
     t0 = time.time()
 
@@ -285,18 +285,19 @@ def process_directory(path):
 
     print(f"Evo datasets saved: {time.time()-t0} s")
 
-    # Downloading images now, we want to download for every day in the dataset
-    # Convert numpy datetime64 (strip nanoseconds component),
-    # then to a Python datetime object
-    start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
-    end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
-    dt = timedelta(days=1)
-    curr_date = start_date
-    while curr_date <= end_date:
-        download_hmi(curr_date, outdir=newpath + "/solar_images")
-        curr_date += dt
+    if download_images:
+        # Downloading images now, we want to download for every day in the dataset
+        # Convert numpy datetime64 (strip nanoseconds component),
+        # then to a Python datetime object
+        start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
+        end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
+        dt = timedelta(days=1)
+        curr_date = start_date
+        while curr_date <= end_date:
+            download_hmi(curr_date, outdir=newpath + "/solar_images")
+            curr_date += dt
 
-    print(f"Images saved: {time.time()-t0} s")
+        print(f"Images saved: {time.time()-t0} s")
 
 
 def download_hmi(date: datetime, outdir=None, resolution="1k"):
