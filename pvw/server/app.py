@@ -106,15 +106,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.view.BackEnd = "OSPRay raycaster"
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
-        runs = self.get_available_runs()
-        if runs:
-            # Load the first run
-            run = runs[0]
-            self.load_model(run["run_id"], program=run["program"])
-
-            # Initialize the filters based on that dataset
-            self._init_filters()
-
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
@@ -128,7 +119,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         data_dir = self._run_dir / f"pv-ready-data-{run_id}"
         if not data_dir.exists():
-            raise ValueError("No run available for this ID")
+            raise ValueError(f"No run available for id: {run_id}")
 
         if hasattr(self, "model"):
             # We already have a model initialized, so we just need to switch
@@ -151,6 +142,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             raise ValueError(
                 f"We cannot load {program} data at this time, only enlil and euhforia are supported"
             )
+        self._init_filters()
 
     def _init_filters(self):
         """Initialize all of the paraview filters"""
