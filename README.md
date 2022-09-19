@@ -68,8 +68,19 @@ copied into the container.
 2. Build the image locally with an appropriate tag.
 
     ```bash
-    cd docker
-    docker build --rm -t pvw-h3lioviz-osmesa .
+    docker build --rm -t public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa -f docker/Dockerfile .
+    ```
+
+    Optionally, deploy the built image to the ECR.
+    This requires a public login from the ECR account to
+    verify the credentials. You'll want to remove these after
+    pushing the image because they can intefere with other
+    AWS Docker processes.
+
+    ```bash
+    AWS_PROFILE=swx-trec-legacy aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+    docker push public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
+    docker logout public.ecr.aws
     ```
 
 3. Run the image setting the proper environment variables and mounting the proper directories.
