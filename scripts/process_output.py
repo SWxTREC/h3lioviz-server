@@ -237,6 +237,16 @@ def process_directory(path, download_images=False):
         # back to a dict and add the run_id to it for later reference.
         d = json.loads(s)
         d["run_id"] = run_id
+        project = d.get("project", "")
+        if project.startswith("a8b1"):
+            institute = "SWPC"
+        elif project.startswith("ENLIL."):
+            institute = "CCMC"
+        elif project.startswith("/data"):
+            institute = "SWxTREC"
+        else:
+            raise ValueError("Unknown institute")
+        d["institute"] = institute
         f.write(json.dumps(d))
 
     ds.to_netcdf(
