@@ -70,11 +70,8 @@ def process_tim(ds):
     ds["n2"] = ds["X2"]
     ds["n3"] = ds["X3"]
 
-    try:
-        t0 = datetime.strptime(ds.attrs["rundate_cal"], "%Y-%m-%dT%H")
-    except ValueError:
-        # May not be an hour given?
-        t0 = datetime.strptime(ds.attrs["rundate_cal"], "%Y-%m-%d")
+    t0 = _convert_time(ds.attrs["rundate_cal"])
+    # Only get the first item's time
     t = t0 + timedelta(seconds=ds["TIME"].item())
 
     # Change from Tesla to nT
@@ -145,11 +142,7 @@ def process_evo(ds):
 
     This does coordinate transformations and renaming.
     """
-    try:
-        t0 = datetime.strptime(ds.attrs["rundate_cal"], "%Y-%m-%dT%H")
-    except ValueError:
-        # May not be an hour given?
-        t0 = datetime.strptime(ds.attrs["rundate_cal"], "%Y-%m-%d")
+    t0 = _convert_time(ds.attrs["rundate_cal"])
     t = np.datetime64(t0) + np.timedelta64(1, "s") * ds["TIME"]
 
     # Change from Tesla to nT
@@ -214,7 +207,7 @@ def process_evo(ds):
     return ds
 
 
-def process_directory(path):
+def process_directory(path, download_images=False):
     print("Beginning processing, may take several minutes")
     t0 = time.time()
 
@@ -244,6 +237,16 @@ def process_directory(path):
         # back to a dict and add the run_id to it for later reference.
         d = json.loads(s)
         d["run_id"] = run_id
+        project = d.get("project", "")
+        if project.startswith("a8b1"):
+            institute = "SWPC"
+        elif project.startswith("ENLIL."):
+            institute = "CCMC"
+        elif project.startswith("/data"):
+            institute = "SWxTREC"
+        else:
+            raise ValueError("Unknown institute")
+        d["institute"] = institute
         f.write(json.dumps(d))
 
     ds.to_netcdf(
@@ -292,18 +295,19 @@ def process_directory(path):
 
     print(f"Evo datasets saved: {time.time()-t0} s")
 
-    # Downloading images now, we want to download for every day in the dataset
-    # Convert numpy datetime64 (strip nanoseconds component),
-    # then to a Python datetime object
-    start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
-    end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
-    dt = timedelta(days=1)
-    curr_date = start_date
-    while curr_date <= end_date:
-        download_hmi(curr_date, outdir=newpath + "/solar_images")
-        curr_date += dt
+    if download_images:
+        # Downloading images now, we want to download for every day in the dataset
+        # Convert numpy datetime64 (strip nanoseconds component),
+        # then to a Python datetime object
+        start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
+        end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
+        dt = timedelta(days=1)
+        curr_date = start_date
+        while curr_date <= end_date:
+            download_hmi(curr_date, outdir=newpath + "/solar_images")
+            curr_date += dt
 
-    print(f"Images saved: {time.time()-t0} s")
+        print(f"Images saved: {time.time()-t0} s")
 
 
 def download_hmi(date: datetime, outdir=None, resolution="1k"):
@@ -355,6 +359,19 @@ def download_hmi(date: datetime, outdir=None, resolution="1k"):
         with open(download_path, "wb") as f:
             f.write(req.read())
         print(f"Downloaded {url}")
+
+
+def _convert_time(t):
+    # We could get any of these time formats, so iterate through checking
+    # them until we get one that works
+    time_formats = ["%Y-%m-%d", "%Y-%m-%dT%H", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+    for time_format in time_formats:
+        try:
+            t0 = datetime.strptime(t, time_format)
+            return t0
+        except ValueError:
+            pass
+    raise ValueError(f"No matching time formats found for {t}")
 
 
 if __name__ == "__main__":
