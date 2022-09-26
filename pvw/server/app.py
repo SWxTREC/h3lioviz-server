@@ -116,7 +116,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         program : str
             Name of the program (enlil or euhforia)
         """
-
         data_dir = self._run_dir / f"pv-ready-data-{run_id}"
         if not data_dir.exists():
             raise ValueError(f"No run available for id: {run_id}")
