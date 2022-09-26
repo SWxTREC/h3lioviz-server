@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
-import glob
 import hashlib
 import json
-import os
 import pathlib
 import sys
 import time
@@ -208,30 +206,109 @@ def process_evo(ds):
 
 
 def process_directory(path, download_images=False):
+    """
+    Processes the given directory to transform the files into
+    suitable data for Paraview ingest.
+
+    Parameters
+    ----------
+    path : Path
+        Path of the directory to process
+    download_images : bool (default False)
+        Whether to download solar images or not
+    """
+    tim_fnames = sorted(path.glob("tim.*.nc"))
+    if len(tim_fnames) == 0:
+        raise ValueError("No files found to process in the current directory.")
+
+    # Load and process the evolution (evo) file
+    evo_fnames = sorted(path.glob("evo.*.nc"))
+    if len(evo_fnames) == 0:
+        raise ValueError(
+            "No evolution files found to process in the " "current directory."
+        )
+
     print("Beginning processing, may take several minutes")
     t0 = time.time()
 
     # ---------
     # TIM file processing
     # ---------
-    fnames = sorted(glob.glob(path + "/tim.*.nc"))
-    if len(fnames) == 0:
-        raise ValueError("No files found to process in the current directory.")
+    for i, fname in enumerate(tim_fnames):
+        with xr.load_dataset(fname) as ds:
+            # Process single file
+            ds = process_tim(ds)
 
-    # Load into a multi-file dataset to be able to concatenate along Time
-    ds = xr.open_mfdataset(
-        fnames, combine="by_coords", preprocess=process_tim, engine="netcdf4"
-    )
-    print(f"Dataset loaded: {time.time()-t0} s")
-    # New path based on the metadata
+            if i == 0:
+                # Only process metadata for the first file
+                newpath = process_metadata(ds)
+
+            # Save single file
+            ds.to_netcdf(
+                newpath / f"pv-{fname.name}",
+                encoding={"time": {"units": "seconds since 1970-01-01"}},
+            )
+
+    print(f"TIM files processed: {time.time()-t0} s")
+
+    for fname in evo_fnames:
+        with xr.load_dataset(fname) as ds:
+            ds = process_evo(ds)
+            # Save a single evolution file to NetCDF
+            newfile = newpath / fname.name
+            ds.to_netcdf(
+                newfile, encoding={"time": {"units": "seconds since 1970-01-01"}}
+            )
+            # Reload that file and save it to json
+            # Loading with decode_times=False makes it so the datetimes
+            # get encoded as ints within the JSON
+            newds = xr.load_dataset(newfile, decode_times=False)
+
+            # Drop the ".nc" extension and replace with json
+            json_file = pathlib.Path(str(newfile).replace(".nc", ".json"))
+            with open(json_file, "w") as f:
+                # Put it through dump/load/dump to get floating point truncation
+                f.write(
+                    json.dumps(
+                        json.loads(
+                            json.dumps(newds.to_dict()),
+                            parse_float=lambda x: round(float(x), 3),
+                        )
+                    )
+                )
+
+    print(f"Evo files processed: {time.time()-t0} s")
+
+    if download_images:
+        # Downloading images now, we want to download for every day in the dataset
+        # Convert numpy datetime64 (strip nanoseconds component),
+        # then to a Python datetime object
+        start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
+        end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
+        dt = timedelta(days=1)
+        curr_date = start_date
+        while curr_date <= end_date:
+            download_hmi(curr_date, outdir=newpath + "/solar_images")
+            curr_date += dt
+
+        print(f"Images saved: {time.time()-t0} s")
+
+
+def process_metadata(ds):
+    """Process and save the metadata from an Enlil run
+
+    Returns
+    -------
+    newpath : Path
+        The path of a new directory where all data should be stored for this run.
+    """
     s = json.dumps(ds.attrs, cls=NumpyEncoder)
-
+    # Hash based on the metadata of the run
     run_id = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]
-    newpath = path + "/pv-ready-data-" + run_id
-    if not os.path.exists(newpath):
-        os.mkdir(newpath)
-
-    with open(f"{newpath}/metadata.json", "w") as f:
+    newpath = path / f"pv-ready-data-{run_id}"
+    # Make the new directory if it doesn't exist
+    newpath.mkdir(parents=True, exist_ok=True)
+    with open(newpath / "metadata.json", "w") as f:
         # s is currently just the string version of the json dict
         # because we can't hash a dictionary. So, lets unpack s
         # back to a dict and add the run_id to it for later reference.
@@ -248,66 +325,7 @@ def process_directory(path, download_images=False):
             raise ValueError("Unknown institute")
         d["institute"] = institute
         f.write(json.dumps(d))
-
-    ds.to_netcdf(
-        f"{newpath}/pv-data-3d.nc",
-        engine="scipy",
-        encoding={"time": {"units": "seconds since 1970-01-01"}},
-    )
-    # _, datasets = zip(*ds.groupby('time'))
-    # paths = [f"{newpath}/tim.{i:04d}.nc" for i in range(len(fnames))]
-    # xr.save_mfdataset(datasets, paths, engine='scipy')
-    print(f"Dataset saved: {time.time()-t0} s")
-
-    # Load and process the evolution (evo) file
-    fnames = sorted(glob.glob(path + "/evo.*.nc"))
-    if len(fnames) == 0:
-        raise ValueError(
-            "No evolution files found to process in the " "current directory."
-        )
-
-    datasets = [
-        process_evo(xr.open_dataset(fname, engine="netcdf4")) for fname in fnames
-    ]
-
-    for ds_evo, fname in zip(datasets, fnames):
-        # Save a single evolution file to NetCDF
-        newfile = f"{newpath}/{os.path.basename(fname)}"
-        ds_evo.to_netcdf(
-            newfile, encoding={"time": {"units": "seconds since 1970-01-01"}}
-        )
-        # Reload that file and save it to json
-        # Loading with decode_times=False makes it so the datetimes
-        # get encoded as ints within the JSON
-        newds = xr.load_dataset(newfile, decode_times=False)
-
-        # Drop the ".nc" extension and replace with json
-        with open(newfile.replace(".nc", ".json"), "w") as f:
-            # Put it through dump/load/dump to get floating point truncation
-            f.write(
-                json.dumps(
-                    json.loads(
-                        json.dumps(newds.to_dict()),
-                        parse_float=lambda x: round(float(x), 3),
-                    )
-                )
-            )
-
-    print(f"Evo datasets saved: {time.time()-t0} s")
-
-    if download_images:
-        # Downloading images now, we want to download for every day in the dataset
-        # Convert numpy datetime64 (strip nanoseconds component),
-        # then to a Python datetime object
-        start_date = ds["time"].data[0].astype("datetime64[s]").astype(object)
-        end_date = ds["time"].data[-1].astype("datetime64[s]").astype(object)
-        dt = timedelta(days=1)
-        curr_date = start_date
-        while curr_date <= end_date:
-            download_hmi(curr_date, outdir=newpath + "/solar_images")
-            curr_date += dt
-
-        print(f"Images saved: {time.time()-t0} s")
+    return newpath
 
 
 def download_hmi(date: datetime, outdir=None, resolution="1k"):
@@ -379,4 +397,7 @@ if __name__ == "__main__":
         raise ValueError(
             "This program takes one argument, the path to the " "directory to convert"
         )
-    process_directory(sys.argv[1])
+    path = pathlib.Path(sys.argv[1])
+    if not path.exists() or not path.is_dir():
+        raise ValueError(f"Provided path {path} is not a directory")
+    process_directory(path)
