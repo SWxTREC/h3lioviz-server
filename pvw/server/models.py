@@ -70,9 +70,29 @@ class Enlil(Model):
             "dp": "DP",
         }
         super().__init__(dirname=dirname, variable_mapping=variable_mapping)
-        fname = str(self.dir / "pv-data-3d.nc")
-        self.data = pvs.NetCDFReader(registrationName="enlil-data", FileName=[fname])
+        self.data = pvs.NetCDFReader(
+            registrationName="enlil-data", FileName=self._get_filenames()
+        )
         self.data.Dimensions = "(longitude, latitude, radius)"
+
+    def _get_filenames(self):
+        """
+        Get the filenames for the current model run. There are two styles a
+        filename can be, old-style: one large file, new-style: individual file
+        for each timestep.
+
+        Returns
+        -------
+        list(str)
+            List of string filenames
+        """
+        # list of strings
+        legacy_filename = self.dir / "pv-data-3d.nc"
+        if legacy_filename.exists():
+            # Old-style processing with a single giant file
+            return [str(legacy_filename)]
+        # New processing with a single file for each timestep
+        return [str(x) for x in sorted(self.dir.glob("pv-tim*.nc"))]
 
     def change_run(self, dirname):
         """
@@ -84,7 +104,7 @@ class Enlil(Model):
             Path of the directory containing the EUHFORIA model output
         """
         self.dir = dirname
-        self.data.FileName = str(dirname / "pv-data-3d.nc")
+        self.data.FileName = self._get_filenames()
 
 
 class Euhforia(Model):
