@@ -1,6 +1,6 @@
 import pathlib
+
 import paraview.simple as pvs
-from evolution import Evolution
 
 # List of satellite colors
 SATELLITE_COLORS = {
@@ -21,8 +21,8 @@ class Satellite:
     ----------
     name : str
         Name of the satellite
-    fname : Path
-        Path of the evolution data file for this satellite
+    model_satellite : ModelSatellite
+        Position data of the satellite
     representation : str
         What type of object to display the satellite as, one of
         ("box", "sphere")
@@ -34,8 +34,7 @@ class Satellite:
         A view to render the satellite into
     """
 
-    def __init__(self, name, fname, representation="box", size=0.02, view=None):
-        self.name = name
+    def __init__(self, model_satellite, representation="box", size=0.02, view=None):
         self.size = size
         self.view = view
         if representation == "box":
@@ -49,7 +48,8 @@ class Satellite:
         else:
             raise ValueError("Satellite representation can only be 'box' or 'sphere'")
 
-        self.evolution = Evolution(fname)
+        self.model_satellite = model_satellite
+        name = self.model_satellite.name
         self.color = (
             SATELLITE_COLORS[name] if name in SATELLITE_COLORS else [0.5, 0.5, 0.5]
         )
@@ -69,19 +69,16 @@ class Satellite:
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
 
-    def change_evolution_file(self, fname):
-        """Change the underlying evolution file
-
-        This adds the ability to change the data file of the
-        satellite without recreating all of the underlying objects.
+    def change_satellite_data(self, model_satellite):
+        """Change the underlying satellite data file
 
         Parameters
         ----------
 
-        fname : Path
-            Path of the evolution data file for this satellite
+        model_satellite : ModelSatellite
+            Position information for the satellite
         """
-        self.evolution = Evolution(fname)
+        self.model_satellite = model_satellite
 
     def add_fieldline(self, data):
         """
@@ -96,7 +93,7 @@ class Satellite:
             3D Point dataset used for fieldline integration
         """
         stream_input = pvs.StreamTracer(
-            registrationName=f"{self.name}-StreamTracer",
+            registrationName=f"{self.model_satellite.name}-StreamTracer",
             Input=data,
             SeedType="Point Cloud",
         )
@@ -109,7 +106,8 @@ class Satellite:
         stream_input.ComputeVorticity = 0
 
         streamlines = pvs.Tube(
-            registrationName=f"{self.name}-Streamlines", Input=stream_input
+            registrationName=f"{self.model_satellite.name}-Streamlines",
+            Input=stream_input,
         )
         streamlines.Capping = 1
         streamlines.Radius = 0.0025
@@ -152,7 +150,7 @@ class Satellite:
         time : datetime
             The time of the visualization
         """
-        self.sat.Center = self.evolution.get_position(time=time)
+        self.sat.Center = self.model_satellite.get_position(time=time)
         self.label_disp.BillboardPosition = [x + self.size for x in self.sat.Center]
         if hasattr(self, "stream_input"):
             self.stream_input.SeedType.Center = self.sat.Center
@@ -284,18 +282,16 @@ class Earth(Satellite):
 
     Parameters
     ----------
-    fname : Path
-        Path of the evolution data file for the Earth
+    model_satellite : ModelSatellite
+        Earth position in the model's coordinates
     size : Number
         radius of the Earth
     view : paraview.Simple.View
         A view to render the sun into
     """
 
-    def __init__(self, fname, size=0.025, view=None):
-        # inherit from Satellites for evolution data file parsing
-        # and setting up the initial sphere
-        super().__init__("earth", fname, representation="sphere", size=size, view=view)
+    def __init__(self, model_satellite, size=0.025, view=None):
+        super().__init__(model_satellite, representation="sphere", size=size, view=view)
 
         # Path to the Earth texture on our local system
         # cwd() is where paraview is launched from
