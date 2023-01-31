@@ -5,6 +5,7 @@ import pathlib
 import sys
 import time
 import urllib.request
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -224,8 +225,8 @@ def process_directory(path, download_images=False):
     # Load and process the evolution (evo) file
     evo_fnames = sorted(path.glob("evo.*.nc"))
     if len(evo_fnames) == 0:
-        raise ValueError(
-            "No evolution files found to process in the " "current directory."
+        warnings.warn(
+            "No evolution files found to process in the current directory."
         )
 
     print("Beginning processing, may take several minutes")

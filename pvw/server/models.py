@@ -39,7 +39,7 @@ class Model:
         self._variable_mapping = variable_mapping
         # Start off with a default Earth satellite filling the dictionary
         # keeping track of the satellites
-        self.satellites = {"earth": ModelSatellite("earth", (1, 0, 0))}
+        self.satellites = {"earth": ModelSatellite("earth", (-1, 0, 0))}
 
     def get_variable(self, name: str) -> str:
         """Get the variable name associated with this model
