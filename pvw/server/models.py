@@ -171,6 +171,9 @@ class Euhforia(Model):
         self.data.ResultArrayName = "n-scaled"
         self.data.Function = "n * (coordsX^2 + coordsY^2 + coordsZ^2)"
 
+        # Earth is at +1 X in Euhforia
+        self.satellites["earth"].position = (1, 0, 0)
+
     def change_run(self, dirname):
         """
         Change to a different model run.

@@ -120,6 +120,12 @@ class App(pv_protocols.ParaViewWebProtocol):
         if not data_dir.exists():
             raise ValueError(f"No run available for id: {run_id}")
 
+        # Automatic detection of data source Enlil vs Euhforia
+        if len(list(data_dir.glob("*.vts"))):
+            # Euhforia data has vts files, so if we detect any in
+            # this directory then that is the model we will use
+            program = "euhforia"
+
         if hasattr(self, "model"):
             # We already have a model initialized, so we just need to switch
             # the directory underneath the hood without recreating all the filters
