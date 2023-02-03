@@ -320,15 +320,23 @@ class App(pv_protocols.ParaViewWebProtocol):
         if hasattr(self, "sun"):
             self.sun.hide()
             del self.sun
-        self.sun = satellite.Sun(self.model.dir / "solar_images", view=self.view)
+        self.sun = satellite.Sun(view=self.view)
 
         if hasattr(self, "earth"):
             self.earth.hide()
+            if hasattr(self.earth, "streamlines"):
+                # Remove any streamlines if there were some
+                self.earth.hide_fieldline()
+                del self.earth.streamlines
             del self.earth
         self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
         if hasattr(self, "satellites"):
             for sat in self.satellites.values():
                 sat.hide()
+                if hasattr(sat, "streamlines"):
+                    # Remove any streamlines if there were some
+                    sat.hide_fieldline()
+                    del sat.streamlines
                 del sat
             del self.satellites
         # TODO: Use the other satellites eventually
@@ -766,8 +774,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Update the satellite positions based on the evolution data
             self.satellites[x].update(curr_time)
 
-        # Update the solar image and rotate the Earth image
-        self.sun.update(curr_time)
+        # Rotate the Earth image
         self.earth.update(curr_time)
         self._previous_time == curr_time
 
