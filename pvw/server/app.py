@@ -120,12 +120,18 @@ class App(pv_protocols.ParaViewWebProtocol):
         if not data_dir.exists():
             raise ValueError(f"No run available for id: {run_id}")
 
+        # Automatic detection of data source Enlil vs Euhforia
+        if len(list(data_dir.glob("*.vts"))):
+            # Euhforia data has vts files, so if we detect any in
+            # this directory then that is the model we will use
+            program = "euhforia"
+
         if hasattr(self, "model"):
             # We already have a model initialized, so we just need to switch
             # the directory underneath the hood without recreating all the filters
             self.model.change_run(data_dir)
-            # Update the evolution files associated with the run
-            self._update_satellites()
+            # Update the satellite data files associated with the run
+            self._setup_satellites()
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
@@ -307,37 +313,44 @@ class App(pv_protocols.ParaViewWebProtocol):
     def _setup_satellites(self):
         """
         Initializes the satellite locations and objects.
+
+        If we are changing runs, we start by hiding and deleting all
+        previous instances of the objects.
         """
-        sats = list(self.model.dir.glob("*.json"))
-        # strip evo.name.json to only keep "name"
+        if hasattr(self, "sun"):
+            self.sun.hide()
+            del self.sun
+        self.sun = satellite.Sun(view=self.view)
+
+        if hasattr(self, "earth"):
+            self.earth.hide()
+            if hasattr(self.earth, "streamlines"):
+                # Remove any streamlines if there were some
+                self.earth.hide_fieldline()
+                del self.earth.streamlines
+            del self.earth
+        self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
+        if hasattr(self, "satellites"):
+            for sat in self.satellites.values():
+                sat.hide()
+                if hasattr(sat, "streamlines"):
+                    # Remove any streamlines if there were some
+                    sat.hide_fieldline()
+                    del sat.streamlines
+                del sat
+            del self.satellites
         # TODO: Use the other satellites eventually
-        #       For now, we are only using the stereo spacecraft
-        # self.satellites = {x.name[4:-5]: satellite.Satellite(x.name[4:-5], x, view=self.view) for x in sats if "earth" not in x.name}
+        # For now, we are only showing the stereo spacecraft
         self.satellites = {
-            x.name[4:-5]: satellite.Satellite(x.name[4:-5], x, view=self.view)
-            for x in sats
+            x.name: satellite.Satellite(x, view=self.view)
+            for x in self.model.satellites.values()
             if "stereo" in x.name
         }
-        # Filter for Earth in the name
-        self.earth = satellite.Earth(
-            list(filter(lambda x: "earth" in x.name, sats))[0], view=self.view
-        )
-        self.sun = satellite.Sun(self.model.dir / "solar_images", view=self.view)
+
         # Add the fieldlines to the satellites + Earth
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
-
-    def _update_satellites(self):
-        """Update the underlying satellite files."""
-        # We only need to update the underlying files, not create new objects
-        sats = list(self.model.dir.glob("*.json"))
-        for sat in self.satellites.values():
-            # Go through the list to see where the current satellite name is
-            # in the current model directory list
-            sat.change_evolution_file([x for x in sats if sat.name in str(x)][0])
-
-        self.earth.change_evolution_file([x for x in sats if "earth" in str(x)][0])
 
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
@@ -761,8 +774,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Update the satellite positions based on the evolution data
             self.satellites[x].update(curr_time)
 
-        # Update the solar image and rotate the Earth image
-        self.sun.update(curr_time)
+        # Rotate the Earth image
         self.earth.update(curr_time)
         self._previous_time == curr_time
 

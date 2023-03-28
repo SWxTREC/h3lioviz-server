@@ -1,6 +1,6 @@
 import pathlib
+
 import paraview.simple as pvs
-from evolution import Evolution
 
 # List of satellite colors
 SATELLITE_COLORS = {
@@ -21,8 +21,8 @@ class Satellite:
     ----------
     name : str
         Name of the satellite
-    fname : Path
-        Path of the evolution data file for this satellite
+    model_satellite : ModelSatellite
+        Position data of the satellite
     representation : str
         What type of object to display the satellite as, one of
         ("box", "sphere")
@@ -34,8 +34,7 @@ class Satellite:
         A view to render the satellite into
     """
 
-    def __init__(self, name, fname, representation="box", size=0.02, view=None):
-        self.name = name
+    def __init__(self, model_satellite, representation="box", size=0.02, view=None):
         self.size = size
         self.view = view
         if representation == "box":
@@ -49,7 +48,8 @@ class Satellite:
         else:
             raise ValueError("Satellite representation can only be 'box' or 'sphere'")
 
-        self.evolution = Evolution(fname)
+        self.model_satellite = model_satellite
+        name = self.model_satellite.name
         self.color = (
             SATELLITE_COLORS[name] if name in SATELLITE_COLORS else [0.5, 0.5, 0.5]
         )
@@ -69,19 +69,16 @@ class Satellite:
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
 
-    def change_evolution_file(self, fname):
-        """Change the underlying evolution file
-
-        This adds the ability to change the data file of the
-        satellite without recreating all of the underlying objects.
+    def change_satellite_data(self, model_satellite):
+        """Change the underlying satellite data file
 
         Parameters
         ----------
 
-        fname : Path
-            Path of the evolution data file for this satellite
+        model_satellite : ModelSatellite
+            Position information for the satellite
         """
-        self.evolution = Evolution(fname)
+        self.model_satellite = model_satellite
 
     def add_fieldline(self, data):
         """
@@ -96,7 +93,7 @@ class Satellite:
             3D Point dataset used for fieldline integration
         """
         stream_input = pvs.StreamTracer(
-            registrationName=f"{self.name}-StreamTracer",
+            registrationName=f"{self.model_satellite.name}-StreamTracer",
             Input=data,
             SeedType="Point Cloud",
         )
@@ -109,7 +106,8 @@ class Satellite:
         stream_input.ComputeVorticity = 0
 
         streamlines = pvs.Tube(
-            registrationName=f"{self.name}-Streamlines", Input=stream_input
+            registrationName=f"{self.model_satellite.name}-Streamlines",
+            Input=stream_input,
         )
         streamlines.Capping = 1
         streamlines.Radius = 0.0025
@@ -152,7 +150,7 @@ class Satellite:
         time : datetime
             The time of the visualization
         """
-        self.sat.Center = self.evolution.get_position(time=time)
+        self.sat.Center = self.model_satellite.get_position(time=time)
         self.label_disp.BillboardPosition = [x + self.size for x in self.sat.Center]
         if hasattr(self, "stream_input"):
             self.stream_input.SeedType.Center = self.sat.Center
@@ -164,23 +162,20 @@ class Sun:
 
     Parameters
     ----------
-    texture_dir : Path
-        Path of the textures for the sun
     size : Number
         radius of the sun
     view : paraview.Simple.View
         A view to render the sun into
     """
 
-    def __init__(self, texture_dir=None, size=0.075, view=None):
-        self.texture_dir = texture_dir
+    def __init__(self, size=0.075, view=None):
         self.size = size
         self.view = view
 
         # Sun representation
         self.sphere = pvs.Sphere()
         self.sphere.Center = [0.0, 0.0, 0.0]
-        self.sphere.Radius = self.size - 0.001
+        self.sphere.Radius = self.size
         self.sphere.ThetaResolution = 50
         self.sphere.PhiResolution = 50
         disp = pvs.Show(self.sphere, self.view, "GeometryRepresentation")
@@ -192,90 +187,9 @@ class Sun:
         disp.ColorArrayName = [None, ""]
         disp.DiffuseColor = self.color
 
-        # Now try to create the solar texture
-        self._create_solar_texture()
-
-    def _create_solar_texture(self):
-        if self.texture_dir is None or not self.texture_dir.exists():
-            return
-        # Store a list of the solar images
-        self._solar_images = [x.name for x in self.texture_dir.glob("*.jpg")]
-        self._solar_images = sorted(self._solar_images)
-
-        # Sun representation
-        sun = pvs.Sphere()
-        sun.Center = self.sphere.Center
-        sun.Radius = self.size
-        sun.ThetaResolution = 50
-        sun.PhiResolution = 50
-
-        # For the solar imagery we want texture map to plane because it is
-        # a flat image instead of an unwrapped image.
-        texture_map = pvs.TextureMaptoPlane(registrationName="SunImage", Input=sun)
-        # Make the points form a square of radius r
-        # Earth is in the -X direction, so we want our image plane to be
-        # in the Y-Z direction, with the origin at (+Y, -Z) and the base
-        # of the image extending out in the Y direction to (-Y, -Z).
-        r = self.size
-        texture_map.Origin = [0, r, -r]
-        texture_map.Point1 = [0, -r, -r]
-        texture_map.Point2 = [0, r, r]
-
-        # We also want to clip the sphere so we don't get any wrapping
-        # into the back plane
-        clip = pvs.Clip(registrationName="ClipSun", Input=texture_map)
-        clip.ClipType = "Plane"
-        clip.HyperTreeGridClipper = "Plane"
-        clip.Scalars = ["POINTS", ""]
-        clip.Invert = 1
-
-        # This is the plane to clip on. It doesn't cover the entire
-        # half-sphere, so limit it a little bit in the X direction
-        clip.ClipType.Origin = [-0.03, 0.0, 0.0]
-
-        sun_display = pvs.Show(clip, self.view, "GeometryRepresentation")
-
-        # Create a texture from the first image
-        sun_texture = pvs.CreateTexture(str(self.texture_dir / self._solar_images[0]))
-
-        # trace defaults for the display properties.
-        sun_display.Representation = "Surface"
-        sun_display.ColorArrayName = [None, ""]
-        sun_display.SelectTCoordArray = "Texture Coordinates"
-        sun_display.SelectNormalArray = "Normals"
-        sun_display.SelectTangentArray = "None"
-        sun_display.Texture = sun_texture
-        # This hides the HMI image when looking from behind
-        sun_display.BackfaceRepresentation = "Cull Backface"
-        self.texture_disp = sun_display
-
-    def update(self, time):
-        """
-        Update the sun image
-
-        Parameters
-        ----------
-        time : datetime
-            The time of the visualization
-        """
-        if not hasattr(self, "_solar_images"):
-            # No solar images
-            return
-
-        # Iterate through the solar images, choosing
-        # the one before this timestep.
-        # filename looks like: 20170906_000000_M_color_4k.jpg
-        i = len(self._solar_images) - 1
-        image_name = self._solar_images[i]
-        t = time.strftime("%Y%m%d_%H0000_M_color_4k.jpg")
-        while image_name > t and i > 0:
-            image_name = self._solar_images[i]
-            i -= 1
-
-        # We have our image_name now, so update the texture
-        self.texture_disp.Texture = pvs.CreateTexture(
-            str(self.texture_dir / image_name)
-        )
+    def hide(self):
+        """Hide the sun"""
+        pvs.Hide(self.sphere, self.view)
 
 
 class Earth(Satellite):
@@ -284,18 +198,16 @@ class Earth(Satellite):
 
     Parameters
     ----------
-    fname : Path
-        Path of the evolution data file for the Earth
+    model_satellite : ModelSatellite
+        Earth position in the model's coordinates
     size : Number
         radius of the Earth
     view : paraview.Simple.View
         A view to render the sun into
     """
 
-    def __init__(self, fname, size=0.025, view=None):
-        # inherit from Satellites for evolution data file parsing
-        # and setting up the initial sphere
-        super().__init__("earth", fname, representation="sphere", size=size, view=view)
+    def __init__(self, model_satellite, size=0.025, view=None):
+        super().__init__(model_satellite, representation="sphere", size=size, view=view)
 
         # Path to the Earth texture on our local system
         # cwd() is where paraview is launched from

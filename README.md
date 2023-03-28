@@ -51,7 +51,7 @@ docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -it p
 With your own server modifications and data mounted internally:
 
 ```bash
-docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data:/data -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
+docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data/pv-ready-data-NEWHASH:/data/pv-ready-data-9a68f9e9 -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
 ```
 
 ## Building the Dockerfile
