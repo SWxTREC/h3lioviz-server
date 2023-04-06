@@ -202,6 +202,11 @@ def process_evo(ds):
             "V3",
         ]
     )
+    for var in ds:
+        # We only want one-dimensional data for evolution files
+        # This happens if npos > 1 in Enlil
+        if ds[var].ndim == 2:
+            ds[var] = ds[var][:, 0]
 
     return ds
 
@@ -225,9 +230,7 @@ def process_directory(path, download_images=False):
     # Load and process the evolution (evo) file
     evo_fnames = sorted(path.glob("evo.*.nc"))
     if len(evo_fnames) == 0:
-        warnings.warn(
-            "No evolution files found to process in the current directory."
-        )
+        warnings.warn("No evolution files found to process in the current directory.")
 
     print("Beginning processing, may take several minutes")
     t0 = time.time()
@@ -323,7 +326,8 @@ def process_metadata(ds):
         elif project.startswith("/data"):
             institute = "SWxTREC"
         else:
-            raise ValueError("Unknown institute")
+            institute = "GMU"
+            warnings.warn("Unknown institute, defaulting to GMU")
         d["institute"] = institute
         f.write(json.dumps(d))
     return newpath
