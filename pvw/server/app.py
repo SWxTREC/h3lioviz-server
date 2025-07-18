@@ -4,7 +4,6 @@ import math
 import pathlib
 
 import paraview.simple as pvs
-from trame.rpc import Controller
 from trame.app import get_server
 
 import models
@@ -74,7 +73,7 @@ VARIABLE_LABEL = {
 }
 
 
-ctrl = Controller(get_server())
+ctrl = get_server().controller
 
 
 class App:
