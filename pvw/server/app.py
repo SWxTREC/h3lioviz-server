@@ -3,8 +3,12 @@ import json
 import math
 import pathlib
 
+import paraview.web.venv
 import paraview.simple as pvs
-from trame.app import get_server
+from trame.app import TrameApp
+from trame.widgets import vuetify3
+from trame.ui.vuetify3 import SinglePageWithDrawerLayout
+from trame.decorators import controller as ctrl
 
 import models
 import satellite
@@ -73,10 +77,7 @@ VARIABLE_LABEL = {
 }
 
 
-ctrl = get_server().controller
-
-
-class App:
+class App(TrameApp):
     def __init__(self, dirname):
         """
         Heliosphere 4D dataset representation in Paraview.
@@ -88,6 +89,7 @@ class App:
         # Initialize the PV web protocols
         # super().__init__()
         # Save the run directory
+        super().__init__()
         self._run_dir = pathlib.Path(dirname)
 
         # disable automatic camera reset on 'Show'
@@ -793,10 +795,38 @@ class App:
         return datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=pv_time)
 
 
+class SimpleApp(TrameApp):
+    def __init__(self):
+        super().__init__()
+        # Create a ParaView Cone source
+        self.cone = pvs.Cone()
+        self.view = pvs.GetActiveView()
+        pvs.Show(self.cone, self.view)
+        pvs.Render(self.view)
+
+
+def setup_trame_ui(server):
+    state = server.state
+    layout = SinglePageWithDrawerLayout(server)
+    layout.title.set_text("Trame Static UI Test (No ParaView, No App)")
+
+    with layout.toolbar:
+        vuetify3.VSpacer()
+        vuetify3.VBtn("Test Button", click=lambda: state.trigger("test_action"))
+        vuetify3.VTextField(v_model="test_field", label="Test Field", style="max-width: 150px;")
+
+    with layout.content:
+        vuetify3.VAlert(text="If you see this message, the Trame UI is rendering.", type="info", style="margin-bottom: 10px;")
+        vuetify3.VAlert(text="This is a static test layout with no ParaView backend.", type="info")
+
+
 # Optionally, instantiate App and start Trame server if running as main
 if __name__ == "__main__":
-    import sys
+    # Uncomment below to test SimpleApp
+    app = SimpleApp()
+    setup_trame_ui(app.server)
+    app.server.start()
 
-    dirname = sys.argv[1] if len(sys.argv) > 1 else "."
-    app = App(dirname)
-    get_server().start()
+    # app = App(dirname="/Users/grlu5547/code/h3lioviz-server/test-data")
+    # setup_trame_ui(app.server)
+    # app.server.start()
