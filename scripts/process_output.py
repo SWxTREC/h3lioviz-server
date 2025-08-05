@@ -240,6 +240,8 @@ def process_directory(path, download_images=False):
     # ---------
     for i, fname in enumerate(tim_fnames):
         with xr.load_dataset(fname) as ds:
+            ds = ds.coarsen(n1=2, n2=2, n3=2, boundary="trim").mean()
+
             # Process single file
             ds = process_tim(ds)
 
