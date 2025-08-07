@@ -214,7 +214,7 @@ def process_evo(ds):
 def process_one_tim():
     pass
 
-def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean"):
+def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean", boundary="trim"):
     """
     Processes the given directory to transform the files into
     suitable data for Paraview ingest.
@@ -245,13 +245,13 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         with xr.load_dataset(fname) as ds:
             # Apply downsampling using the specified aggregation method
             if aggregation == "mean":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary="trim").mean()
+                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).mean()
             elif aggregation == "max":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary="trim").max()
+                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).max()
             elif aggregation == "min":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary="trim").min()
+                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).min()
             elif aggregation == "median":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary="trim").median()
+                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).median()
             else:
                 raise ValueError(f"Unknown aggregation method: {aggregation}")
 
@@ -447,6 +447,13 @@ if __name__ == "__main__":
         default="mean",
         help="Aggregation method to apply to the downsampling.",
     )
+    parser.add_argument(
+        "--boundary",
+        type=str,
+        choices=["trim", "pad", "exact"],
+        default="trim",
+        help="How to handle boundaries during coarsening. Default is trim."
+    )
     args = parser.parse_args()
 
     if args.radius_downsample < 1 or args.longitude_downsample < 1 or args.latitude_downsample < 1:
@@ -457,4 +464,4 @@ if __name__ == "__main__":
         raise ValueError(f"Provided path {path} is not a directory")
     
 
-    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample)
+    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary)
