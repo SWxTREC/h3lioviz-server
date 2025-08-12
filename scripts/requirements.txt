@@ -1,4 +1,4 @@
-# Unforutnately, all of these are required for the netcdf io here :(
+# Unfortunately, all of these are required for the netcdf io here :(
 netcdf4
 numpy
 scipy
