@@ -6,6 +6,7 @@ import sys
 import time
 import urllib.request
 import warnings
+import argparse
 
 import numpy as np
 import xarray as xr
@@ -210,8 +211,7 @@ def process_evo(ds):
 
     return ds
 
-
-def process_directory(path, download_images=False):
+def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean", boundary="trim"):
     """
     Processes the given directory to transform the files into
     suitable data for Paraview ingest.
@@ -238,8 +238,12 @@ def process_directory(path, download_images=False):
     # ---------
     # TIM file processing
     # ---------
+    print(f"Processing {len(tim_fnames)} TIM files")
     for i, fname in enumerate(tim_fnames):
         with xr.load_dataset(fname) as ds:
+            # Apply downsampling using the specified aggregation method
+            ds = getattr(ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary), aggregation)()
+
             # Process single file
             ds = process_tim(ds)
 
@@ -252,9 +256,9 @@ def process_directory(path, download_images=False):
                 newpath / f"pv-{fname.name}",
                 encoding={"time": {"units": "seconds since 1970-01-01"}},
             )
-
     print(f"TIM files processed: {time.time()-t0} s")
 
+    print(f"Processing {len(evo_fnames)} EVO files")
     for fname in evo_fnames:
         with xr.load_dataset(fname) as ds:
             ds = process_evo(ds)
@@ -280,7 +284,6 @@ def process_directory(path, download_images=False):
                         )
                     )
                 )
-
     print(f"Evo files processed: {time.time()-t0} s")
 
     if download_images:
@@ -292,7 +295,7 @@ def process_directory(path, download_images=False):
         dt = timedelta(days=1)
         curr_date = start_date
         while curr_date <= end_date:
-            download_hmi(curr_date, outdir=newpath + "/solar_images")
+            download_hmi(curr_date, outdir=str(newpath) + "/solar_images")
             curr_date += dt
 
         print(f"Images saved: {time.time()-t0} s")
@@ -398,11 +401,54 @@ def _convert_time(t):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise ValueError(
-            "This program takes one argument, the path to the " "directory to convert"
-        )
-    path = pathlib.Path(sys.argv[1])
+    parser = argparse.ArgumentParser(
+        prog="H3lioviz Enlil Output Processor",
+        description="Process Enlil output files for H3lioviz visualization using paraview. The script also has the ability to downscale runs.",
+    )
+    parser.add_argument(
+        "path",
+        type=str,
+        help="Path to the directory containing Enlil .nc files to process.",
+    )
+    parser.add_argument(
+        "--radius-downsample",
+        type=int,
+        default=1,
+        help="Downsample the radius dimension by this factor. Default is 1 (no downsampling).",
+    )
+    parser.add_argument(
+        "--longitude-downsample",
+        type=int,
+        default=1,
+        help="Downsample the longitude dimension by this factor. Default is 1 (no downsampling).",
+    )
+    parser.add_argument(
+        "--latitude-downsample",
+        type=int,
+        default=1,
+        help="Downsample the latitude dimension by this factor. Default is 1 (no downsampling).",
+    )
+    parser.add_argument(
+        "--aggregation",
+        type=str,
+        choices=["mean", "max", "min", "median"],
+        default="mean",
+        help="Aggregation method to apply to the downsampling.",
+    )
+    parser.add_argument(
+        "--boundary",
+        type=str,
+        choices=["trim", "pad", "exact"],
+        default="trim",
+        help="How to handle boundaries during coarsening. Default is trim."
+    )
+    args = parser.parse_args()
+
+    if args.radius_downsample < 1 or args.longitude_downsample < 1 or args.latitude_downsample < 1:
+        raise ValueError("Downsampling factors must be greater than or equal to 1.")
+
+    path = pathlib.Path(args.path)
     if not path.exists() or not path.is_dir():
         raise ValueError(f"Provided path {path} is not a directory")
-    process_directory(path)
+    
+    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary, aggregation=args.aggregation)
