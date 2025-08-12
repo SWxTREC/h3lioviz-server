@@ -342,7 +342,7 @@ def process_metadata(ds, newpath=None, run_id=None):
     newpath.mkdir(parents=True, exist_ok=True)
     with open(newpath / "metadata.json", "w") as f:
         f.write(json.dumps(ds.attrs, cls=NumpyEncoder))
-    
+        
     return newpath
 
 
