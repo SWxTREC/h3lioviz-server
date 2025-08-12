@@ -242,16 +242,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
     for i, fname in enumerate(tim_fnames):
         with xr.load_dataset(fname) as ds:
             # Apply downsampling using the specified aggregation method
-            if aggregation == "mean":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).mean()
-            elif aggregation == "max":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).max()
-            elif aggregation == "min":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).min()
-            elif aggregation == "median":
-                ds = ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary).median()
-            else:
-                raise ValueError(f"Unknown aggregation method: {aggregation}")
+            ds = getattr(ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary), aggregation)()
 
             # Process single file
             ds = process_tim(ds)
