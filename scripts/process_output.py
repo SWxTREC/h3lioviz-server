@@ -451,4 +451,4 @@ if __name__ == "__main__":
     if not path.exists() or not path.is_dir():
         raise ValueError(f"Provided path {path} is not a directory")
     
-    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary)
+    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary, aggregation=args.aggregation)
