@@ -431,7 +431,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--aggregation",
         type=str,
-        choices=["mean", "max", "min", "median", ],
+        choices=["mean", "max", "min", "median"],
         default="mean",
         help="Aggregation method to apply to the downsampling.",
     )
