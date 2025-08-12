@@ -211,9 +211,6 @@ def process_evo(ds):
 
     return ds
 
-def process_one_tim():
-    pass
-
 def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean", boundary="trim"):
     """
     Processes the given directory to transform the files into
@@ -268,7 +265,6 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                 newpath / f"pv-{fname.name}",
                 encoding={"time": {"units": "seconds since 1970-01-01"}},
             )
-
     print(f"TIM files processed: {time.time()-t0} s")
 
     print(f"Processing {len(evo_fnames)} EVO files")
@@ -297,7 +293,6 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                         )
                     )
                 )
-
     print(f"Evo files processed: {time.time()-t0} s")
 
     if download_images:
@@ -465,5 +460,4 @@ if __name__ == "__main__":
     if not path.exists() or not path.is_dir():
         raise ValueError(f"Provided path {path} is not a directory")
     
-
     process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary)
