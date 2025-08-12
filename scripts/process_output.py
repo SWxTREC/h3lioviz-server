@@ -241,6 +241,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
     # ---------
     # TIM file processing
     # ---------
+    print(f"Processing {len(tim_fnames)} TIM files")
     for i, fname in enumerate(tim_fnames):
         with xr.load_dataset(fname) as ds:
             # Apply downsampling using the specified aggregation method
@@ -270,6 +271,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
     print(f"TIM files processed: {time.time()-t0} s")
 
+    print(f"Processing {len(evo_fnames)} EVO files")
     for fname in evo_fnames:
         with xr.load_dataset(fname) as ds:
             ds = process_evo(ds)
@@ -415,7 +417,7 @@ def _convert_time(t):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="H3lioviz Enlil Output Processor",
-        description="Process Enlil output files for H3lioviz visualization for paraview and optionally downscale runs.",
+        description="Process Enlil output files for H3lioviz visualization using paraview. The script also has the ability to downscale runs.",
     )
     parser.add_argument(
         "path",
