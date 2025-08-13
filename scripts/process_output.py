@@ -6,7 +6,9 @@ import sys
 import time
 import urllib.request
 import warnings
+import re
 import argparse
+
 
 import numpy as np
 import xarray as xr
@@ -249,7 +251,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
             if i == 0:
                 # Only process metadata for the first file
-                newpath = process_metadata(ds)
+                newpath = process_metadata(ds, path)
 
             # Save single file
             ds.to_netcdf(
@@ -301,7 +303,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         print(f"Images saved: {time.time()-t0} s")
 
 
-def process_metadata(ds):
+def process_metadata(ds, newpath=None, run_id=None):
     """Process and save the metadata from an Enlil run
 
     Returns
@@ -311,28 +313,40 @@ def process_metadata(ds):
     """
     s = json.dumps(ds.attrs, cls=NumpyEncoder)
     # Hash based on the metadata of the run
-    run_id = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]
-    newpath = path / f"pv-ready-data-{run_id}"
-    # Make the new directory if it doesn't exist
+    hash_digest = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]    
+    ds = ds.assign_attrs(hash_digest=hash_digest) 
+    # Determine the institute based on the project name
+    project = ds.attrs.get("project", "")
+    if project.startswith("a8b1"):
+        institute = "SWPC"
+    elif project.startswith("ENLIL."):
+        institute = "CCMC"
+    elif project.startswith("/data"):
+        institute = "SWxTREC"
+    else:
+        institute = "UNKNOWN"
+        warnings.warn("Unknown institute, defaulting to UNKNOWN")
+    ds = ds.assign_attrs(institute=institute)
+
+    # Extract the run_id from the dataset attributes
+    if not run_id:
+        # In order to extract the run_id from a SWPC run, the path must end with wsa_enlil_57484.57285344.dbqs0
+        if institute == "SWPC" and re.match(r"^.*wsa_enlil_\d{5}\.\d*\.dbqs0$", path.name):
+            run_id = path.name.split("_")[-1].split(".")[0]
+        else:
+            run_id = hash_digest
+        
+    ds = ds.assign_attrs(run_id=run_id)
+
+    # If a path isn't provided, generate one
+    if newpath is None:
+        newpath = path / f"pv-ready-data-{run_id}"
+
+    # Make the new directory if it doesn't exist then write the metadata
     newpath.mkdir(parents=True, exist_ok=True)
     with open(newpath / "metadata.json", "w") as f:
-        # s is currently just the string version of the json dict
-        # because we can't hash a dictionary. So, lets unpack s
-        # back to a dict and add the run_id to it for later reference.
-        d = json.loads(s)
-        d["run_id"] = run_id
-        project = d.get("project", "")
-        if project.startswith("a8b1"):
-            institute = "SWPC"
-        elif project.startswith("ENLIL."):
-            institute = "CCMC"
-        elif project.startswith("/data"):
-            institute = "SWxTREC"
-        else:
-            institute = "GMU"
-            warnings.warn("Unknown institute, defaulting to GMU")
-        d["institute"] = institute
-        f.write(json.dumps(d))
+        f.write(json.dumps(ds.attrs, cls=NumpyEncoder))
+        
     return newpath
 
 
@@ -398,7 +412,6 @@ def _convert_time(t):
         except ValueError:
             pass
     raise ValueError(f"No matching time formats found for {t}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
