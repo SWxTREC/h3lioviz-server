@@ -1,6 +1,6 @@
-# Unforutnately, all of these are required for the netcdf io here :(
-dask
+# Unfortunately, all of these are required for the netcdf io here :(
 netcdf4
 numpy
 scipy
 xarray
+importlib-metadata==4.13.0
