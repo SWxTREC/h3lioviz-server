@@ -413,7 +413,8 @@ def _convert_time(t):
             pass
     raise ValueError(f"No matching time formats found for {t}")
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(
         prog="H3lioviz Enlil Output Processor",
         description="Process Enlil output files for H3lioviz visualization using paraview. The script also has the ability to downscale runs.",
@@ -465,3 +466,7 @@ if __name__ == "__main__":
         raise ValueError(f"Provided path {path} is not a directory")
     
     process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary, aggregation=args.aggregation)
+
+
+if __name__ == "__main__":
+    main()
