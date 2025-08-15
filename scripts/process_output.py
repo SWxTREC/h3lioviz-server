@@ -251,7 +251,12 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
             if i == 0:
                 # Only process metadata for the first file
-                newpath = process_metadata(ds, path)
+                metadata = process_metadata(ds, path)
+                newpath = path / f"pv-ready-data-{metadata['run_id']}"
+                newpath.mkdir(parents=True, exist_ok=True)
+                with open(newpath / "metadata.json", "w") as f:
+                    f.write(json.dumps(metadata, cls=NumpyEncoder))
+
 
             # Save single file
             ds.to_netcdf(
@@ -303,7 +308,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         print(f"Images saved: {time.time()-t0} s")
 
 
-def process_metadata(ds, newpath=None, run_id=None):
+def process_metadata(ds, path=None, run_id=None):
     """Process and save the metadata from an Enlil run
 
     Returns
@@ -337,17 +342,8 @@ def process_metadata(ds, newpath=None, run_id=None):
             run_id = hash_digest
         
     ds = ds.assign_attrs(run_id=run_id)
-
-    # If a path isn't provided, generate one
-    if newpath is None:
-        newpath = path / f"pv-ready-data-{run_id}"
-
-    # Make the new directory if it doesn't exist then write the metadata
-    newpath.mkdir(parents=True, exist_ok=True)
-    with open(newpath / "metadata.json", "w") as f:
-        f.write(json.dumps(ds.attrs, cls=NumpyEncoder))
         
-    return newpath
+    return ds.attrs
 
 
 def download_hmi(date: datetime, outdir=None, resolution="1k"):
