@@ -224,6 +224,16 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         Path of the directory to process
     download_images : bool (default False)
         Whether to download solar images or not
+    radius_downsample : int (default 1)
+        Factor by which to downsample the radius
+    longitude_downsample : int (default 1)
+        Factor by which to downsample the longitude
+    latitude_downsample : int (default 1)
+        Factor by which to downsample the latitude
+    aggregation : str (default "mean")
+        Aggregation method to use for downsampling
+    boundary : str (default "trim")
+        Boundary handling method for downsampling
     """
     tim_fnames = sorted(path.glob("tim.*.nc"))
     if len(tim_fnames) == 0:
@@ -251,7 +261,12 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
             if i == 0:
                 # Only process metadata for the first file
-                newpath = process_metadata(ds, path)
+                metadata = process_metadata(ds, path)
+                # Save the metadata
+                newpath = path / f"pv-ready-data-{metadata['run_id']}"
+                newpath.mkdir(parents=True, exist_ok=True)
+                with open(newpath / "metadata.json", "w") as f:
+                    f.write(json.dumps(metadata, cls=NumpyEncoder))
 
             # Save single file
             ds.to_netcdf(
@@ -303,8 +318,16 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         print(f"Images saved: {time.time()-t0} s")
 
 
-def process_metadata(ds, newpath=None, run_id=None):
+def process_metadata(ds, path=None, run_id=None):
     """Process and save the metadata from an Enlil run
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The dataset containing the metadata.
+    path : Path, optional
+        The path to the directory to extract run_id from
+    run_id : str, optional
+        The run ID to use for the metadata if it's already known
 
     Returns
     -------
@@ -337,17 +360,8 @@ def process_metadata(ds, newpath=None, run_id=None):
             run_id = hash_digest
         
     ds = ds.assign_attrs(run_id=run_id)
-
-    # If a path isn't provided, generate one
-    if newpath is None:
-        newpath = path / f"pv-ready-data-{run_id}"
-
-    # Make the new directory if it doesn't exist then write the metadata
-    newpath.mkdir(parents=True, exist_ok=True)
-    with open(newpath / "metadata.json", "w") as f:
-        f.write(json.dumps(ds.attrs, cls=NumpyEncoder))
         
-    return newpath
+    return ds.attrs
 
 
 def download_hmi(date: datetime, outdir=None, resolution="1k"):
@@ -413,7 +427,8 @@ def _convert_time(t):
             pass
     raise ValueError(f"No matching time formats found for {t}")
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(
         prog="H3lioviz Enlil Output Processor",
         description="Process Enlil output files for H3lioviz visualization using paraview. The script also has the ability to downscale runs.",
@@ -465,3 +480,7 @@ if __name__ == "__main__":
         raise ValueError(f"Provided path {path} is not a directory")
     
     process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary, aggregation=args.aggregation)
+
+
+if __name__ == "__main__":
+    main()
