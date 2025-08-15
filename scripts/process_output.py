@@ -224,6 +224,16 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         Path of the directory to process
     download_images : bool (default False)
         Whether to download solar images or not
+    radius_downsample : int (default 1)
+        Factor by which to downsample the radius
+    longitude_downsample : int (default 1)
+        Factor by which to downsample the longitude
+    latitude_downsample : int (default 1)
+        Factor by which to downsample the latitude
+    aggregation : str (default "mean")
+        Aggregation method to use for downsampling
+    boundary : str (default "trim")
+        Boundary handling method for downsampling
     """
     tim_fnames = sorted(path.glob("tim.*.nc"))
     if len(tim_fnames) == 0:
@@ -252,11 +262,11 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
             if i == 0:
                 # Only process metadata for the first file
                 metadata = process_metadata(ds, path)
+                # Save the metadata
                 newpath = path / f"pv-ready-data-{metadata['run_id']}"
                 newpath.mkdir(parents=True, exist_ok=True)
                 with open(newpath / "metadata.json", "w") as f:
                     f.write(json.dumps(metadata, cls=NumpyEncoder))
-
 
             # Save single file
             ds.to_netcdf(
@@ -310,6 +320,14 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
 def process_metadata(ds, path=None, run_id=None):
     """Process and save the metadata from an Enlil run
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The dataset containing the metadata.
+    path : Path, optional
+        The path to the directory to extract run_id from
+    run_id : str, optional
+        The run ID to use for the metadata if it's already known
 
     Returns
     -------
