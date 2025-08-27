@@ -261,7 +261,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
 
             if i == 0:
                 # Only process metadata for the first file
-                metadata = process_metadata(ds, path)
+                metadata = process_metadata(ds, path=path, radius_downsample=radius_downsample, longitude_downsample=longitude_downsample, latitude_downsample=latitude_downsample)
                 # Save the metadata
                 newpath = path / f"pv-ready-data-{metadata['run_id']}"
                 newpath.mkdir(parents=True, exist_ok=True)
@@ -318,7 +318,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         print(f"Images saved: {time.time()-t0} s")
 
 
-def process_metadata(ds, path=None, run_id=None):
+def process_metadata(ds, path=None, run_id=None, radius_downsample=1, longitude_downsample=1, latitude_downsample=1):
     """Process and save the metadata from an Enlil run
     Parameters
     ----------
@@ -359,7 +359,7 @@ def process_metadata(ds, path=None, run_id=None):
         else:
             run_id = hash_digest
         
-    ds = ds.assign_attrs(run_id=run_id)
+    ds = ds.assign_attrs(run_id=str(run_id)+f"-rad{radius_downsample}xlong{longitude_downsample}xlat{latitude_downsample}x")
         
     return ds.attrs
 
