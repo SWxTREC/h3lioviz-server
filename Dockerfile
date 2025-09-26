@@ -62,11 +62,11 @@ EXPOSE 80
 #     tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
 #     mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
 
-COPY docker/binaries/ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz /opt
+COPY docker/binaries/ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar /opt
 RUN cd /opt && \
-    tar -xzvf ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz && \
+    tar -xvf ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar && \
     mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
-    rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz
+    rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar
 
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
