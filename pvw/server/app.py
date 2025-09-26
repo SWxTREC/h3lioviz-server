@@ -11,6 +11,15 @@ import models
 import satellite
 import slice
 
+# For AWS funcitonality (currently only to track run usage)
+import boto3
+from datetime import datetime
+
+env={}
+with open("env.json", "r") as fp:
+    env = json.load(fp) 
+
+lambda_client = boto3.client("lambda", region_name=env["REGION"])
 
 # TODO: Try and use faster plugins where possible
 #       Investigate the use of various speedups. FlyingEdges3D requires image datasets
@@ -116,6 +125,19 @@ class App(pv_protocols.ParaViewWebProtocol):
         program : str
             Name of the program (enlil or euhforia)
         """
+        # Add row to dynamo indicating the run was selected
+        current_date = datetime.now()
+        run_selection_date = current_date.strftime("%Y-%m-%dT%H:%M:%S")
+        run_usage_item = {
+            "run_id": {
+                "S": run_id
+            },
+            "run_selection_date": {
+                "S": run_selection_date
+            }
+        }
+        lambda_client.invoke(FunctionName=env["ADD_RUN_USAGE_FUNCTION_NAME"], Payload=json.dumps(run_usage_item))
+
         data_dir = self._run_dir / f"pv-ready-data-{run_id}"
         if not data_dir.exists():
             raise ValueError(f"No run available for id: {run_id}")
