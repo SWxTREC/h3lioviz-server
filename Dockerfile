@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libapr1-dev \
         libglapi-mesa \
         apache2-utils \
+        ca-certificates  \
+        curl \
+        unzip \
         sudo && \
     rm -rf /var/lib/apt/lists/*
 
@@ -72,6 +75,8 @@ RUN cd /opt && \
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
 
+# TODO: Is this required anymore? It adds a step to the build process and 
+# doubles the docker image size.
 # COPY the test data into the container for a default launch case
 RUN mkdir /data
 COPY test-data/launcher /data/launcher

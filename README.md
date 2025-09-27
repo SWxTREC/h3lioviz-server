@@ -21,13 +21,17 @@ Docker and the aws-cli programs to run locally.
 ### Pushing Image for Legacy
 
 The bryan-test/h3lioviz public ECR is on legacy 
-1. Sign in: `aws ecr-public get
--login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
+1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
 2. Build: `docker build -t h3lioviz .`
 3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
 4. Push:  `docker push public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
 
 ### Updating swx-trec-cdk to Use the New Image
+NOTE: This is somewhat of a temporary fix, and will vanish if the ec2 gets re-created, but it works for development.
+Navigate to `nano /docker/docker-compose-cpu.yaml` and check that the image in the compose file points to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`. 
+1. Run `export PATH="$PATH:/usr/local/bin/"`
+2. Run `/docker/docker-launch.sh`. This will update the docker container.
+
 If there is another way to force the paraview ec2 to rerun its user_data scripts update this! Deleting the stack and redeploying is pretty cumbersome.
 1. Navigate to the ec2_construct.py within h3lioviz and change the used ECR to point to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
 2. Destroy the h3lioviz stack in order to cause the EC2 to be re initialiazed
@@ -154,3 +158,9 @@ pvpython pvw/server/app_server.py --port 1234 --dir /path/to/<pv-data-3d.nc>
 
 where the port is `1234` for local development, and the path to the input file is
 given to the `--dir` command line argument.
+
+
+### Repository Details
+
+
+ - Because the network adaptor is bridged, the docker container inherits the ec2 instance's permissions
