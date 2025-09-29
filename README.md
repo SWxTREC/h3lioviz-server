@@ -11,6 +11,28 @@ Docker and the aws-cli programs to run locally.
 [Get Docker](https://docs.docker.com/get-docker/)
 [Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
+
+## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
+### Setup and Build h3lioviz-server
+
+1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Safari will automatically decompress .gz files by default so Chrome is recomended.**
+2. Copy it into  *./docker/binaries*
+3. Run `docker build .`
+
+### Pushing Image for Legacy
+
+The bryan-test/h3lioviz public ECR is on legacy 
+1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
+2. Build: `docker build -t h3lioviz .`
+3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
+4. Push:  `docker push public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
+
+### Updating swx-trec-cdk to Use the New Image
+If there is another way to force the paraview ec2 to rerun its user_data scripts update this! Deleting the stack and redeploying is pretty cumbersome.
+1. Navigate to the ec2_construct.py within h3lioviz and change the used ECR to point to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
+2. Destroy the h3lioviz stack in order to cause the EC2 to be re initialiazed
+3. Deploy the h3lioviz stack
+
 ### Getting the Docker container locally
 
 Use your AWS credentials to authorize yourself to the AWS Registry.
