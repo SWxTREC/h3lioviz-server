@@ -12,14 +12,11 @@ import satellite
 import slice
 
 # For AWS funcitonality (currently only to track run usage)
-import boto3
-from datetime import datetime
+import subprocess
 
 env={}
-with open("env.json", "r") as fp:
+with open("/pvw/server/env.json", "r") as fp:
     env = json.load(fp) 
-
-lambda_client = boto3.client("lambda", region_name=env["REGION"])
 
 # TODO: Try and use faster plugins where possible
 #       Investigate the use of various speedups. FlyingEdges3D requires image datasets
@@ -126,7 +123,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the program (enlil or euhforia)
         """
         # Add row to dynamo indicating the run was selected
-        current_date = datetime.now()
+        current_date = datetime.datetime.now()
         run_selection_date = current_date.strftime("%Y-%m-%dT%H:%M:%S")
         run_usage_item = {
             "run_id": {
@@ -136,7 +133,19 @@ class App(pv_protocols.ParaViewWebProtocol):
                 "S": run_selection_date
             }
         }
-        lambda_client.invoke(FunctionName=env["ADD_RUN_USAGE_FUNCTION_NAME"], Payload=json.dumps(run_usage_item))
+        try:
+            result = subprocess.run(
+                ["/pvw/server/add_run_usage.sh", json.dumps(run_usage_item)],
+                capture_output=True,
+                text=True,  # Decodes stdout/stderr as text
+                check=True,  # Raises CalledProcessError if the command returns a non-zero exit code
+                timeout=10  # timeout after 10 seconds
+            )
+        except subprocess.CalledProcessError as e:
+            print(result)
+            print(e)
+
+        # lambda_client.invoke(FunctionName=env["ADD_RUN_USAGE_FUNCTION_NAME"], Payload=json.dumps(run_usage_item))
 
         data_dir = self._run_dir / f"pv-ready-data-{run_id}"
         if not data_dir.exists():

@@ -16,7 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libapr1-dev \
         libglapi-mesa \
         apache2-utils \
-        sudo && \
+        sudo \
+        curl \
+        ca-certificates \
+        unzip \
+        jq && \
     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd proxy-mapping && \
@@ -68,6 +72,7 @@ RUN cd /opt && \
     mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
     rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz
 
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && ./aws/install
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
