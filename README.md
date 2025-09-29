@@ -160,7 +160,10 @@ where the port is `1234` for local development, and the path to the input file i
 given to the `--dir` command line argument.
 
 
-### Repository Details
+## Repository Details
+This repository includes all the files required to create a docker container responsible for rendering and displaying the contents of h3lioviz runs. (TODO: More useful header)
 
+### How the container is structured
+The container's entrypoint is the server.sh script, which 
 
  - Because the network adaptor is bridged, the docker container inherits the ec2 instance's permissions

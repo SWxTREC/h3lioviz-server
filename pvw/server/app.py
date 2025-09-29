@@ -118,6 +118,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         data_dir = self._run_dir / f"pv-ready-data-{run_id}"
         if not data_dir.exists():
+            # Try to download data from s3 bucket.
+            
             raise ValueError(f"No run available for id: {run_id}")
 
         # Automatic detection of data source Enlil vs Euhforia
