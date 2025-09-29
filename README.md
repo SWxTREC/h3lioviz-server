@@ -13,16 +13,16 @@ Docker and the aws-cli programs to run locally.
 
 
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
-### Setup h3lioviz-server for Building
+### Setup and Build h3lioviz-server
 
-1. Navigate to https://www.paraview.org/download/ and download *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz* which will actually download as *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar*
+1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Safari will automatically decompress .gz files by default so Chrome is recomended.**
 2. Copy it into  *./docker/binaries*
+3. Run `docker build .`
 
 ### Pushing Image for Legacy
 
 The bryan-test/h3lioviz public ECR is on legacy 
-1. Sign in: `aws ecr-public get
--login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
+1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
 2. Build: `docker build -t h3lioviz .`
 3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
 4. Push:  `docker push public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
