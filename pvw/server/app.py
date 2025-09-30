@@ -134,16 +134,18 @@ class App(pv_protocols.ParaViewWebProtocol):
             }
         }
         try:
-            result = subprocess.run(
+            subprocess_res = subprocess.run(
                 ["/pvw/server/add_run_usage.sh", json.dumps(run_usage_item)],
                 capture_output=True,
                 text=True,  # Decodes stdout/stderr as text
                 check=True,  # Raises CalledProcessError if the command returns a non-zero exit code
-                timeout=10  # timeout after 10 seconds
+                timeout=10 # timeout after 10 seconds
             )
         except subprocess.CalledProcessError as e:
-            print(result)
             print(e)
+            print(e.stdout)
+            print(e.stderr)
+
 
         # lambda_client.invoke(FunctionName=env["ADD_RUN_USAGE_FUNCTION_NAME"], Payload=json.dumps(run_usage_item))
 
