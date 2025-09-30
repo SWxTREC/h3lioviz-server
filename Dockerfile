@@ -71,7 +71,10 @@ RUN cd /opt && \
     mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
     rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz
 
+# Install AWS CLI
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && ./aws/install
+RUN rm -rf ./aws awscliv2.zip
+
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
