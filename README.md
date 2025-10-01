@@ -9,11 +9,14 @@ To test the code locally, you will need the Docker container that has Paraviewwe
 Docker and the aws-cli programs to run locally.
 
 [Get Docker](https://docs.docker.com/get-docker/)
+
 [Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+NOTE: If you want to run this without aws specify 'base' as your build target. 
 
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
 ### Setup and Build h3lioviz-server
-
+djock
 1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Safari will automatically decompress .gz files by default so Chrome is recomended.**
 2. Copy it into  *./docker/binaries*
 3. Run `docker build .`
