@@ -19,8 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         curl \
         ca-certificates \
-        unzip && \
-    rm -rf /var/lib/apt/lists/*
+        unzip \
+        python3.9 \
+        python3.9-venv && \
+        rm -rf /var/lib/apt/lists/*
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
@@ -71,10 +73,6 @@ RUN cd /opt && \
     mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
     rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar.gz
 
-# Install AWS CLI
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && ./aws/install
-RUN rm -rf ./aws awscliv2.zip
-
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
@@ -83,6 +81,12 @@ COPY pvw /pvw
 RUN mkdir /data
 COPY test-data/launcher /data/launcher
 COPY test-data/pv-ready-data-9a68f9e9/ /data/pv-ready-data-9a68f9e9/
+
+# Install AWS CLI
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf ./aws awscliv2.zip 
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be

@@ -2,14 +2,12 @@
 
 # Check for a requirements.txt in the mounted root, "/pvw/requirements.txt".
 # If we find it, we can pip install those.
-if [ -f "/pvw/requirements.txt" ]
-then
-  if [ -z "${SYSTEM_PYTHON_PIP}" ]; then
-    PIP_CMD=pip
-  else
-    PIP_CMD="${!SYSTEM_PYTHON_PIP}"
-  fi
-  "${PIP_CMD}" install -r "/pvw/requirements.txt"
+if [ -f "/pvw/requirements.txt" ]; then
+  python3.9 -m venv /pvw/venv
+  source /pvw/venv/bin/activate
+  pip3 install -r /pvw/requirements.txt --upgrade
+  deactivate
+  export PV_VENV="/pvw/venv/"
 fi
 
 # Copy the launcher config into the location where the start script expects

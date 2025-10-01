@@ -11,7 +11,6 @@ Docker and the aws-cli programs to run locally.
 [Get Docker](https://docs.docker.com/get-docker/)
 [Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
-
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
 ### Setup and Build h3lioviz-server
 
@@ -21,17 +20,27 @@ Docker and the aws-cli programs to run locally.
 
 ### Pushing Image for Legacy
 
-The bryan-test/h3lioviz public ECR is on legacy 
-1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
-2. Build: `docker build -t h3lioviz .`
-3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
-4. Push:  `docker push public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
+1. Log into aws console and create a new public ECR
+2. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-ecr>`
+3. Build: `docker build -t h3lioviz .`
+4. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest <your-ecr>/h3lioviz:latest`
+5. Push:  `docker push <your-ecr>/h3lioviz:latest`
 
-### Updating swx-trec-cdk to Use the New Image
-If there is another way to force the paraview ec2 to rerun its user_data scripts update this! Deleting the stack and redeploying is pretty cumbersome.
-1. Navigate to the ec2_construct.py within h3lioviz and change the used ECR to point to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
-2. Destroy the h3lioviz stack in order to cause the EC2 to be re initialiazed
-3. Deploy the h3lioviz stack
+### Updating a SWx-Trec-cdk Paraview Instance to Use the New Image
+
+1. Navigate to AWS Session Manager in the console and start a session in the paraview instance
+2. Edit the .yaml files in /docker/ to point to your image repository
+3. run `docker kill docker-pvw-1 && docker rm docker-pvw-1`
+4. Run `/docker/docker-launch.sh`
+
+---
+
+### Adding Additional Packages to pvpython
+
+This works by creating a venv and pip installing the requirements.txt file in pvw/requirements.txt. PV_VENV is then exported to tell pvpython where to look for venv. This step is handled by docker/scripts/server.sh. 
+
+1. Add the packages to pvw/requirements.txt
+2. For any package that includes `import paraview.simple` or `from paraview import simple` will need to have `import paraview.web.venv` added to it's imports in order to use the packages listed in pvw/requirements.txt
 
 ### Getting the Docker container locally
 

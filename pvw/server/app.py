@@ -6,6 +6,8 @@ import pathlib
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
+# For using additional packages not included with pvpython
+import paraview.web.venv
 
 import models
 import satellite
