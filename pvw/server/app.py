@@ -131,7 +131,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             try:
                 subprocess.check_output(["s5cmd", "cp", f"{s3_source_dir}/*", data_dir]).decode("utf-8")
             except subprocess.CalledProcessError as e:
-                if ("no object found" in e.output):
+                if (e.output is not None) and ("no object found" in e.output):
                     raise ValueError(f"No run available for id: {run_id}")
                 else:
                     print(e.output)
