@@ -122,29 +122,35 @@ class App(pv_protocols.ParaViewWebProtocol):
         data_dir = self._run_dir / run_dir_name
         if not data_dir.exists():
             print("Data directory does not exist, checking if data exists on S3")
-            s3_bucket = os.environ["S3_BUCKET_NAME"]
+            s3_bucket = os.environ.get("S3_BUCKET_NAME")
             s3_source_dir = f's3://{s3_bucket}/data/h3lioviz/{run_dir_name}'
 
-
-            # check_output outputs a bytes-like object by default, must decode to string
-            check_run_exists = subprocess.check_output(['s5cmd', 'ls', s3_source_dir]).decode('utf-8')
-            if ("no object found" in check_run_exists) or (run_dir_name not in check_run_exists):
-                raise ValueError(f"No run available for id: {run_id}")
-            elif "ERROR" in check_run_exists:
-                raise Exception(f"An unknown error occurred while checking if run {run_id} exists in S3")
+            try:
+                # check_output outputs a bytes-like object by default, must decode to string
+                check_run_exists = subprocess.check_output(['s5cmd', 'ls', s3_source_dir]).decode('utf-8')
+                if (run_dir_name not in check_run_exists):
+                    raise ValueError(f"No run available for id: {run_id}")
+            except subprocess.CalledProcessError as e:
+                if ("no object found" in e.output):
+                    raise ValueError(f"No run available for id: {run_id}")
+                else:
+                    print(e.output)
+                    print(f"An unknown error occurred while checking if run {run_id} exists on S3. See above output for command output.")
+                    raise e
  
             # No error occurred, and we have confirmed that a run exists. Fetch S3 data using s5cmd
-            # TODO: Possibly tune in the future. Downloads are fast enough at this point that it's probably fine.
             download_start = datetime.datetime.now()
             print(f"Data exists in S3. Attempting to copy to local. Started at {download_start}")
-            download_s3 = subprocess.check_output(["s5cmd", "cp", f"{s3_source_dir}/*", data_dir]).decode("utf-8")
+
+            try:
+                subprocess.check_output(["s5cmd", "cp", f"{s3_source_dir}/*", data_dir]).decode("utf-8")
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(f"An error occurred while downloading data for run {run_id} from S3. See above output for command output.")
+                raise e
+            
             download_complete = datetime.datetime.now()
             print(f"Download complete at {download_complete}. Duration: {download_complete - download_start}")
-
-            # If failed, then raise error.
-
-
-
 
         # Automatic detection of data source Enlil vs Euhforia
         if len(list(data_dir.glob("*.vts"))):
