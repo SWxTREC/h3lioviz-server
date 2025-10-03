@@ -1,5 +1,4 @@
 import argparse
-import os
 
 # import paraview modules.
 from paraview.web import pv_wslink

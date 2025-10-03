@@ -44,7 +44,6 @@
 
 ROOT_URL="ws://localhost"
 REPLACEMENT_ARGS=""
-EXTRA_ENVIRONMENT_VARS="\"H3LIOVIZ_BUCKET_NAME=$data_bucket_name\","
 
 LAUNCHER_TEMPLATE_PATH=/opt/launcher/config-template.json
 LAUNCHER_PATH=/opt/launcher/config.json
@@ -65,7 +64,6 @@ fi
 INPUT=$(<"${LAUNCHER_TEMPLATE_PATH}")
 OUTPUT="${INPUT//"SESSION_URL_ROOT"/$ROOT_URL}"
 OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/$REPLACEMENT_ARGS}"
-OUTPUT="${OUTPUT//"EXTRA_ENVIRONMENT_VARS"/$EXTRA_ENVIRONMENT_VARS}"
 echo -e "$OUTPUT" > "${LAUNCHER_PATH}"
 
 # Make sure the apache webserver is running
