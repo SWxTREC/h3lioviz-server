@@ -42,23 +42,6 @@
 #         ...
 #
 
-# Get the cloudformation export variables in order to determine the data bucket name.
-# query='Exports[?Name==`H3liovizDataBucketName`].Value' # JMESPath query
-# export AWS_PAGER=''
-# data_bucket_name=$(aws cloudformation list-exports --region us-east-1 --query "$query")
-# if [ $? -ne 0 ]; then
-#     echo "$data_bucket_name"
-#     echo "An error occurred while getting H3lioviz data bucket name from cloudfront exports. Exiting..."
-#     exit 1
-# fi
-# # The output will either be an empty array or an array of 1 item, so this is safe
-# data_bucket_name=$(echo "$data_bucket_name" | tr -d "[:space:]" | tr -d "]" | tr -d "[" | tr -d '"') # Strip whitespace, [, ], and "
-
-# if [ -z "$data_bucket_name" ]; then
-#     echo "ERROR: No export variable for h3lioviz data bucket exists. Exiting..."
-#     exit 1
-# fi
-
 ROOT_URL="ws://localhost"
 REPLACEMENT_ARGS=""
 EXTRA_ENVIRONMENT_VARS="\"H3LIOVIZ_BUCKET_NAME=$data_bucket_name\","

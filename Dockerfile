@@ -27,6 +27,13 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/aws
     /tmp/aws/install && \
     rm -rf /tmp/*
 
+RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
+    tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
+    rm -rf /tmp/*
+
+COPY docker/binaries/ /opt/paraview/
+
+
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
     useradd --system -g pvw-user -G proxy-mapping -s /sbin/nologin pvw-user && \
@@ -70,22 +77,11 @@ EXPOSE 80
 #     tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
 #     mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
 
-COPY docker/binaries/ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar /opt
-RUN cd /opt && \
-    tar -xvf ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar && \
-    mv ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64 paraview && \
-    rm ParaView-5.10.1-${RENDERER}-MPI-Linux-Python3.9-x86_64.tar
-
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
 
-# TODO: Is this required anymore? It adds a step to the build process and 
-# doubles the docker image size.
-# COPY the test data into the container for a default launch case
 RUN mkdir /data
-COPY test-data/launcher /data/launcher
-COPY test-data/pv-ready-data-9a68f9e9/ /data/pv-ready-data-9a68f9e9/
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be

@@ -15,30 +15,24 @@ Docker and the aws-cli programs to run locally.
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
 ### Setup h3lioviz-server for Building
 
-1. Navigate to https://www.paraview.org/download/ and download *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz* which will actually download as *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar*
-2. Copy it into  *./docker/binaries*
+1. Navigate to https://www.paraview.org/download/ and download *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. Depending on your browser's settings, it may automatically unzip this file into a .tar file rather than a .tar.gz file.
+2. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to an additional 2GB layer).
 
 ### Pushing Image for Legacy
 
 The bryan-test/h3lioviz public ECR is on legacy 
 1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
 2. Build: `docker build -t h3lioviz .`
-3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
-4. Push:  `docker push public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
+3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+4. Push:  `docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
 
 ### Updating swx-trec-cdk to Use the New Image
 NOTE: This is somewhat of a temporary fix, and will vanish if the ec2 gets re-created, but it works for development.
-Navigate to `nano /docker/docker-compose-cpu.yaml` and check that the image in the compose file points to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`. 
+Navigate to `nano /docker/docker-compose-cpu.yaml` and check that the image in the compose file points to `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`. 
 1. Run `export PATH="$PATH:/usr/local/bin/"`
 2. Run `/docker/docker-launch.sh`. This will update the docker container.
 
-If there is another way to force the paraview ec2 to rerun its user_data scripts update this! Deleting the stack and redeploying is pretty cumbersome.
-1. Navigate to the ec2_construct.py within h3lioviz and change the used ECR to point to `public.ecr.aws/enlil/bryan-test/h3lioviz:latest`
-2. Destroy the h3lioviz stack in order to cause the EC2 to be re initialiazed
-3. Deploy the h3lioviz stack
-
 ### Getting the Docker container locally
-
 Use your AWS credentials to authorize yourself to the AWS Registry.
 
 ```bash
