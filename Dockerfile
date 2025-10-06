@@ -1,4 +1,6 @@
 ARG BASE_IMAGE=ubuntu:20.04
+# Setting the below argument to false disables installing AWS packages
+ARG AWS_ENABLED=false
 
 # ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE} AS base
@@ -24,17 +26,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.9-venv && \
         rm -rf /var/lib/apt/lists/*
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" && \
-    unzip /tmp/awscliv2.zip -d /tmp/ && \
-    /tmp/aws/install && \
-    rm -rf /tmp/*
-
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
     tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
     rm -rf /tmp/*
 
-COPY docker/binaries/ /opt/paraview/
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf ./aws awscliv2.zip 
 
+COPY docker/binaries/ /opt/paraview/
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
@@ -68,17 +69,6 @@ RUN a2enmod vhost_alias && \
 # Open port 80 to the world outside the container
 EXPOSE 80
 
-# Copy in the tar file, extract it, then rename it /opt/paraview/...
-# COPY binaries/ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz /opt
-# RUN cd /opt && \
-#     tar -xzvf ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit.tar.gz && \
-#     mv ParaView-5.9.1-osmesa-MPI-Linux-Python3.8-64bit paraview
-
-# COPY binaries/ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz /opt
-# RUN cd /opt && \
-#     tar -xzvf ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit.tar.gz && \
-#     mv ParaView-5.9.1-egl-MPI-Linux-Python3.8-64bit paraview
-
 # Copy our server release into the container as well
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
@@ -90,13 +80,3 @@ RUN mkdir /data
 # overridden in the child container.  In that case, use the "start.sh"
 # script instead, or you can provide a custom one.
 ENTRYPOINT ["/opt/paraviewweb/scripts/server.sh"]
-
-# Install AWS CLI
-# NOTE: You can build h3lioviz-server without AWS CLI if you specify '--target base' in your build
-FROM base AS aws-capabilities
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf ./aws awscliv2.zip 
-
-
