@@ -16,9 +16,9 @@ NOTE: If you want to run this without aws specify 'base' as your build target.
 
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
 ### Setup and Build h3lioviz-server
-djock
-1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Safari will automatically decompress .gz files by default so Chrome is recomended.**
-2. Copy it into  *./docker/binaries*
+
+1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Depending on your browser's settings, it may automatically unzip this file into a .tar file rather than a .tar.gz file.**
+2. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to 2 large layers rather than 1).
 3. Run `docker build .`
 
 ### Pushing Image for Legacy
@@ -33,9 +33,8 @@ djock
 
 1. Navigate to AWS Session Manager in the console and start a session in the paraview instance
 2. Edit the .yaml files in /docker/ to point to your image repository
-3. run `docker kill docker-pvw-1 && docker rm docker-pvw-1`
-4. Run `/docker/docker-launch.sh`
-
+3. Run `export PATH="$PATH:/usr/local/bin/"`
+4. Run `/docker/docker-launch.sh` This will update the docker container and relaunch it.
 ---
 
 ### Adding Additional Packages to pvpython
@@ -46,7 +45,6 @@ This works by creating a venv and pip installing the requirements.txt file in pv
 2. For any package that includes `import paraview.simple` or `from paraview import simple` will need to have `import paraview.web.venv` added to it's imports in order to use the packages listed in pvw/requirements.txt
 
 ### Getting the Docker container locally
-
 Use your AWS credentials to authorize yourself to the AWS Registry.
 
 ```bash
@@ -166,3 +164,12 @@ pvpython pvw/server/app_server.py --port 1234 --dir /path/to/<pv-data-3d.nc>
 
 where the port is `1234` for local development, and the path to the input file is
 given to the `--dir` command line argument.
+
+
+## Repository Details
+This repository includes all the files required to create a docker container responsible for rendering and displaying the contents of h3lioviz runs. (TODO: More useful header)
+
+### How the container is structured
+The container's entrypoint is the server.sh script, which 
+
+ - Because the network adaptor is bridged, the docker container inherits the ec2 instance's permissions
