@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ubuntu:20.04
 
 # ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS base
 
 USER root
 
@@ -16,11 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libapr1-dev \
         libglapi-mesa \
         apache2-utils \
-        ca-certificates  \
+        sudo \
         curl \
+        ca-certificates \
         unzip \
-        sudo && \
-    rm -rf /var/lib/apt/lists/*
+        python3.9 \
+        python3.9-venv && \
+        rm -rf /var/lib/apt/lists/*
 
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" && \
     unzip /tmp/awscliv2.zip -d /tmp/ && \
@@ -88,3 +90,13 @@ RUN mkdir /data
 # overridden in the child container.  In that case, use the "start.sh"
 # script instead, or you can provide a custom one.
 ENTRYPOINT ["/opt/paraviewweb/scripts/server.sh"]
+
+# Install AWS CLI
+# NOTE: You can build h3lioviz-server without AWS CLI if you specify '--target base' in your build
+FROM base AS aws-capabilities
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf ./aws awscliv2.zip 
+
+

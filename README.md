@@ -9,28 +9,40 @@ To test the code locally, you will need the Docker container that has Paraviewwe
 Docker and the aws-cli programs to run locally.
 
 [Get Docker](https://docs.docker.com/get-docker/)
+
 [Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
+NOTE: If you want to run this without aws specify 'base' as your build target. 
 
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
-### Setup h3lioviz-server for Building
+### Setup and Build h3lioviz-server
 
-1. Navigate to https://www.paraview.org/download/ and download *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. Depending on your browser's settings, it may automatically unzip this file into a .tar file rather than a .tar.gz file.
-2. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to an additional 2GB layer).
+1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Depending on your browser's settings, it may automatically unzip this file into a .tar file rather than a .tar.gz file.**
+2. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to 2 large layers rather than 1).
+3. Run `docker build .`
 
 ### Pushing Image for Legacy
 
-The bryan-test/h3lioviz public ECR is on legacy 
-1. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/enlil`
-2. Build: `docker build -t h3lioviz .`
-3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
-4. Push:  `docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+1. Log into aws console and create a new public ECR
+2. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-ecr>`
+3. Build: `docker build -t h3lioviz .`
+4. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest <your-ecr>/h3lioviz:latest`
+5. Push:  `docker push <your-ecr>/h3lioviz:latest`
 
-### Updating swx-trec-cdk to Use the New Image
-NOTE: This is somewhat of a temporary fix, and will vanish if the ec2 gets re-created, but it works for development.
-Navigate to `nano /docker/docker-compose-cpu.yaml` and check that the image in the compose file points to `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`. 
-1. Run `export PATH="$PATH:/usr/local/bin/"`
-2. Run `/docker/docker-launch.sh`. This will update the docker container.
+### Updating a SWx-Trec-cdk Paraview Instance to Use the New Image
+
+1. Navigate to AWS Session Manager in the console and start a session in the paraview instance
+2. Edit the .yaml files in /docker/ to point to your image repository
+3. Run `export PATH="$PATH:/usr/local/bin/"`
+4. Run `/docker/docker-launch.sh` This will update the docker container and relaunch it.
+---
+
+### Adding Additional Packages to pvpython
+
+This works by creating a venv and pip installing the requirements.txt file in pvw/requirements.txt. PV_VENV is then exported to tell pvpython where to look for venv. This step is handled by docker/scripts/server.sh. 
+
+1. Add the packages to pvw/requirements.txt
+2. For any package that includes `import paraview.simple` or `from paraview import simple` will need to have `import paraview.web.venv` added to it's imports in order to use the packages listed in pvw/requirements.txt
 
 ### Getting the Docker container locally
 Use your AWS credentials to authorize yourself to the AWS Registry.
