@@ -75,6 +75,7 @@ class Enlil(Model):
             "dp": "DP",
         }
         super().__init__(dirname=dirname, variable_mapping=variable_mapping)
+
         self.data = pvs.NetCDFReader(
             registrationName="enlil-data", FileName=self._get_filenames()
         )
