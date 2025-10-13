@@ -158,6 +158,7 @@ def process_evo(ds):
     ds["Bx"], ds["By"], ds["Bz"] = spherical_to_cartesian(
         ds["X1"], ds["X2"], ds["X3"], ds["B1"], ds["B2"], ds["B3"]
     )
+    ds["Br"] = ds["B1"]
 
     # ds['Vx'], ds['Vy'], ds['Vz'] =
     # spherical_to_cartesian(ds['n1'], ds['n2'], ds['n3'],
@@ -441,19 +442,19 @@ def main():
     parser.add_argument(
         "--radius-downsample",
         type=int,
-        default=1,
+        default=8,
         help="Downsample the radius dimension by this factor. Default is 1 (no downsampling).",
     )
     parser.add_argument(
         "--longitude-downsample",
         type=int,
-        default=1,
+        default=2,
         help="Downsample the longitude dimension by this factor. Default is 1 (no downsampling).",
     )
     parser.add_argument(
         "--latitude-downsample",
         type=int,
-        default=1,
+        default=2,
         help="Downsample the latitude dimension by this factor. Default is 1 (no downsampling).",
     )
     parser.add_argument(
