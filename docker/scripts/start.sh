@@ -42,6 +42,8 @@
 #         ...
 #
 
+source /pvw/venv/bin/activate
+
 ROOT_URL="ws://localhost"
 REPLACEMENT_ARGS=""
 
@@ -65,6 +67,9 @@ INPUT=$(<"${LAUNCHER_TEMPLATE_PATH}")
 OUTPUT="${INPUT//"SESSION_URL_ROOT"/$ROOT_URL}"
 OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/$REPLACEMENT_ARGS}"
 echo -e "$OUTPUT" > "${LAUNCHER_PATH}"
+
+echo "Starting flask webserver"
+python3.9 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
 
 # Make sure the apache webserver is running
 echo "Starting/Restarting Apache webserver"

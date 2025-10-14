@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
+# Note: This is commented out because we don't require packages for paraview.
 # Check for a requirements.txt in the mounted root, "/pvw/requirements.txt".
 # If we find it, we can pip install those.
-if [ -f "/pvw/requirements.txt" ]; then
-  python3.9 -m venv /pvw/venv
-  source /pvw/venv/bin/activate
-  pip3 install -r /pvw/requirements.txt --upgrade
-  deactivate
-  export PV_VENV="/pvw/venv/"
-fi
+# if [ -f "/pvw/requirements.txt" ]; then
+#   python3.9 -m venv /pvw/venv
+#   source /pvw/venv/bin/activate
+#   pip3 install -r /pvw/requirements.txt --upgrade
+#   deactivate
+#   export PV_VENV="/pvw/venv/"
+# fi
 
 # Copy the launcher config into the location where the start script expects
 # to find it.  The config may or may not have replacement values in it, if it
@@ -23,7 +24,7 @@ cp /pvw/launcher/config.json /opt/launcher/config-template.json
 # directory containing a "www" directory and mounts that path as "/pvw".
 if [ -f "/pvw/endpoints.txt" ]
 then
-  /opt/paraviewweb/scripts/addEndpoints.sh $(cat /pvw/endpoints.txt)
+  /opt/paraviewweb/scripts/addEndpoints.sh "$(cat /pvw/endpoints.txt)"
 else
   /opt/paraviewweb/scripts/addEndpoints.sh "DOCUMENT-ROOT-DIRECTORY" "/pvw/www"
 fi

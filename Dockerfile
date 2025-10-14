@@ -5,6 +5,9 @@ ARG AWS_ENABLED=false
 # ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE} AS base
 
+# Install using bash rather than sh. Allows for sourcing the pip venv. 
+SHELL ["/bin/bash", "-c"]
+
 USER root
 
 # Need to force noninteractive for apt-get updates
@@ -36,6 +39,10 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     rm -rf ./aws awscliv2.zip 
 
 COPY docker/binaries/ /opt/paraview/
+
+# Separate pip build to prevent having to re-install dependencies on every pvw code change.
+COPY pvw/requirements.txt /pvw/
+RUN python3.9 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
