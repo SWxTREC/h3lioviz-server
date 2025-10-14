@@ -17,17 +17,34 @@ NOTE: If you want to run this without aws specify 'base' as your build target.
 ## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
 ### Setup and Build h3lioviz-server
 
-1. Navigate to https://www.paraview.org/download/ and download the headless version for linux *ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz*. **Depending on your browser's settings, it may automatically unzip this file into a .tar file rather than a .tar.gz file.**
-2. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to 2 large layers rather than 1).
-3. Run `docker build .`
+1. Clone the h3lioviz-server repo
+2. Download paraview binaries: `curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz`
+3. Extract it into  *./docker/binaries*. `tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/ --strip-components=1`
+4. Build: `docker build -t h3lioviz .`
+5. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+6. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+7. Push: `docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+
+
+Forcing running EC2 to use new image: 
+```bash
+export PATH="$PATH:/usr/local/bin"
+/docker/docker-launch.sh
+```
+
+1. Download the paraview binaries: `curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz`
+2. Extract the tarball into ./docker/binaries: `tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/`
+3. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to 2 large layers rather than 1).
+4. Run `docker build .`
 
 ### Pushing Image for Legacy
+This assumes that the image has been built using the above steps.
+When pushing the image to dev or prod, use `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev` or `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod` as the ECR image.
 
 1. Log into aws console and create a new public ECR
-2. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-ecr>`
-3. Build: `docker build -t h3lioviz .`
-4. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest <your-ecr>/h3lioviz:latest`
-5. Push:  `docker push <your-ecr>/h3lioviz:latest`
+2. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-image>`
+3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest <your-image>`
+4. Push:  `docker push <your-image>`
 
 ### Updating a SWx-Trec-cdk Paraview Instance to Use the New Image
 
