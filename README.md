@@ -1,197 +1,203 @@
 # H3lioViz
 
-This repository hosts the code to run a Paraview server for
-the 3D heliospheric output, from codes such as Enlil and Euhforia.
+This repository hosts the code to run a ParaView visualization server for 3D heliospheric output from codes such as Enlil and Euhforia, as well as a way to fetch the associated metadata and host the frontend.
 
-## Local Development and Testing
+## Overview
 
-To test the code locally, you will need the Docker container that has Paraviewweb installed, the test data files, and this cloned git repository. This will require
-Docker and the aws-cli programs to run locally.
+The H3lioViz server is a containerized application that provides:
+- **ParaView Web Service**: 3D visualization of heliospheric simulation data
+- **Flask Metadata API**: Endpoints for retrieving run information and time-series data
+- **Apache Web Server**: Serves the frontend and acts as a reverse proxy
 
-[Get Docker](https://docs.docker.com/get-docker/)
+### Architecture
 
-[Get aws-cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+Apache serves as the main entry point and handles routing:
+- `/` and `/h3lioviz/` → Frontend web application
+- `/paraview` → ParaView Web service (creates visualization sessions)
+- `/proxy` → WebSocket proxy (maps session IDs to ParaView ports)
+- `/metadata/` → Flask API for metadata operations
 
-NOTE: If you want to run this without aws specify 'base' as your build target. 
+### Flask API Endpoints
 
-## Building and Running Your Own H3lioviz-Server for swxtrec-cdk
-### Setup and Build h3lioviz-server
+The Flask server provides the following REST endpoints:
 
-1. Clone the h3lioviz-server repo
-2. Download paraview binaries: `curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz`
-3. Extract it into  *./docker/binaries*. `tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/ --strip-components=1`
-4. Build: `docker build -t h3lioviz .`
-5. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
-6. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
-7. Push: `docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
+- `GET /metadata/health` - Health check endpoint, returns `{"status": "ok"}`
+- `GET /metadata/getTimeSeries/<run_id>/<satellite>` - Retrieves time-series data for a specific run and satellite
+- `GET /metadata/availableRuns` - Lists all available simulation runs
+- `GET /metadata/syncMetadata` - Synchronizes metadata from data sources
 
+## Prerequisites
 
-TODO: Integrate steps
+To work with this repository, you will need:
 
-1. Clone the h3lioviz webapp repository: https://bitbucket.lasp.colorado.edu/scm/webapps/h3lioviz.git
-2. 
+- [Docker](https://docs.docker.com/get-docker/).
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (for AWS deployments)
+- Access to the SWx-TREC AWS ECR repository (for production/development deployments), or a personal one (for deployments to an account other than prod or dev).
 
+## Building the Docker Image
 
-Forcing running EC2 to use new image: 
+### Step 1: Clone the Repository
+
 ```bash
+git clone https://github.com/SWxTREC/h3lioviz-server.git
+cd h3lioviz-server
+```
+
+### Step 2: Download & Extract the ParaView Binaries
+
+Download the ParaView 5.10.1 binaries for Linux and extract the tarball into the `docker/binaries/` directory:
+
+```bash
+curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz
+tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/ --strip-components=1
+```
+
+You should see `bin`, `lib`, and `share` directories in `docker/binaries/`.
+
+> **Note**: Use the `osmesa` version for CPU rendering. As of October 2025, we have not successfully run a GPU-based (egl) version of paraview. 
+
+### Step 3: Build the Docker Image
+
+Build the image locally:
+
+```bash
+docker build -t h3lioviz .
+```
+
+## Deployment
+
+### Local Development Deployment
+This will run the h3lioviz docker image you have build locally. If you want to pull the latest dev/prod image, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag> with the dev or prod tag.
+
+NOTE: This does not currently entirely work due to the container's dependency on AWS resources. The paraview code will serve the websocket just fine, but the frontend served by the container will not function. See [Building & Running h3lioviz-server](https://confluence.lasp.colorado.edu/spaces/MODSDB/pages/271520419/Building+Running+h3lioviz-server) for more details.
+
+```bash
+docker run -p 0.0.0.0:8080:80 \
+  -e SERVER_NAME=127.0.0.1:8080 \
+  -e PROTOCOL=ws \
+  -v ${PWD}/pvw:/pvw \
+  -v ${PWD}/test-data:/data \
+  -it h3lioviz:latest
+```
+
+The server will be available at `http://127.0.0.1:8080`.
+
+The pvw directory is mounted directly within the docker container, so any changes to the code within will be reflected next time the connection is refreshed.
+
+### AWS ECR Deployment
+
+The official ECR repository is: `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa`
+
+#### Pushing to Development
+
+1. Authenticate with AWS ECR:
+
+```bash
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
+```
+
+2. Tag your image:
+
+```bash
+docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
+```
+
+3. Push to ECR:
+
+```bash
+docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
+```
+Note that the EC2 instance will not update the docker image until it has fully rebooted. If you want to manually force the update, remotely connect to the instance and run:
+```bash
+sudo su
 export PATH="$PATH:/usr/local/bin"
 /docker/docker-launch.sh
 ```
 
-1. Download the paraview binaries: `curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz`
-2. Extract the tarball into ./docker/binaries: `tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/`
-3. Extract it into  *./docker/binaries*. You should see *bin*, *lib*, and *share* directories (Note: The tarball is no longer extracted by the Dockerfile, as that inevitably leads to 2 large layers rather than 1).
-4. Run `docker build .`
+#### Pushing to Production
 
-### Pushing Image for Legacy
-This assumes that the image has been built using the above steps.
-When pushing the image to dev or prod, use `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev` or `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod` as the ECR image.
-
-1. Log into aws console and create a new public ECR
-2. Sign in: `aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-image>`
-3. Tag the resulting image as a part of the ECR: `docker tag h3lioviz:latest <your-image>`
-4. Push:  `docker push <your-image>`
-
-### Updating a SWx-Trec-cdk Paraview Instance to Use the New Image
-
-1. Navigate to AWS Session Manager in the console and start a session in the paraview instance
-2. Edit the .yaml files in /docker/ to point to your image repository
-3. Run `export PATH="$PATH:/usr/local/bin/"`
-4. Run `/docker/docker-launch.sh` This will update the docker container and relaunch it.
----
-
-### Adding Additional Packages to pvpython
-
-This works by creating a venv and pip installing the requirements.txt file in pvw/requirements.txt. PV_VENV is then exported to tell pvpython where to look for venv. This step is handled by docker/scripts/server.sh. 
-
-1. Add the packages to pvw/requirements.txt
-2. For any package that includes `import paraview.simple` or `from paraview import simple` will need to have `import paraview.web.venv` added to it's imports in order to use the packages listed in pvw/requirements.txt
-
-### Getting the Docker container locally
-Use your AWS credentials to authorize yourself to the AWS Registry.
+Follow the same steps as above, but use the `:prod` tag instead of `:dev`:
 
 ```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 135080795405.dkr.ecr.us-east-1.amazonaws.com
+docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod
+docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod
 ```
 
-Pull the container to your local system. (Note: the `osmesa` container is for CPU rendering, if you want to test GPU rendering you'll need the `egl` container)
+#### Pushing to Legacy (Testing Environment)
+For testing on legacy, create an ECR (or use a pre-existing one) and run the above commands referencing that ECR.
+
+1. Authenticate with the legacy account:
 
 ```bash
-docker pull 135080795405.dkr.ecr.us-east-1.amazonaws.com/enlil:pvw-enlil-osmesa
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR Name>
 ```
 
-### Test data
-
-Two timesteps are included in the test-data directory. To generate the test data for
-the docker container you will need to run the processing code to transform the data,
-which will expand the data to ~100 MB in size. This can be included in the container
-for distribution, so others don't need to deal with any processing.
+2. Tag and push:
 
 ```bash
-python scripts/process_output.py test-data
+docker tag h3lioviz:latest <ECR Name>
+docker push <ECR Name>
+docker logout public.ecr.aws
 ```
 
-We will store the actual model output files in git, and then the processing files
-will be moved to the container. This allows us to update the processing code and
-produce new processing routines without blowing up the repository size.
+> **Note**: Remember to log out of the public ECR after pushing, as credentials can interfere with other AWS Docker processes.
 
-### Running the package locally
+## Test Data
 
-Included test cases:
+### Downloading Test Data
 
-```bash
-docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
+TODO: Document how to download test data
+
+### Data Format
+
+The primary data files used by ParaView for visualization are:
+- `pv-tim.XXXX.nc` - Time-step files (where XXXX is the time-step number)
+
+These NetCDF files contain the 3D heliospheric simulation data. The test-data directory contains additional files (satellite evolution files, metadata, etc.) that are graphed by the frontend but are not directly loaded by ParaView.
+
+## Adding Python Packages
+
+Python packages are installed via a virtual environment during the Docker build process.
+
+1. Add the required packages to `pvw/requirements.txt`
+2. Rebuild the Docker image
+
+The virtual environment is created and activated automatically by the container's entrypoint script (`docker/scripts/server.sh`).
+
+> **Note**: There is currently code in place to configure the venv to allow for paraview to access it, but it has an outdated embedded SSL version, which makes it close to impossible to use libraries like boto3. We currently rely on using AWS CLI commands for downloading runs.
+
+## Repository Structure
+
+```
+h3lioviz-server/
+├── docker/
+│   ├── binaries/          # ParaView binaries (bin/, lib/, share/)
+│   ├── config/
+│   │   └── apache/        # Apache configuration
+│   └── scripts/           # Container initialization scripts
+├── pvw/
+│   ├── flask/             # Flask metadata API server
+│   ├── launcher/          # ParaView Web launcher configuration
+│   ├── server/            # ParaView Web visualization server
+│   ├── www/               # Frontend web application
+│   └── requirements.txt   # Python dependencies
+├── scripts/               # Data processing scripts
+├── test-data/             # Test simulation data
+├── Dockerfile             # Container build definition
+└── docker-compose-local.yaml  # Local testing configuration
 ```
 
-With your own server modifications and data mounted internally:
+## Container Implementation Details
 
-```bash
-docker run -p 0.0.0.0:8080:80 -e SERVER_NAME=127.0.0.1:8080 -e PROTOCOL=ws -v ${PWD}/pvw:/pvw -v ${PWD}/data/pv-ready-data-NEWHASH:/data/pv-ready-data-9a68f9e9 -it public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
-```
+> **TODO**: This section will be updated once the container initialization flow and ParaView Python code are finalized. Current implementation details may change.
 
-## Building the Dockerfile
+The container's entrypoint is `/opt/paraviewweb/scripts/server.sh`, which:
+1. Sets up the Python virtual environment
+2. Configures Apache routing via `addEndpoints.sh`
+3. Launches the ParaView Web launcher via `start.sh`
 
-This was built following the [guides](https://github.com/Kitware/paraviewweb/tree/master/tools/docker) from Kitware and their repositories. The `dockerfile/` directory contains all of the content that needs to be
-copied into the container.
-
-> **_NOTE:_**  You may need to make the scripts executable if they weren't cloned with those permissions.
-> `chmod a+x scripts/`
-
-1. Download the Paraview binary for linux and save it into the `docker/binaries/` directory. [https://www.paraview.org/download/](https://www.paraview.org/download/)
-    > **_NOTE:_**  If you have a GPU available use the `egl` version, otherwise use the `osemsa`.
-
-2. Build the image locally with an appropriate tag.
-
-    ```bash
-    docker build --rm -t public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa -f docker/Dockerfile .
-    ```
-
-    Optionally, deploy the built image to the ECR.
-    This requires a public login from the ECR account to
-    verify the credentials. You'll want to remove these after
-    pushing the image because they can intefere with other
-    AWS Docker processes.
-
-    ```bash
-    AWS_PROFILE=swx-trec-legacy aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-    docker push public.ecr.aws/enlil/paraview_web_repo:pvw-h3lioviz-osmesa
-    docker logout public.ecr.aws
-    ```
-
-3. Run the image setting the proper environment variables and mounting the proper directories.
-
-    ```bash
-    docker-compose --env-file docker/.env.local --file docker/docker-compose.yaml up
-    ```
-
-    The container requires several input volumes that contain the data directory (that contains
-    a `pv-data-3d.nc` input file) mounted at the `/data` location inside the
-    container, and the `pvw` directory from this repository mounted
-    at the `/pvw` location. To handle that, you can create a `.env.local` environment variable
-    file to point to these data locations on your local system. For instance, your local file may
-    look like:
-
-    ```bash
-    PVW_BACKEND=/home/code/enlil-3d-server/pvw  
-    PVW_DATA=/home/data/pv-ready-data
-    ```
-
-## Running the server without Docker
-
-To run the server locally on port 1234 the command would be something like the following.
-
-```bash
-/path/to/paraview/bin/pvpython pvw/server/pv_server.py --port 1234
-```
-
-The frontend can then use wslink to use a websocket to connect to port 1234.
-
-### Installation
-
-The standard Paraview binaries seem to have issues with missing packages. Creating a
-new virtual environment and installing the dependencies manually seemed to be the easiest
-way to address that. The below commands worked for me to get a Paraview 5.9.1 server running.
-The conda pvpython binary is missing `autobahn` and `wslink`, the latter of which isn't
-in the conda package manager, so I had to use pip to install it.
-
-```bash
-conda create -n paraview python=3.9 paraview autobahn
-pip install wslink
-```
-
-Now, you can run the server with
-
-```bash
-pvpython pvw/server/app_server.py --port 1234 --dir /path/to/<pv-data-3d.nc>
-```
-
-where the port is `1234` for local development, and the path to the input file is
-given to the `--dir` command line argument.
-
-
-## Repository Details
-
-### How the container is structured
-The container's entrypoint is the server.sh script, which calls start.sh.
-
- - Because the network adaptor is bridged, the docker container inherits the ec2 instance's permissions
+TODO: Document the complete initialization flow, including:
+- How the launcher manages ParaView sessions
+- Port allocation and session management
+- WebSocket proxy configuration
+- Container networking and EC2 integration
