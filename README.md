@@ -26,6 +26,12 @@ NOTE: If you want to run this without aws specify 'base' as your build target.
 7. Push: `docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev`
 
 
+TODO: Integrate steps
+
+1. Clone the h3lioviz webapp repository: https://bitbucket.lasp.colorado.edu/scm/webapps/h3lioviz.git
+2. 
+
+
 Forcing running EC2 to use new image: 
 ```bash
 export PATH="$PATH:/usr/local/bin"

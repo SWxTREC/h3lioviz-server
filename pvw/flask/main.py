@@ -2,7 +2,6 @@ import logging
 
 from flask import Flask, abort, jsonify
 
-import ec2_state_update as ec2_control
 import get_timeseries as timeseries
 import h3lioviz_list_runs as runs
 import sync_metadata as metadata
@@ -40,44 +39,7 @@ def available_runs():
     except Exception as e:
         logger.exception("Failed to list available runs")
         abort(500, description=f"Failed to list runs: {e}")
-    return jsonify(data["body"]), data["statusCode"]
-
-
-# TODO: Removing because it doesn't make sense to manage the instance from itself.
-# @app.route("/metadata/ec2start", methods=["GET"])
-# def ec2_start():
-#     try:
-#         result = ec2_control.start_instance()
-#     except RuntimeError as exc:
-#         abort(500, description=str(exc))
-#     except Exception:
-#         logger.exception("Failed to start EC2 instance")
-#         abort(500, description="Failed to start EC2 instance")
-#     return jsonify(result), 200
-
-
-# @app.route("/metadata/ec2stop", methods=["GET"])
-# def ec2_stop():
-#     try:
-#         result = ec2_control.stop_instance()
-#     except RuntimeError as exc:
-#         abort(500, description=str(exc))
-#     except Exception:
-#         logger.exception("Failed to stop EC2 instance")
-#         abort(500, description="Failed to stop EC2 instance")
-#     return jsonify(result), 200
-
-
-# @app.route("/metadata/ec2status", methods=["GET"])
-# def ec2_status():
-#     try:
-#         result = ec2_control.get_instance_status()
-#     except RuntimeError as exc:
-#         abort(500, description=str(exc))
-#     except Exception:
-#         logger.exception("Failed to get EC2 instance status")
-#         abort(500, description="Failed to get EC2 instance status")
-#     return jsonify(result), 200
+    return jsonify(data), 200
 
 
 @app.route("/metadata/syncMetadata", methods=["GET"])

@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
-
-from helpers import _require_env
+import os
 
 import boto3
 
 def list_runs() -> Any:
-    table_name = _require_env("TABLE_NAME")
+    table_name = os.environ["TABLE_NAME"]
 
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
@@ -25,10 +24,4 @@ def list_runs() -> Any:
                 item[key] = float(item[key])
 
     # Return the contents from metadata.json for all runs
-    return {
-        "statusCode": 200,
-        "body": data,
-        # "headers": {
-        #     "Content-Type": "application/json",
-        # },
-    }
+    return data

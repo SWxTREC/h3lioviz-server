@@ -135,11 +135,4 @@ def get_timeseries(run_id, satellite):
     # Load the json metadata and append it to our content list
     evo = Evolution(satellite.replace(".json", ""), json.loads(buffer.getvalue()))
 
-    response = {
-        "statusCode": 200,
-        "body": json.dumps(evo.as_latis()),
-        "headers": {
-            "Content-Type": "application/json",
-        },
-    }
-    return response
+    return evo.as_latis()
