@@ -55,7 +55,7 @@ OPACITY_VALUES = {
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {
     "velocity": "WSA-Enlil",
-    "density": "Viridis (matplotlib)",
+    "density": "WSA-Enlil",
     "pressure": "Viridis (matplotlib)",
     "temperature": "Inferno (matplotlib)",
     "b": "Cool to Warm",
@@ -571,7 +571,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         
     def apply_WSA_enlil_colormap(self, name, lut):
         data_range = LUT_RANGE[name]
-        min_val,max_val = data_range[0], data_range[1]
+        min_val, max_val = data_range[0], data_range[1]
         # Create temporary LUT for Rainbow Blended Grey (first 45%)
         lut.ApplyPreset("Rainbow Blended Grey", True)
         rainbow_points = list(lut.RGBPoints)
@@ -631,8 +631,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
             
         lut.EnableOpacityMapping = 1
-    
-   
 
     @exportRpc("pv.h3lioviz.set_range")
     def set_range(self, name, range):
