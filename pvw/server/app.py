@@ -54,7 +54,7 @@ OPACITY_VALUES = {
 
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {
-    "velocity": "BlueRedWhiteBlack",
+    "velocity": "WSA-Enlil",
     "density": "Viridis (matplotlib)",
     "pressure": "Viridis (matplotlib)",
     "temperature": "Inferno (matplotlib)",
@@ -319,7 +319,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Set colormaps
         for name in DEFAULT_CMAP:
-            self.set_colormap(name)
+            self.set_colormap(name, cmap_name=DEFAULT_CMAP[name])
 
         # hide this data from the default initial view
         for x in [
@@ -568,6 +568,47 @@ class App(pv_protocols.ParaViewWebProtocol):
             ]
         else:
             raise ValueError("Opacity needs 2 or 3 points to map")
+        
+    def apply_WSA_enlil_colormap(self, name, lut):
+        data_range = LUT_RANGE[name]
+        min_val,max_val = data_range[0], data_range[1]
+        # Create temporary LUT for Rainbow Blended Grey (first 45%)
+        lut.ApplyPreset("Rainbow Blended Grey", True)
+        rainbow_points = list(lut.RGBPoints)
+        
+        # Create temporary LUT for X Ray (last 45%)
+        lut.ApplyPreset("X Ray", True)
+        xray_points = list(lut.RGBPoints)
+        
+        # Scale Rainbow points to 0-45% of data range
+        rainbow_scaled = []
+        rainbow_min = rainbow_points[0]
+        rainbow_max = rainbow_points[-4]  # Last data value is at -4 index
+        # RGBPoints format: [x0, r0, g0, b0, x1, r1, g1, b1]
+        for i in range(0, len(rainbow_points), 4):
+            original_val = rainbow_points[i]
+            # Normalize to 0-1, then scale to 0-45%
+            normalized = (original_val - rainbow_min) / (rainbow_max - rainbow_min)
+            scaled_val = min_val + (max_val - min_val) * normalized * 0.45
+            rainbow_scaled.extend([scaled_val, rainbow_points[i+1], rainbow_points[i+2], rainbow_points[i+3]])
+        
+        # Scale X Ray points to 55-100% of data range
+        xray_scaled = []
+        xray_min = xray_points[0]
+        xray_max = xray_points[-4]
+        for i in range(0, len(xray_points), 4):
+            original_val = xray_points[i]
+            # Normalize to 0-1, then scale to 55-100%
+            normalized = (original_val - xray_min) / (xray_max - xray_min)
+            scaled_val = min_val + (max_val - min_val) * (0.55 + normalized * 0.45)
+            xray_scaled.extend([scaled_val, xray_points[i+1], xray_points[i+2], xray_points[i+3]])
+        
+        # Combine the two (rainbow ends at 45%, xray starts at 55%)
+        # The 10% gap (45-55%) will create the transition
+        combined_points = rainbow_scaled + xray_scaled
+        
+        lut.RGBPoints = combined_points
+        lut.ScalarRangeInitialized = 1.0
 
     @exportRpc("pv.h3lioviz.set_colormap")
     def set_colormap(self, name, cmap_name=None):
@@ -582,47 +623,16 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
-
-        # if cmap_name == "BlueRedWhiteBlack":
-        data_range = LUT_RANGE[name]
-        min_val,max_val = data_range[0], data_range[1]
-# Create temporary LUT for Rainbow Uniform (first 40%)
-        lut.ApplyPreset("Rainbow Uniform", True)
-        rainbow_points = list(lut.RGBPoints)
         
-        # Create temporary LUT for X Ray (last 50%)
-        lut.ApplyPreset("X Ray", True)
-        xray_points = list(lut.RGBPoints)
-        
-        # Scale Rainbow points to 0-40% of data range
-        rainbow_scaled = []
-        rainbow_min = rainbow_points[0]
-        rainbow_max = rainbow_points[-4]  # Last data value is at -4 index
-        for i in range(0, len(rainbow_points), 4):
-            original_val = rainbow_points[i]
-            # Normalize to 0-1, then scale to 0-40%
-            normalized = (original_val - rainbow_min) / (rainbow_max - rainbow_min)
-            scaled_val = min_val + (max_val - min_val) * normalized * 0.4
-            rainbow_scaled.extend([scaled_val, rainbow_points[i+1], rainbow_points[i+2], rainbow_points[i+3]])
-        
-        # Scale X Ray points to 50-100% of data range
-        xray_scaled = []
-        xray_min = xray_points[0]
-        xray_max = xray_points[-4]
-        for i in range(0, len(xray_points), 4):
-            original_val = xray_points[i]
-            # Normalize to 0-1, then scale to 50-100%
-            normalized = (original_val - xray_min) / (xray_max - xray_min)
-            scaled_val = min_val + (max_val - min_val) * (0.5 + normalized * 0.5)
-            xray_scaled.extend([scaled_val, xray_points[i+1], xray_points[i+2], xray_points[i+3]])
-        
-        # Combine the two (rainbow ends at 40%, xray starts at 50%)
-        combined_points = rainbow_scaled + xray_scaled
-        
-        lut.RGBPoints = combined_points
-        lut.ScalarRangeInitialized = 1.0
+        if cmap_name == "WSA-Enlil":
+            self.apply_WSA_enlil_colormap(name, lut)
+        else:
+            # If cmap_name is None, use the default version
+            lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
             
         lut.EnableOpacityMapping = 1
+    
+   
 
     @exportRpc("pv.h3lioviz.set_range")
     def set_range(self, name, range):
