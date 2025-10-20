@@ -115,6 +115,7 @@ def process_tim(ds):
         * ds["radius"] ** 2
     )
     ds["DP"] *= ds["radius"] ** 2
+    ds["Br"] *= ds["radius"] ** 2
     # Ram pressure (rho * v**2)
     ds["Pressure"] = ds["Density"] * ds["Vr"] ** 2
 
