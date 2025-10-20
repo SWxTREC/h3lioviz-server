@@ -589,8 +589,16 @@ class App(pv_protocols.ParaViewWebProtocol):
             original_val = rainbow_points[i]
             # Normalize to 0-1, then scale to 0-45%
             normalized = (original_val - rainbow_min) / (rainbow_max - rainbow_min)
-            scaled_val = min_val + (max_val - min_val) * normalized * 0.45
-            rainbow_scaled.extend([scaled_val, rainbow_points[i+1], rainbow_points[i+2], rainbow_points[i+3]])
+
+            # Skip the first 5% (grey portion) and remap 1-100% to 0-45%
+            if normalized >= 0.01:
+                # Remap: 0.01-1.0 becomes 0.0-0.45
+                remapped = (normalized - 0.01) / 0.90  # Normalize to 0-1
+                scaled_val = min_val + (max_val - min_val) * remapped * 0.45
+                rainbow_scaled.extend([scaled_val, rainbow_points[i+1], rainbow_points[i+2], rainbow_points[i+3]])
+
+            # scaled_val = min_val + (max_val - min_val) * normalized * 0.45
+            # rainbow_scaled.extend([scaled_val, rainbow_points[i+1], rainbow_points[i+2], rainbow_points[i+3]])
         
         # Scale X Ray points to 55-100% of data range
         xray_scaled = []
