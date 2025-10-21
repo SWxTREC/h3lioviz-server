@@ -11,12 +11,12 @@ app = Flask(__name__)
 logger = logging.getLogger(__name__)
 
 
-@app.route("/metadata/health", methods=["GET"])
+@app.route("/h3lioviz/metadata/health", methods=["GET"])
 def health():
     return jsonify(status="ok"), 200
 
 
-@app.route("/metadata/getTimeSeries/<run_id>/<satellite>", methods=["GET"])
+@app.route("/h3lioviz/metadata/getTimeSeries/<run_id>/<satellite>", methods=["GET"])
 def get_timeseries(run_id: str, satellite: str):
     try:
         payload = timeseries.get_timeseries(run_id, satellite)
@@ -30,7 +30,7 @@ def get_timeseries(run_id: str, satellite: str):
     return jsonify(payload), 200
 
 
-@app.route("/metadata/availableRuns", methods=["GET"])
+@app.route("/h3lioviz/metadata/availableRuns", methods=["GET"])
 def available_runs():
     try:
         data = runs.list_runs()
@@ -42,7 +42,7 @@ def available_runs():
     return jsonify(data), 200
 
 
-@app.route("/metadata/syncMetadata", methods=["GET"])
+@app.route("/h3lioviz/metadata/syncMetadata", methods=["GET"])
 def sync_metadata():
     try:
         report = metadata.sync_metadata()
