@@ -320,7 +320,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Set colormaps
         for name in DEFAULT_CMAP:
-            self.set_colormap(name, cmap_name=DEFAULT_CMAP[name])
+            self.set_colormap(name)
 
         # hide this data from the default initial view
         for x in [
@@ -583,10 +583,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
-
         # If cmap_name is None, use the default version
         lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
-            
         lut.EnableOpacityMapping = 1
 
     @exportRpc("pv.h3lioviz.set_range")
