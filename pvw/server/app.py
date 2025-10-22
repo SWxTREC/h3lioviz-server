@@ -15,14 +15,6 @@ import models
 import satellite
 import slice
 
-from constants import (
-    LUT_RANGE, 
-    OPACITY_VALUES, 
-    DEFAULT_CMAP,
-    VARIABLE_LABEL,
-    WSA_ENLIL_RGB
-)
-
 
 # TODO: Try and use faster plugins where possible
 #       Investigate the use of various speedups. FlyingEdges3D requires image datasets
@@ -30,6 +22,62 @@ from constants import (
 # contour = simple.Contour(Input=reader) # Default filter => no plugin but slow
 # pvs.Contour = FlyingEdges3D  # Faster processing => make it interactive
 
+# Global definitions of variables
+# Range for each lookup table
+LUT_RANGE = {
+    "velocity": [300, 900],
+    "density": [0, 30],
+    "pressure": [1e5, 1e7],
+    "temperature": [1e4, 1e6],
+    "b": [-10, 10],
+    "bx": [-10, 10],
+    "by": [-10, 10],
+    "bz": [-10, 10],
+    "dp": [0, 1],
+}
+
+# Control points for the opacity mapping
+# Can be either 2 or 3 values
+# 2: Min/max opacity corresponding to the min/max data
+# 3: Min, middle, max opacity corresponding to min/center/max data
+OPACITY_VALUES = {
+    "velocity": [0.2, 0.9],
+    "density": [0.2, 0.9],
+    "pressure": [0.2, 0.9],
+    "temperature": [0.2, 0.9],
+    "b": [0.9, 0.2, 0.9],
+    "bx": [0.9, 0.2, 0.9],
+    "by": [0.9, 0.2, 0.9],
+    "bz": [0.9, 0.2, 0.9],
+    "dp": [0.2, 0.9],
+}
+
+# Default colormaps to use for the variables
+DEFAULT_CMAP = {
+    "velocity": "Plasma (matplotlib)",
+    "density": "Viridis (matplotlib)",
+    "pressure": "Viridis (matplotlib)",
+    "temperature": "Inferno (matplotlib)",
+    "b": "Cool to Warm",
+    "bx": "Cool to Warm",
+    "by": "Cool to Warm",
+    "bz": "Cool to Warm",
+    "dp": "Plasma (matplotlib)",
+}
+
+VARIABLE_LABEL = {
+    "velocity": "Velocity (km/s)",
+    "density": "Density (r$^2$N/cm$^3$)",
+    "pressure": "Ram pressure (r$^2$N/cm$^3$ * km$^2$/s$^2$)",
+    "temperature": "Temperature (K)",
+    "b": "Br (nT)",
+    "bx": "Bx (nT)",
+    "by": "By (nT)",
+    "bz": "Bz (nT)",
+    "dp": "Cloud tracer (-)",
+}
+
+pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
 class App(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
@@ -521,31 +569,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             ]
         else:
             raise ValueError("Opacity needs 2 or 3 points to map")
-        
-    def apply_WSA_enlil_colormap(self, name, lut):
-        data_range = LUT_RANGE[name]
-        min_val, max_val = data_range[0], data_range[1]
-        
-        # If RGB values are in 0-255 range, normalize to 0-1
-        normalized_rgb = []
-        for rgb in WSA_ENLIL_RGB:
-            normalized_rgb.append([rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0])
-        
-        # Build RGBPoints array
-        # Evenly distribute colors across the data range
-        num_colors = len(normalized_rgb)
-        rgb_points = []
-        
-        for i, rgb in enumerate(normalized_rgb):
-            # Calculate position in data range (0 = min_val, 1 = max_val)
-            position = i / (num_colors - 1)  # 0.0 to 1.0
-            data_value = min_val + (max_val - min_val) * position
-            
-            # Add to RGB points: [data_value, R, G, B]
-            rgb_points.extend([data_value, rgb[0], rgb[1], rgb[2]])
-        
-        lut.RGBPoints = rgb_points
-        lut.ScalarRangeInitialized = 1.0
 
     @exportRpc("pv.h3lioviz.set_colormap")
     def set_colormap(self, name, cmap_name=None):
@@ -560,12 +583,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
-        
-        if cmap_name == "WSA-Enlil":
-            self.apply_WSA_enlil_colormap(name, lut)
-        else:
-            # If cmap_name is None, use the default version
-            lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
+
+        # If cmap_name is None, use the default version
+        lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
             
         lut.EnableOpacityMapping = 1
 
