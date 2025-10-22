@@ -54,8 +54,8 @@ OPACITY_VALUES = {
 
 # Default colormaps to use for the variables
 DEFAULT_CMAP = {
-    "velocity": "Plasma (matplotlib)",
-    "density": "Viridis (matplotlib)",
+    "velocity": "WSA-Enlil",
+    "density": "WSA-Enlil",
     "pressure": "Viridis (matplotlib)",
     "temperature": "Inferno (matplotlib)",
     "b": "Cool to Warm",
