@@ -118,6 +118,7 @@ def process_tim(ds):
     ds["Br"] *= ds["radius"] ** 2
     # Ram pressure (rho * v**2)
     ds["Pressure"] = ds["Density"] * ds["Vr"] ** 2
+    ds["Pressure"] /= 1e6
 
     ds["radius"].attrs.update({"units": "AU"})
     ds["latitude"].attrs.update({"units": "degrees_north"})
