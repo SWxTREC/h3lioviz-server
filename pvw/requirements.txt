@@ -1,13 +1,2 @@
 flask
 boto3
-
-# TODO: Adding from Bryan's PR for testing purposes
-netcdf4
-numpy
-scipy
-# h5netcdf is needed for evo processing in the lambda for some reason. 
-# I think it's because netcdf4 relies on C libraries?
-# It's odd becuase the error only occurs for the evo files.
-# This seems to only effect evo because I load the processed file back into memory
-# to deal with some encoding issues. 
-h5netcdf

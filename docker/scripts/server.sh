@@ -18,17 +18,6 @@
 # containing a "launcher/config.json" filepath and mounts that path as "/pvw".
 cp /pvw/launcher/config.json /opt/launcher/config-template.json
 
-# This rewrites the apache configuration so that "DocumentRoot" is set to
-# /pvw/www and a single <Directory> entry is added for that same path.  Again,
-# this assumes the user doing the "docker run ..." has set up an external
-# directory containing a "www" directory and mounts that path as "/pvw".
-# if [ -f "/pvw/endpoints.txt" ]
-# then
-#   /opt/paraviewweb/scripts/addEndpoints.sh "$(cat /pvw/endpoints.txt)"
-# else
-#   /opt/paraviewweb/scripts/addEndpoints.sh "DOCUMENT-ROOT-DIRECTORY" "/pvw/www"
-# fi
-
 # This performs replacements on the launcher-template.json copied into place
 # above, based on the presence of environment variables passed with "-e" to the
 # "docker run ..." command.
