@@ -26,6 +26,21 @@ The Flask server provides the following REST endpoints:
 - `GET /metadata/availableRuns` - Lists all available simulation runs
 - `GET /metadata/syncMetadata` - Synchronizes metadata from data sources
 
+### Container Startup Script
+The docker/scripts/server.sh script initializes the docker container by using certain environment variables to update configuration files.
+
+Available environment variables:
+  - SERVER_NAME: the server name to use for the session url. Gets returned from paraview-web to tell the frontend where to connect to the websocket
+  - PROTOCOL: the protocol to use for the session url 
+      ws -> websocket
+      wss -> websocket secure
+  - EXTRA_PVPYTHON_ARGS: extra arguments to pass to pvpython (comma-separated, no extra spaces)
+      Example: "-dr,--mesa-swr"
+
+The following are not used by server.sh, but are used by the paraview & flask code:
+  - S3_BUCKET_NAME: The s3 bucket to use for on-the-fly run downloads and for flask server to access for api calls.
+  - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
+
 ## Prerequisites
 
 To work with this repository, you will need:
@@ -162,9 +177,9 @@ Python packages are installed via a virtual environment during the Docker build 
 1. Add the required packages to `pvw/requirements.txt`
 2. Rebuild the Docker image
 
-The virtual environment is created and activated automatically by the container's entrypoint script (`docker/scripts/server.sh`).
+The virtual environment is created by the Dockerfile and is utilized for flask in server.sh. Note that there is code in place to allow paraview to access the venv, but is currently not in use.
 
-> **Note**: There is currently code in place to configure the venv to allow for paraview to access it, but it has an outdated embedded SSL version, which makes it close to impossible to use libraries like boto3. We currently rely on using AWS CLI commands for downloading runs.
+> **Note**: While paraview can get access to additional python packages, our current version of paraview was built with a now outdated SSL version, which makes it close to impossible to use libraries like boto3. We currently rely on using AWS CLI commands for downloading runs. This restriction only applies to python scripts invoked using the pvpython command.
 
 ## Repository Structure
 
@@ -174,7 +189,7 @@ h3lioviz-server/
 │   ├── binaries/          # ParaView binaries (bin/, lib/, share/)
 │   ├── config/
 │   │   └── apache/        # Apache configuration
-│   └── scripts/           # Container initialization scripts
+│   └── scripts/           # Container initialization script
 ├── pvw/
 │   ├── flask/             # Flask metadata API server
 │   ├── launcher/          # ParaView Web launcher configuration
@@ -184,7 +199,6 @@ h3lioviz-server/
 ├── scripts/               # Data processing scripts
 ├── test-data/             # Test simulation data
 ├── Dockerfile             # Container build definition
-└── docker-compose-local.yaml  # Local testing configuration
 ```
 
 ## Container Implementation Details
@@ -192,12 +206,13 @@ h3lioviz-server/
 > **TODO**: This section will be updated once the container initialization flow and ParaView Python code are finalized. Current implementation details may change.
 
 The container's entrypoint is `/opt/paraviewweb/scripts/server.sh`, which:
-1. Sets up the Python virtual environment
-2. Configures Apache routing via `addEndpoints.sh`
-3. Launches the ParaView Web launcher via `start.sh`
+1. Updates the paraview-web launcher config (pvw/launcher/config.json) based on docker environment variables
+2. Starts flask webserver
+3. Starts/restarts apache service
+4. Starts paraview-web service.
 
-TODO: Document the complete initialization flow, including:
+
+
+TODO: Document paraview-web execution details:
 - How the launcher manages ParaView sessions
 - Port allocation and session management
-- WebSocket proxy configuration
-- Container networking and EC2 integration
