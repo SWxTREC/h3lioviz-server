@@ -6,6 +6,8 @@ import boto3
 import logging
 import re
 
+from helpers import _get_env_var
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -61,20 +63,16 @@ def get_runs_in_s3(s3_client, bucket_name):
 
 def sync_metadata():
     # Get S3 bucket name and DynamoDB table name from environment variables
-    bucket_name = os.environ.get("S3_BUCKET_NAME")
-    if not bucket_name:
-        raise RuntimeError("Missing required environment variable: S3_BUCKET_NAME")
-    ddb_table_name = os.environ.get("TABLE_NAME")
-    if not ddb_table_name:
-        raise RuntimeError("Missing required environment variable: TABLE_NAME")
+    bucket_name = _get_env_var("S3_BUCKET_NAME")
+    ddb_table_name = _get_env_var("TABLE_NAME")
     
-    logger.info(f"Syncing bucket {bucket_name}, and table {ddb_table_name}")
-
     # Create objects to communicate with S3 and dynamodb
     s3 = boto3.client("s3")
     ddb_client = boto3.client('dynamodb')
     dynamodb = boto3.resource("dynamodb")
     runs_table = dynamodb.Table(ddb_table_name)
+
+    logger.info(f"Syncing bucket {bucket_name}, and table {ddb_table_name}")
 
     # Get set of runs currently in dynamo db
     try:

@@ -93,7 +93,7 @@ The official ECR repository is: `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa`
 1. Authenticate with AWS ECR:
 
 ```bash
-aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/
 ```
 
 2. Tag your image:
