@@ -4,9 +4,7 @@ import os
 
 import boto3
 
-s3_client = boto3.client("s3")
-bucket = os.environ["S3_BUCKET_NAME"]
-
+from helpers import _get_env_var
 
 class Evolution:
     def __init__(self, name, json_data):
@@ -126,6 +124,10 @@ class Evolution:
 
 
 def get_timeseries(run_id, satellite):
+    bucket = _get_env_var("S3_BUCKET_NAME")
+
+    s3_client = boto3.client("s3")
+
     # In case the frontend passes .jsond in, turn it into a trailing .json
     satellite = satellite.rstrip("d")
     key = f"data/h3lioviz/pv-ready-data-{run_id}/evo.{satellite}"

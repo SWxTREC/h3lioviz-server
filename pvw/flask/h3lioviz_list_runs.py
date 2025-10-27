@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
-import os
 
 import boto3
 
+from helpers import _get_env_var
+
 def list_runs() -> Any:
-    table_name = os.environ["TABLE_NAME"]
+    table_name = _get_env_var("TABLE_NAME")
 
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
