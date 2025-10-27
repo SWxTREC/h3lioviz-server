@@ -98,12 +98,12 @@ class Evolution:
                     },
                     "by": {
                         "missing_value": "99999.99",
-                        "description": "BX",
+                        "description": "BY",
                         "units": "nT",
                     },
                     "bz": {
                         "missing_value": "99999.99",
-                        "description": "BX",
+                        "description": "BZ",
                         "units": "nT",
                     },
                 },
