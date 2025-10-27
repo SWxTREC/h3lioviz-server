@@ -72,7 +72,7 @@ RUN a2enmod vhost_alias && \
     a2dissite 000-default.conf && \
     a2ensite 001-pvw.conf && \
     a2dismod autoindex -f && \
-    apachectl configtest
+    apachectl configtest || (cat /var/log/apache2/error.log && exit 1)
 
 # Open port 80 to the world outside the container
 EXPOSE 80
