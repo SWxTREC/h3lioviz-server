@@ -12,19 +12,20 @@ The H3lioViz server is a containerized application that provides:
 ### Architecture
 
 Apache serves as the main entry point and handles routing:
-- `/` and `/h3lioviz/` → Frontend web application
-- `/paraview` → ParaView Web service (creates visualization sessions)
-- `/proxy` → WebSocket proxy (maps session IDs to ParaView ports)
-- `/metadata/` → Flask API for metadata operations
+- `/` -> Reroutes to `/h3lioviz/`
+- `/h3lioviz/` -> Frontend web application
+- `/h3lioviz/paraview` -> ParaView Web service (creates visualization sessions)
+- `/h3lioviz/proxy` -> WebSocket proxy (maps session IDs to ParaView ports)
+- `/h3lioviz/metadata/` -> Flask API for metadata operations
 
 ### Flask API Endpoints
 
 The Flask server provides the following REST endpoints:
 
-- `GET /metadata/health` - Health check endpoint, returns `{"status": "ok"}`
-- `GET /metadata/getTimeSeries/<run_id>/<satellite>` - Retrieves time-series data for a specific run and satellite
-- `GET /metadata/availableRuns` - Lists all available simulation runs
-- `GET /metadata/syncMetadata` - Synchronizes metadata from data sources
+- `GET /h3lioviz/metadata/health` - Health check endpoint, returns `{"status": "ok"}`
+- `GET /h3lioviz/metadata/getTimeSeries/<run_id>/<satellite>` - Retrieves time-series data for a specific run and satellite
+- `GET /h3lioviz/metadata/availableRuns` - Lists all available simulation runs
+- `GET /h3lioviz/metadata/syncMetadata` - Synchronizes metadata from data sources
 
 ### Container Startup Script
 The docker/scripts/server.sh script initializes the docker container by using certain environment variables to update configuration files.
@@ -36,10 +37,19 @@ Available environment variables:
       wss -> websocket secure
   - EXTRA_PVPYTHON_ARGS: extra arguments to pass to pvpython (comma-separated, no extra spaces)
       Example: "-dr,--mesa-swr"
+    
+Note: If SERVER_NAME and PROTOCOL are not specified, the container defaults to `ws://localhost`.
 
 The following are not used by server.sh, but are used by the paraview & flask code:
   - S3_BUCKET_NAME: The s3 bucket to use for on-the-fly run downloads and for flask server to access for api calls.
   - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
+
+Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail. If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
+
+### Logging Locations
+ - Flask: `/data/launcher/log/flask.log`
+ - Paraview: `/data/launcher/log/<hashed_session_id>.log` & `/data/launcher/log/launcherLog.log`
+ - Apache: `/var/log/apache2/001-pvw_access.log` & `/var/log/apache2/001-pvw_error.log`
 
 ## Prerequisites
 
@@ -160,8 +170,11 @@ docker logout public.ecr.aws
 ## Test Data
 
 ### Downloading Test Data
+You can download test data from one of the dev account data buckets. Thinned runs are around 1.2GB.
 
-TODO: Document how to download test data
+1. Locate a bucket called `h3lioviz.<domain_name>.com`
+2. Identify a run to download: `/data/h3lioviz/pv-ready-data-<run_id>`
+3. Download the run: `s5cmd cp "s3://<bucket_name>/data/h3lioviz/pv-ready-data-<run_id>/\*" ./test-data/pv-ready-data-<run_id>/`
 
 ### Data Format
 

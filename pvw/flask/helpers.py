@@ -13,6 +13,9 @@ def _convert_decimals(obj: Any) -> Any:
     return obj
 
 def _get_env_var(var_name: str) -> str:
+    """
+    Gets the value of the given environment variable. Empty variables are treated as unset and will raise an exception.
+    """
     env_var = os.environ.get(var_name)
     if not env_var:
         raise RuntimeError(f"Missing required environment variable: {var_name}")
