@@ -49,8 +49,8 @@ def sync_metadata():
     except RuntimeError as exc:
         abort(500, description=str(exc))
     except Exception:
-        logger.exception("Failed to sync metadata")
-        abort(500, description="Failed to sync metadata")
+        logger.exception("Failed to sync metadata: %s", str(e))  
+        abort(500, description=f"Failed to sync metadata: {str(e)}")  
     return jsonify(report), 200
 
 if __name__ == '__main__':
