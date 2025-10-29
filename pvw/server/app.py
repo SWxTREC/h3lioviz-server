@@ -68,7 +68,7 @@ DEFAULT_CMAP = {
 VARIABLE_LABEL = {
     "velocity": "Velocity (km/s)",
     "density": "Density (r$^2$N/cm$^3$)",
-    "pressure": "Ram pressure (r$^2$N/cm$^3$ * km$^2$/s$^2$)",
+    "pressure": "Ram pressure (r$^2$N/m$^3$ * km$^2$/s$^2$)",
     "temperature": "Temperature (K)",
     "b": "Br (nT)",
     "bx": "Bx (nT)",
