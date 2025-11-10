@@ -85,7 +85,7 @@ npm build:dev
 or
 
 ```bash
-npm build:proc
+npm build:prod
 ```
 
 ### Step 5: Clone the h3lioviz-server Repository
