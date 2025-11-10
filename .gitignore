@@ -8,7 +8,6 @@ pvw/launcher/log/*.log
 test-data/pv-ready-data*
 */launcher/log/*.txt
 */launcher/log/*.log
-pvw/www/
 .github/
 
 # Byte-compiled / optimized / DLL files

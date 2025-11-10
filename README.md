@@ -61,14 +61,49 @@ To work with this repository, you will need:
 
 ## Building the Docker Image
 
-### Step 1: Clone the Repository
+### Step 1: Clone/Download the Frontend
+The frontend is in our [WEBAPPS Bitbucket](https://bitbucket.lasp.colorado.edu/projects/WEBAPPS) for LASP internal users, but can be requested from Jenny or Greg. Clone/download this repo and then enter into it. 
+
+### Step 2: Update Environment Variables to Point to Your Backend
+
+Enter the repo and open `src/environments/environment.dev.ts` and `src/environemnts/environment.prod.ts`.
+
+Edit environment.aws.api and environment.aws.api to `https://h3lioviz-api.{your-domain}/` and environmentConfig.sessionManagerURL: `https://paraview-web.{your-domain}/paraview`. 
+
+### Step 3: Install the Frontend Dependencies
+```bash
+npm install
+```
+
+### Step 4: Build the Desired Frontend
+Depending on whether or not you're trying to build the frontend for dev or prod run: 
+
+```bash
+npm build:dev
+```
+
+or
+
+```bash
+npm build:proc
+```
+
+### Step 5: Clone the h3lioviz-server Repository
 
 ```bash
 git clone https://github.com/SWxTREC/h3lioviz-server.git
 cd h3lioviz-server
 ```
 
-### Step 2: Download & Extract the ParaView Binaries
+### Step 6: Copy the Frontend into h3lioviz-server
+
+Copy everything in the frontends dist directory into pvw/www
+
+```bash
+cp -r {frontend-path}/dist/* pvw/www
+```
+
+### Step 7: Download & Extract the ParaView Binaries
 
 Download the ParaView 5.10.1 binaries for Linux and extract the tarball into the `docker/binaries/` directory:
 
@@ -81,7 +116,7 @@ You should see `bin`, `lib`, and `share` directories in `docker/binaries/`.
 
 > **Note**: Use the `osmesa` version for CPU rendering. As of October 2025, we have not successfully run a GPU-based (egl) version of paraview. 
 
-### Step 3: Build the Docker Image
+### Step 8: Build the Docker Image
 
 Build the image locally:
 
