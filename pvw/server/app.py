@@ -111,6 +111,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.view.BackEnd = "OSPRay raycaster"
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
+        self.view.UseLight = 1
+        self.view.HeadLightWarmth = 0.5
+        self.view.HeadLightKHRatio = 2.0
+
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
