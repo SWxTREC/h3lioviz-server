@@ -112,8 +112,11 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.view.OSPRayMaterialLibrary = pvs.GetMaterialLibrary()
 
         self.view.UseLight = 1
-        self.view.HeadLightWarmth = 0.5
-        self.view.HeadLightKHRatio = 2.0
+        custom_light = pvs.AddLight()
+        custom_light.Coords = 'Camera'
+        custom_light.Intensity = 0.5
+        custom_light.Type = 'Positional'
+        custom_light.Enable = 1
 
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
