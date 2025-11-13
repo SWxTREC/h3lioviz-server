@@ -103,20 +103,7 @@ Copy everything in the frontends dist directory into pvw/www
 cp -r {frontend-path}/dist/* pvw/www
 ```
 
-### Step 7: Download & Extract the ParaView Binaries
-
-Download the ParaView 5.10.1 binaries for Linux and extract the tarball into the `docker/binaries/` directory:
-
-```bash
-curl https://www.paraview.org/paraview-downloads/download.php\?submit\=Download\&version\=v5.10\&type\=binary\&os\=Linux\&downloadFile\=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz --output ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz
-tar -xzvf ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz -C ./docker/binaries/ --strip-components=1
-```
-
-You should see `bin`, `lib`, and `share` directories in `docker/binaries/`.
-
-> **Note**: Use the `osmesa` version for CPU rendering. As of October 2025, we have not successfully run a GPU-based (egl) version of paraview. 
-
-### Step 8: Build the Docker Image
+### Step 7: Build the Docker Image
 
 Build the image locally:
 
