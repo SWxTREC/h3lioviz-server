@@ -266,9 +266,23 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
             if i == 0:
                 # Only process metadata for the first file
                 metadata = process_metadata(ds, path)
+
+                cone_fnames = sorted(path.glob("cone2bc.in.*"))
+                if len(cone_fnames) > 0:
+                    cone_fname = cone_fnames[0]
+                    cone_metadata = generate_cone_metadata_dict(cone_fname)
+                    metadata = metadata | cone_metadata
+                else: 
+                    warnings.warn("No CONE file found so the following fields will not be present in metadata.json:" \
+                        " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity")
+
                 # Save the metadata
                 newpath = path / f"pv-ready-data-{metadata['run_id']}"
                 newpath.mkdir(parents=True, exist_ok=True)
+
+                # Write the metadata to disk
+                with open(newpath / "metadata.json", "w") as f:
+                    f.write(json.dumps(metadata, cls=NumpyEncoder))
 
             # Save single file
             ds.to_netcdf(
@@ -304,24 +318,6 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                     )
                 )
     print(f"Evo files processed: {time.time()-t0} s")
-
-    # Extract the metadata from the CONE files if it exists
-    cone_fnames = sorted(path.glob("cone2bc.in.*"))
-    if len(cone_fnames) > 0:
-        cone_fname = cone_fnames[0]
-        with open(cone_fname, "r", encoding="utf-8") as cone_file:
-            contents = cone_file.read()
-            cone_metadata = generate_cone_metadata_dict(contents)
-
-        # Combine the metadata from tim.0000.nc with CONE metadata and write to metadata.json
-        metadata = metadata | cone_metadata
-    else:
-        print("WARNING: No CONE file found so the following fields will not be present in metadata.json:" \
-              " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity")
-        
-    # Write the metadata to disk
-    with open(newpath / "metadata.json", "w") as f:
-        f.write(json.dumps(metadata, cls=NumpyEncoder))
 
     if download_images:
         # Downloading images now, we want to download for every day in the dataset
@@ -448,13 +444,13 @@ def _convert_time(t):
     raise ValueError(f"No matching time formats found for {t}")
 
 
-def generate_cone_metadata_dict(cone_text):
+def generate_cone_metadata_dict(cone_fname):
     """
     Extract desired fields from a CONE file.
 
     Parameters
     ----------
-    cone_text : str
+    cone_fname : str
         UTF-8 text blob containing CONE file contents
 
     Returns
@@ -462,6 +458,10 @@ def generate_cone_metadata_dict(cone_text):
     dict
         Dictionary containing fields of interest from cone file
     """
+    
+    with open(cone_fname, "r", encoding="utf-8") as cone_file:
+        cone_text = cone_file.read()
+
     # Extract desired fields from CONE file
     data = {}
     for line in cone_text.splitlines():
