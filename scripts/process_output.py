@@ -451,7 +451,6 @@ def generate_cone_metadata_dict(cone_fname):
     Parameters
     ----------
     cone_fname : str
-        UTF-8 text blob containing CONE file contents
 
     Returns
     -------
