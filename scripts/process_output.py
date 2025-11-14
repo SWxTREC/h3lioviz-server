@@ -304,18 +304,22 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                     )
                 )
     print(f"Evo files processed: {time.time()-t0} s")
-    # Extract the metadata from the CONE files
-    cone_fnames = sorted(path.glob("cone2bc.in.*"))
-    if not cone_fnames:
-        print("No CONE files found matching 'cone2bc.in.*'. Exiting.")
-        sys.exit(1)
-    cone_fname = cone_fnames[0]
-    with open(cone_fname, "r", encoding="utf-8") as cone_file:
-        contents = cone_file.read()
-        cone_metadata = generate_cone_metadata_dict(contents)
 
-    # Combine the metadata from tim.0000.nc with CONE metadata and write to metadata.json
-    metadata = metadata | cone_metadata
+    # Extract the metadata from the CONE files if it exists
+    cone_fnames = sorted(path.glob("cone2bc.in.*"))
+    if len(cone_fnames) > 0:
+        cone_fname = cone_fnames[0]
+        with open(cone_fname, "r", encoding="utf-8") as cone_file:
+            contents = cone_file.read()
+            cone_metadata = generate_cone_metadata_dict(contents)
+
+        # Combine the metadata from tim.0000.nc with CONE metadata and write to metadata.json
+        metadata = metadata | cone_metadata
+    else:
+        print("WARNING: No CONE file found so the following fields will not be present in metadata.json:" \
+              " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity")
+        
+    # Write the metadata to disk
     with open(newpath / "metadata.json", "w") as f:
         f.write(json.dumps(metadata, cls=NumpyEncoder))
 
