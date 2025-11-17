@@ -266,9 +266,21 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
             if i == 0:
                 # Only process metadata for the first file
                 metadata = process_metadata(ds, path)
+
+                cone_fnames = sorted(path.glob("cone2bc.in.*"))
+                if len(cone_fnames) > 0:
+                    cone_fname = cone_fnames[0]
+                    cone_metadata = generate_cone_metadata_dict(cone_fname)
+                    metadata = metadata | cone_metadata
+                else: 
+                    warnings.warn("No CONE file found so the following fields will not be present in metadata.json:" \
+                        " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity")
+
                 # Save the metadata
                 newpath = path / f"pv-ready-data-{metadata['run_id']}"
                 newpath.mkdir(parents=True, exist_ok=True)
+
+                # Write the metadata to disk
                 with open(newpath / "metadata.json", "w") as f:
                     f.write(json.dumps(metadata, cls=NumpyEncoder))
 
@@ -358,7 +370,7 @@ def process_metadata(ds, path=None, run_id=None):
     # Extract the run_id from the dataset attributes
     if not run_id:
         # In order to extract the run_id from a SWPC run, the path must end with wsa_enlil_57484.57285344.dbqs0
-        if institute == "SWPC" and re.match(r"^.*wsa_enlil_\d{5}\.\d*\.dbqs0$", path.name):
+        if institute == "SWPC" and re.match(r"^.*wsa_enlil_\d{5}\.\d*\.dbqs0", path.name):
             run_id = path.name.split("_")[-1].split(".")[0]
         else:
             run_id = hash_digest
@@ -430,6 +442,42 @@ def _convert_time(t):
         except ValueError:
             pass
     raise ValueError(f"No matching time formats found for {t}")
+
+
+def generate_cone_metadata_dict(cone_fname):
+    """
+    Extract desired fields from a CONE file.
+
+    Parameters
+    ----------
+    cone_fname : str
+
+    Returns
+    -------
+    dict
+        Dictionary containing fields of interest from cone file
+    """
+    
+    with open(cone_fname, "r", encoding="utf-8") as cone_file:
+        cone_text = cone_file.read()
+
+    # Extract desired fields from CONE file
+    data = {}
+    for line in cone_text.splitlines():
+        # Clear whitespace and remove trailing commas
+        line = line.strip().rstrip(',')
+        if line.startswith("lon="):
+            data["cme_longitude"] = line.split("=")[1]
+        elif line.startswith("ldates="):
+            data["cme_time"] = line.split("=")[1]
+        elif line.startswith("lat="):
+            data["cme_latitude"] = line.split("=")[1]
+        elif line.startswith("rmajor="):
+            data["cme_cone_half_angle"] = line.split("=")[1]
+        elif line.startswith("vcld="):
+            data["cme_radial_velocity"] = line.split("=")[1]
+
+    return data
 
 
 def main():
