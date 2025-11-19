@@ -604,6 +604,17 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
+        if name == "pressure":
+            # NOTE: Special case for pressure scaling
+            # We have a mixture of runs that may or may not have been scaled.
+            max_actual_range = max(self.get_variable_range("pressure"))
+            max_requested_range = max(range)
+            if max_requested_range < 1e3 and max_actual_range > 1e4:
+                # We are trying to set a range in the 10s or 100s,
+                # but the data is in 1e5 or higher, so scale the
+                # requested range by 1e6
+                range = [r * 1e6 for r in range]
+
         LUT_RANGE[name] = range
         self.update_lut(name)
 
@@ -650,6 +661,17 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
+        if name == "pressure":
+            # NOTE: Special case for pressure scaling
+            # We have a mixture of runs that may or may not have been scaled.
+            max_actual_range = max(self.get_variable_range("pressure"))
+            max_requested_range = max(values)
+            if max_requested_range < 1e3 and max_actual_range > 1e4:
+                # We are trying to set a range in the 10s or 100s,
+                # but the data is in 1e5 or higher, so scale the
+                # requested range by 1e6
+                values = [r * 1e6 for r in values]
+
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
