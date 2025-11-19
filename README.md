@@ -43,6 +43,7 @@ Note: If SERVER_NAME and PROTOCOL are not specified, the container defaults to `
 The following are not used by server.sh, but are used by the paraview & flask code:
   - S3_BUCKET_NAME: The s3 bucket to use for on-the-fly run downloads and for flask server to access for api calls.
   - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
+  - TABLE_NAME: The name of the table that will store run metadata
 
 Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail. If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
@@ -98,6 +99,8 @@ cd h3lioviz-server
 ### Step 6: Copy the Frontend into h3lioviz-server
 
 Copy everything in the frontends dist directory into pvw/www
+
+Note: After the copy you should have the following directory pvw/www/h3lioviz/ 
 
 ```bash
 cp -r {frontend-path}/dist/* pvw/www
