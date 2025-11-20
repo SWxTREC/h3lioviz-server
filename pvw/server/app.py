@@ -27,7 +27,7 @@ import slice
 LUT_RANGE = {
     "velocity": [300, 900],
     "density": [0, 30],
-    "pressure": [1e5, 1e7],
+    "pressure": [0, 10],
     "temperature": [1e4, 1e6],
     "b": [-10, 10],
     "bx": [-10, 10],
@@ -646,6 +646,15 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
+        if name == "pressure":
+            # NOTE: Special case for pressure scaling
+            # We have a mixture of runs that may or may not have been scaled.
+            max_actual_range = max(self.get_variable_range("pressure"))
+            if range < 1e3 and max_actual_range > 1e4:
+                # We are trying to set a range in the 10s or 100s,
+                # but the data is in 1e5 or higher, so scale the
+                # requested range by 1e6
+                range *= 1e6
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
