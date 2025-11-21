@@ -118,6 +118,11 @@ class App(pv_protocols.ParaViewWebProtocol):
         custom_light.Type = 'Positional'
         custom_light.Enable = 1
 
+        # The old pressure units are large numbers, 1e6 greater than before
+        # We need this to scale the thresholds and contours properly based on
+        # the frontend requests
+        self._old_pressure_units = False
+
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
@@ -169,6 +174,10 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
+            if max(self.get_variable_range("pressure")) > 1e4:
+                self._old_pressure_units = True
+            else:
+                self._old_pressure_units = False
             return
 
         # We are in initialization and don't have a model yet, so
@@ -181,6 +190,10 @@ class App(pv_protocols.ParaViewWebProtocol):
             raise ValueError(
                 f"We cannot load {program} data at this time, only enlil and euhforia are supported"
             )
+        if max(self.get_variable_range("pressure")) > 1e4:
+            self._old_pressure_units = True
+        else:
+            self._old_pressure_units = False
         self._init_filters()
 
     def _init_filters(self):
@@ -604,16 +617,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
-        if name == "pressure":
-            # NOTE: Special case for pressure scaling
-            # We have a mixture of runs that may or may not have been scaled.
-            max_actual_range = max(self.get_variable_range("pressure"))
-            max_requested_range = max(range)
-            if max_requested_range < 1e3 and max_actual_range > 1e4:
-                # We are trying to set a range in the 10s or 100s,
-                # but the data is in 1e5 or higher, so scale the
-                # requested range by 1e6
-                range = [r * 1e6 for r in range]
+        if name == "pressure" and self._old_pressure_units:
+            range = [r * 1e6 for r in range]
 
         LUT_RANGE[name] = range
         self.update_lut(name)
@@ -646,15 +651,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
-        if name == "pressure":
-            # NOTE: Special case for pressure scaling
-            # We have a mixture of runs that may or may not have been scaled.
-            max_actual_range = max(self.get_variable_range("pressure"))
-            if range < 1e3 and max_actual_range > 1e4:
-                # We are trying to set a range in the 10s or 100s,
-                # but the data is in 1e5 or higher, so scale the
-                # requested range by 1e6
-                range *= 1e6
+        if name == "pressure" and self._old_pressure_units:
+            range *= 1e6
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
@@ -670,16 +668,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
-        if name == "pressure":
-            # NOTE: Special case for pressure scaling
-            # We have a mixture of runs that may or may not have been scaled.
-            max_actual_range = max(self.get_variable_range("pressure"))
-            max_requested_range = max(values)
-            if max_requested_range < 1e3 and max_actual_range > 1e4:
-                # We are trying to set a range in the 10s or 100s,
-                # but the data is in 1e5 or higher, so scale the
-                # requested range by 1e6
-                values = [r * 1e6 for r in values]
+        if name == "pressure" and self._old_pressure_units:
+            values = [r * 1e6 for r in values]
 
         variable = self.model.get_variable(name)
         # The quantity of interest
