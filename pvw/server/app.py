@@ -56,7 +56,7 @@ OPACITY_VALUES = {
 DEFAULT_CMAP = {
     "velocity": "WSA-Enlil",
     "density": "WSA-Enlil",
-    "pressure": "Viridis (matplotlib)",
+    "pressure": "WSA-Enlil",
     "temperature": "Inferno (matplotlib)",
     "b": "Cool to Warm",
     "bx": "Cool to Warm",
@@ -174,11 +174,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
-            if max(self.get_variable_range("pressure")) > 1e4:
-                self._old_pressure_units = True
-            else:
-                self._old_pressure_units = False
-            return
 
         # We are in initialization and don't have a model yet, so
         # we need to create one
