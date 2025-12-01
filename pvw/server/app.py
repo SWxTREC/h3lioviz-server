@@ -4,6 +4,7 @@ import math
 import pathlib
 import os
 import subprocess
+import shutil
 
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
@@ -14,7 +15,6 @@ import paraview.web.venv
 import models
 import satellite
 import slice
-import shutil
 
 
 # TODO: Try and use faster plugins where possible
