@@ -27,7 +27,7 @@ import slice
 LUT_RANGE = {
     "velocity": [300, 900],
     "density": [0, 30],
-    "pressure": [1e5, 1e7],
+    "pressure": [0, 10],
     "temperature": [1e4, 1e6],
     "b": [-10, 10],
     "bx": [-10, 10],
@@ -56,7 +56,7 @@ OPACITY_VALUES = {
 DEFAULT_CMAP = {
     "velocity": "WSA-Enlil",
     "density": "WSA-Enlil",
-    "pressure": "Viridis (matplotlib)",
+    "pressure": "WSA-Enlil",
     "temperature": "Inferno (matplotlib)",
     "b": "Cool to Warm",
     "bx": "Cool to Warm",
