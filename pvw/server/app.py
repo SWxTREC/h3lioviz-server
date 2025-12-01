@@ -27,7 +27,7 @@ import slice
 LUT_RANGE = {
     "velocity": [300, 900],
     "density": [0, 30],
-    "pressure": [0, 10],
+    "pressure": [1e5, 1e7],
     "temperature": [1e4, 1e6],
     "b": [-10, 10],
     "bx": [-10, 10],
@@ -56,7 +56,7 @@ OPACITY_VALUES = {
 DEFAULT_CMAP = {
     "velocity": "WSA-Enlil",
     "density": "WSA-Enlil",
-    "pressure": "WSA-Enlil",
+    "pressure": "Viridis (matplotlib)",
     "temperature": "Inferno (matplotlib)",
     "b": "Cool to Warm",
     "bx": "Cool to Warm",
@@ -118,11 +118,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         custom_light.Type = 'Positional'
         custom_light.Enable = 1
 
-        # The old pressure units are large numbers, 1e6 greater than before
-        # We need this to scale the thresholds and contours properly based on
-        # the frontend requests
-        self._old_pressure_units = False
-
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
@@ -174,6 +169,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
+            return
 
         # We are in initialization and don't have a model yet, so
         # we need to create one
@@ -185,10 +181,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             raise ValueError(
                 f"We cannot load {program} data at this time, only enlil and euhforia are supported"
             )
-        if max(self.get_variable_range("pressure")) > 1e4:
-            self._old_pressure_units = True
-        else:
-            self._old_pressure_units = False
         self._init_filters()
 
     def _init_filters(self):
@@ -612,9 +604,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
-        if name == "pressure" and self._old_pressure_units:
-            range = [r * 1e6 for r in range]
-
         LUT_RANGE[name] = range
         self.update_lut(name)
 
@@ -646,8 +635,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
-        if name == "pressure" and self._old_pressure_units:
-            range *= 1e6
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
@@ -663,9 +650,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
-        if name == "pressure" and self._old_pressure_units:
-            values = [r * 1e6 for r in values]
-
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
