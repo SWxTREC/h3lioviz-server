@@ -4,6 +4,7 @@ import math
 import pathlib
 import os
 import subprocess
+import shutil
 
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
@@ -77,6 +78,8 @@ VARIABLE_LABEL = {
     "dp": "Cloud tracer (-)",
 }
 
+STORAGE_SPACE_CUTOFF_GIB = 5
+
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
 class App(pv_protocols.ParaViewWebProtocol):
@@ -131,6 +134,12 @@ class App(pv_protocols.ParaViewWebProtocol):
         run_dir_name = f"pv-ready-data-{run_id}"
         data_dir = self._run_dir / run_dir_name
         if not data_dir.exists():
+            total_B, used_B, free_B = shutil.disk_usage(self._run_dir)
+            free_GiB = free_B / 1024**3
+            total_GiB = total_B / 1024**3
+            if free_GiB < STORAGE_SPACE_CUTOFF_GIB:
+                raise RuntimeError(f"Less than {STORAGE_SPACE_CUTOFF_GIB}GiB of disk space for path {self._run_dir} so run cannot be downloaded. Currently there is {free_GiB:.1f}GiB of free space out of the total {total_GiB:.1f}GiB.")
+
             s3_bucket = os.environ.get("S3_BUCKET_NAME")
             if s3_bucket is not None:
                 print("Run data does not exist locally, checking if data exists on S3")
