@@ -14,6 +14,8 @@ USER root
 ARG DEBIAN_FRONTEND=noninteractive
 # Can be egl (GPU) or osmesa (CPU)
 ARG RENDERER=osmesa
+ARG SESSION_MANAGER_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/paraview/"
+ARG API_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/metadata/"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
@@ -26,7 +28,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         unzip \
         python3.9 \
-        python3.9-venv && \
+        python3.9-venv \
+        git
+# Instructions from https://deb.nodesource.com
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN apt-get install -y --no-install-recommends \
+        nodejs && \
         rm -rf /var/lib/apt/lists/*
 
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
@@ -89,6 +96,15 @@ EXPOSE 80
 COPY pvw /pvw
 
 RUN mkdir /data
+
+RUN git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz
+WORKDIR /h3lioviz
+RUN npm install
+RUN sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.prod.ts
+RUN sed -i "s|[[space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.prod.ts
+RUN npm run build:prod
+RUN cp -r dist/h3lioviz /pvw/www/h3lioviz
+WORKDIR /
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
