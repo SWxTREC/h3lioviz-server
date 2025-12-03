@@ -2,6 +2,8 @@
 
 This repository hosts the code to run a ParaView visualization server for 3D heliospheric output from codes such as Enlil and Euhforia, as well as a way to fetch the associated metadata and host the frontend.
 
+Live deployment for interactive use: <https://swx-trec.com/h3lioviz/>
+
 ## Overview
 
 The H3lioViz server is a containerized application that provides:
