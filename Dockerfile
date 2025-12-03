@@ -5,6 +5,9 @@ ARG AWS_ENABLED=false
 # ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE} AS base
 
+# Install using bash rather than sh. Allows for sourcing the pip venv. 
+SHELL ["/bin/bash", "-c"]
+
 USER root
 
 # Need to force noninteractive for apt-get updates
@@ -35,7 +38,18 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     ./aws/install && \
     rm -rf ./aws awscliv2.zip 
 
-COPY docker/binaries/ /opt/paraview/
+# NOTE: We are using the osmesa build here.  If you want to use EGL (GPU) rendering,
+# you'll need to change the URL to point to the EGL build and ensure that your
+# base image has the necessary EGL libraries installed.
+# For EGL builds, consider using the nvidia/opengl base images.
+RUN mkdir -p /opt/paraview && \
+    curl -fSL "https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.10&type=binary&os=Linux&downloadFile=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz" -o /tmp/paraview.tar.gz && \
+    tar -xzf /tmp/paraview.tar.gz -C /opt/paraview --strip-components=1 && \
+    rm -f /tmp/paraview.tar.gz
+
+# Separate pip build to prevent having to re-install dependencies on every pvw code change.
+COPY pvw/requirements.txt /pvw/
+RUN python3.9 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
@@ -64,7 +78,8 @@ RUN a2enmod vhost_alias && \
     a2enmod headers && \
     a2dissite 000-default.conf && \
     a2ensite 001-pvw.conf && \
-    a2dismod autoindex -f
+    a2dismod autoindex -f && \
+    apachectl configtest || (cat /var/log/apache2/error.log && exit 1)
 
 # Open port 80 to the world outside the container
 EXPOSE 80

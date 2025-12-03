@@ -1,4 +1,3 @@
-docker/binaries/*
 docker/.env.local
 .vscode
 data/
@@ -9,6 +8,7 @@ pvw/launcher/log/*.log
 test-data/pv-ready-data*
 */launcher/log/*.txt
 */launcher/log/*.log
+.github/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
