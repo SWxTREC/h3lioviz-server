@@ -97,14 +97,19 @@ COPY pvw /pvw
 
 RUN mkdir /data
 
-RUN git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz
-WORKDIR /h3lioviz
-RUN npm install
-RUN sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.prod.ts
-RUN sed -i "s|[[space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.prod.ts
-RUN npm run build:prod
-RUN cp -r dist/h3lioviz /pvw/www/h3lioviz
-WORKDIR /
+# NOTE: Having the frontend build 
+RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
+    git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz; \
+    cd /h3lioviz; \
+    npm install; \
+    sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.prod.ts; \
+    sed -i "s|[[space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.prod.ts; \
+    npm run build:prod; \
+    cp -r dist/h3lioviz /pvw/www/h3lioviz; \
+    cd /; \
+else \
+    echo "pvw/www/h3lioviz found. Skipping frontend h3lioviz build."; \
+fi
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
