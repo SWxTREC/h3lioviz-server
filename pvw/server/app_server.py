@@ -15,9 +15,6 @@ from app import App
 
 class _AppServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
-    viewportScale = 1.0
-    viewportMaxWidth = 2560
-    viewportMaxHeight = 1440
     settingsLODThreshold = 102400
 
     @staticmethod
@@ -27,27 +24,6 @@ class _AppServer(pv_wslink.PVServerProtocol):
             default="/data",
             help=("Path to the data directory to load"),
             dest="data_dir",
-        )
-        parser.add_argument(
-            "--viewport-scale",
-            default=1.0,
-            type=float,
-            help="Viewport scaling factor",
-            dest="viewportScale",
-        )
-        parser.add_argument(
-            "--viewport-max-width",
-            default=2560,
-            type=int,
-            help="Viewport maximum size in width",
-            dest="viewportMaxWidth",
-        )
-        parser.add_argument(
-            "--viewport-max-height",
-            default=1440,
-            type=int,
-            help="Viewport maximum size in height",
-            dest="viewportMaxHeight",
         )
         parser.add_argument(
             "--settings-lod-threshold",
@@ -62,9 +38,6 @@ class _AppServer(pv_wslink.PVServerProtocol):
         # Update this server based on the passed in arguments
         _AppServer.authKey = args.authKey
         _AppServer.data_dir = args.data_dir
-        _AppServer.viewportScale = args.viewportScale
-        _AppServer.viewportMaxWidth = args.viewportMaxWidth
-        _AppServer.viewportMaxHeight = args.viewportMaxHeight
         _AppServer.settingsLODThreshold = args.settingsLODThreshold
         _AppServer.host = args.host
 

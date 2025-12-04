@@ -29,8 +29,6 @@
         "/pvw/server/app_server.py",
         "--port", "${port}",
         "--dir", "/data",
-        "--viewport-max-width", "1920",
-        "--viewport-max-height", "1080",
         "--timeout", "30"
       ],
       "ready_line" : "Starting factory"
@@ -44,8 +42,6 @@
         "/pvw/server/app_server.py",
         "--port", "${port}",
         "--dir", "/data",
-        "--viewport-max-width", "1920",
-        "--viewport-max-height", "1080",
         "--timeout", "30"
       ],
       "ready_line" : "Starting factory"
