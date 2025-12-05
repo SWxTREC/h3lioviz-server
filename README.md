@@ -32,8 +32,8 @@ The Flask server provides the following REST endpoints:
 ### Container Startup Script
 The docker/scripts/server.sh script initializes the docker container by using certain environment variables to update configuration files.
 
-Available environment variables:
-  - SERVER_NAME: the server name to use for the session url. Gets returned from paraview-web to tell the frontend where to connect to the websocket
+server.sh (paraview/websockets) environment variables:
+  - SERVER_NAME: the server name to use for the session url. Gets returned from paraview-web to tell the frontend where to connect to the websocket. Note that the current routing expects {domain}/h3lioviz.
   - PROTOCOL: the protocol to use for the session url 
       ws -> websocket
       wss -> websocket secure
@@ -42,14 +42,14 @@ Available environment variables:
     
 Note: If SERVER_NAME and PROTOCOL are not specified, the container defaults to `ws://localhost`.
 
-The following are not used by server.sh, but are used by the paraview & flask code:
+Paraview & Flask environment variables:
   - S3_BUCKET_NAME: The s3 bucket to use for on-the-fly run downloads and for flask server to access for api calls.
   - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
   - TABLE_NAME: The name of the table that will store run metadata
 
 Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail. If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
-### Logging Locations
+### Logging Locations Within Container
  - Flask: `/data/launcher/log/flask.log`
  - Paraview: `/data/launcher/log/<hashed_session_id>.log` & `/data/launcher/log/launcherLog.log`
  - Apache: `/var/log/apache2/001-pvw_access.log` & `/var/log/apache2/001-pvw_error.log`
@@ -65,7 +65,7 @@ To work with this repository, you will need:
 ## Building the Docker Image
 
 ### Step 1: Clone/Download the Frontend
-The frontend is in our [WEBAPPS Bitbucket](https://bitbucket.lasp.colorado.edu/projects/WEBAPPS) for LASP internal users, but can be requested from Jenny or Greg. Clone/download this repo and then enter into it. 
+The frontend is in our [WEBAPPS Bitbucket](https://bitbucket.lasp.colorado.edu/projects/WEBAPPS) for LASP internal users, but there is also a [public mirror available on Github](https://github.com/SWxTREC/h3lioviz).
 
 ### Step 2: Update Environment Variables to Point to Your Backend
 
@@ -125,7 +125,7 @@ NOTE: This does not currently entirely work due to the container's dependency on
 
 ```bash
 docker run -p 0.0.0.0:8080:80 \
-  -e SERVER_NAME=127.0.0.1:8080 \
+  -e SERVER_NAME=127.0.0.1:8080/h3lioviz \
   -e PROTOCOL=ws \
   -v ${PWD}/pvw:/pvw \
   -v ${PWD}/test-data:/data \
@@ -202,6 +202,10 @@ You can download test data from one of the dev account data buckets. Thinned run
 1. Locate a bucket called `h3lioviz.<domain_name>.com`
 2. Identify a run to download: `/data/h3lioviz/pv-ready-data-<run_id>`
 3. Download the run: `s5cmd cp "s3://<bucket_name>/data/h3lioviz/pv-ready-data-<run_id>/\*" ./test-data/pv-ready-data-<run_id>/`
+
+### Generating Your Own Data
+
+Reference the [README](scripts/README.md) in `scripts/` for instructions on how to generate these runs and make them visible to h3lioviz-server. 
 
 ### Data Format
 
