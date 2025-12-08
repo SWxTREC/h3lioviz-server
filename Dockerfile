@@ -17,6 +17,8 @@ ARG RENDERER=osmesa
 ARG SESSION_MANAGER_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/paraview/"
 ARG API_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/metadata/"
 
+
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
         apache2 \
@@ -29,12 +31,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         python3.9 \
         python3.9-venv \
-        git
-# Instructions from https://deb.nodesource.com
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-RUN apt-get install -y --no-install-recommends \
-        nodejs && \
+        git \
+        nodejs \
+        npm && \
         rm -rf /var/lib/apt/lists/*
+
+# Instructions for installing node for  https://deb.nodesource.com
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN sudo apt-get install -y nodejs
 
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
     tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
@@ -99,13 +103,13 @@ RUN mkdir /data
 
 # NOTE: Having the frontend build 
 RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
-    git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz; \
-    cd /h3lioviz; \
-    npm install; \
-    sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.prod.ts; \
-    sed -i "s|[[space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.prod.ts; \
-    npm run build:prod; \
-    cp -r dist/h3lioviz /pvw/www/h3lioviz; \
+    git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz && \
+    cd /h3lioviz && \
+    sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.dev.ts &&\
+    sed -i "s|[[:space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.dev.ts && \
+    npm install && \
+    npm run build:dev && \
+    cp -r dist/h3lioviz /pvw/www/h3lioviz && \
     cd /; \
 else \
     echo "pvw/www/h3lioviz found. Skipping frontend h3lioviz build."; \
