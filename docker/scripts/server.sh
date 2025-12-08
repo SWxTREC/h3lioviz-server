@@ -33,11 +33,11 @@ REPLACEMENT_ARGS=""
 LAUNCHER_TEMPLATE_PATH=/opt/launcher/config-template.json
 LAUNCHER_PATH=/opt/launcher/config.json
 
+# Construct replacement args for config.json from the Dockerfile args
 if [[ ! -z "${SERVER_NAME}" ]] && [[ ! -z "${PROTOCOL}" ]]
 then
   ROOT_URL="${PROTOCOL}://${SERVER_NAME}"
 fi
-
 if [[ ! -z "${EXTRA_PVPYTHON_ARGS}" ]]
 then
   IFS=',' read -ra EXTRA_ARGS <<< "${EXTRA_PVPYTHON_ARGS}"
@@ -46,6 +46,7 @@ then
   done
 fi
 
+# Replace config.json with Dockerfile args
 INPUT=$(<"${LAUNCHER_TEMPLATE_PATH}")
 OUTPUT="${INPUT//"SESSION_URL_ROOT"/$ROOT_URL}"
 OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/$REPLACEMENT_ARGS}"
