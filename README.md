@@ -10,6 +10,7 @@ The H3lioViz server is a containerized application that provides:
 - **ParaView Web Service**: 3D visualization of heliospheric simulation data
 - **Flask Metadata API**: Endpoints for retrieving run information and time-series data
 - **Apache Web Server**: Serves the frontend and acts as a reverse proxy
+- **ParaView PreProcessing**: Scripts that generate the data used by the ParaView Web Service (not containerized)
 
 ### Architecture
 
@@ -71,7 +72,7 @@ The frontend is in our [WEBAPPS Bitbucket](https://bitbucket.lasp.colorado.edu/p
 
 Enter the repo and open `src/environments/environment.dev.ts` and `src/environemnts/environment.prod.ts`.
 
-Edit environment.aws.api and environment.aws.api to `https://h3lioviz-api.{your-domain}/` and environmentConfig.sessionManagerURL: `https://paraview-web.{your-domain}/paraview`. 
+Edit environment.aws.api to `https://h3lioviz-api.{your-domain}/` (an API Gateway created by swxtrec-cdk) and environmentConfig.sessionManagerURL: `https://paraview-web.{your-domain}/paraview`. 
 
 ### Step 3: Install the Frontend Dependencies
 ```bash
