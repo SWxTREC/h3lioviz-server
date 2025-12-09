@@ -65,7 +65,7 @@ Enter the repo and open `src/environments/environment.dev.ts` and `src/environme
 
 Edit the following configuration items:
 - Set `environment.aws.api` to `https://h3lioviz-api.{your-domain}/` (an API Gateway created by swxtrec-cdk).
-- Set `environmentConfig.sessionManagerURL` to `https://paraview-web.{your-domain}/paraview`.
+- Set `environmentConfig.sessionManagerURL` to `https://paraview-web.{your-domain}/h3lioviz/paraview`.
 
 ### Step 3: Install the Frontend Dependencies
 ```bash
