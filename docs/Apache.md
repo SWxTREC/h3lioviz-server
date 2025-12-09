@@ -13,7 +13,7 @@ The Apache server listens on port 80 and acts as a reverse proxy for the Paravie
 #### Proxy Mappings:
 
 - Paraview Launcher Reverse Proxy: http://localhost:80/h3lioviz/paraview -> http://localhost:9000/paraview
-- Paraview Web Servers Reverse Proxy: localhost:80/h3lioviz/proxy?sessionId=XXXX&path=ws -> ws://SOME_PORT:XXXX/ws
+- Paraview Web Servers Reverse Proxy: wss://localhost:80/h3lioviz/proxy?sessionId=XXXX&path=ws -> ws://SOME_PORT:XXXX/ws
 - Flask Server Reverse Proxy: http://localhost:80/h3lioviz/metadata -> http://localhost:5000/h3lioviz/metadata
 
 #### Routes and Redirects
