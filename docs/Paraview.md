@@ -5,7 +5,8 @@
 ### Paraview Web Launcher
 
 The paraview web launcher is responsible for starting a new process for each user, generating a session key,
-distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on. It listens on localhost:9000.
+distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on.
+It listens on localhost:9000.
 
 #### Configuration
 
@@ -42,13 +43,19 @@ Navigate to the [Paraview download page](https://www.paraview.org/download/). Se
 
 ### Basic Usage
 
-You will need processed data in order to use the Paraview GUI for visualizing h3lioviz data. There are instructions for this in [../scripts/README.md](../scripts/README.md). It is recomended you use the default downsampling as the visualization can be pretty hard on your system depending on it's specs.
+You will need processed data in order to use the Paraview GUI for visualizing h3lioviz data. There are instructions for this in [../scripts/README.md](../scripts/README.md).
+It is recommended you use the default downsampling as the visualization can be pretty hard on your system depending on it's specs.
 
-Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your pv-ready-{RUN_ID} folder and select the pv-tim-\*.nc files. You should be albe to select them all at once. Once you open these files you will be prompted for a reader. Select 'NetCDF Reader'. This will read the data into Paraview. In the left pannel navigate to 'Properties' and select apply.
+Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your pv-ready-{RUN_ID} folder and select the pv-tim-\*.nc files.
+You should be able to select them all at once.
+Once you open these files you will be prompted for a reader. Select 'NetCDF Reader'. This will read the data into Paraview.
+In the left panel navigate to 'Properties' and select apply.
 
-Right click on the pv-tim.0\* files in the 'Pipeline Browser' and select 'Add Filter' then 'Alphabetical' and select 'Cell Data to Point Data'. Next navigate to the 'Properties' tab and select 'Apply'. This filter will convert from blocky cells of data to a smoother representation.
+Right click on the pv-tim.0\* files in the 'Pipeline Browser' and select 'Add Filter' then 'Alphabetical' and select 'Cell Data to Point Data'.
+Next navigate to the 'Properties' tab and select 'Apply'. This filter will convert from blocky cells of data to a smoother representation.
 
-After applying the Cell Data to Point Data filter go to the bar above that panel and select 'Slice'. Navigate to 'Properties' if it isn't open already. Hit the 'Z Normal' button under 'Plane Parameters' in order to snap the slice to the correct plane. Then hit 'Apply'.
+After applying the Cell Data to Point Data filter go to the bar above that panel and select 'Slice'.
+Navigate to 'Properties' if it isn't open already. Hit the 'Z Normal' button under 'Plane Parameters' in order to snap the slice to the correct plane. Then hit 'Apply'.
 
 In order to see the data you will need to select a field. You can do this by editing the 'Display' settings. Under 'Coloring' you can change the 'Solid color' to be any variable you want from the data. Then hit 'Apply'
 
