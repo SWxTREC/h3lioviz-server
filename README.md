@@ -4,6 +4,12 @@ This repository hosts the code to run a ParaView visualization server for 3D hel
 
 Live deployment for interactive use: <https://swx-trec.com/h3lioviz/>
 
+## Addiitonal Documentation
+
+- [Apache](docs/Apache.md)
+- [Flask](docs/Flask.md)
+- [Paraview](docs/Paraview.md)
+
 ## Overview
 
 The H3lioViz server is a containerized application that provides:
@@ -243,16 +249,9 @@ h3lioviz-server/
 
 ## Container Implementation Details
 
-> **TODO**: This section will be updated once the container initialization flow and ParaView Python code are finalized. Current implementation details may change.
-
 The container's entrypoint is `/opt/paraviewweb/scripts/server.sh`, which:
 1. Updates the paraview-web launcher config (pvw/launcher/config.json) based on docker environment variables
 2. Starts flask webserver
 3. Starts/restarts apache service
-4. Starts paraview-web service.
+4. Starts the paraview websockets launcher
 
-
-
-TODO: Document paraview-web execution details:
-- How the launcher manages ParaView sessions
-- Port allocation and session management
