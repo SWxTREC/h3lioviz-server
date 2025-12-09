@@ -48,7 +48,7 @@ Once you have processed data open the Paraview GUI and select the 'Open File' ic
 
 Right click on the pv-tim.0\* files in the 'Pipeline Browser' and select 'Add Filter' then 'Alphabetical' and select 'Cell Data to Point Data'. Next navigate to the 'Properties' tab and select 'Apply'. This filter will convert from blocky cells of data to a smoother representation.
 
-After applying the Cell Data to Point Data filter go to the bar above that pannel and select 'Slice'. Navigate to 'Properties' if it isn't open already. Hit the 'Z Normal' button under 'Plane Parameters' in order to snap the slice to the correct plane. Then hit 'Apply'.
+After applying the Cell Data to Point Data filter go to the bar above that panel and select 'Slice'. Navigate to 'Properties' if it isn't open already. Hit the 'Z Normal' button under 'Plane Parameters' in order to snap the slice to the correct plane. Then hit 'Apply'.
 
 In order to see the data you will need to select a field. You can do this by editing the 'Display' settings. Under 'Coloring' you can change the 'Solid color' to be any variable you want from the data. Then hit 'Apply'
 
