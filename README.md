@@ -61,9 +61,11 @@ The frontend is in our [WEBAPPS Bitbucket](https://bitbucket.lasp.colorado.edu/p
 
 ### Step 2: Update Environment Variables to Point to Your Backend
 
-Enter the repo and open `src/environments/environment.dev.ts` and `src/environemnts/environment.prod.ts`.
+Enter the repo and open `src/environments/environment.dev.ts` and `src/environments/environment.prod.ts`.
 
-Edit environment.aws.api to `https://h3lioviz-api.{your-domain}/` (an API Gateway created by swxtrec-cdk) and environmentConfig.sessionManagerURL: `https://paraview-web.{your-domain}/paraview`. 
+Edit the following configuration items:
+- Set `environment.aws.api` to `https://h3lioviz-api.{your-domain}/` (an API Gateway created by swxtrec-cdk).
+- Set `environmentConfig.sessionManagerURL` to `https://paraview-web.{your-domain}/paraview`.
 
 ### Step 3: Install the Frontend Dependencies
 ```bash
