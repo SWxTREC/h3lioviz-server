@@ -28,6 +28,7 @@ Some of the features that come from paraview are enabled and configured by [../p
 along with other parameters necessary to get the server running. 
 These features are enabled using the [web.protocols module of pvpython](https://www.paraview.org/paraview-docs/latest/python/paraview.web.html).
 An example of one such protocol is the ParaviewWebMouseHandler which automatically handles RPC calls for manipulating the visualization on the frontend.
+The way our custom RPC calls are integrated into the websockets server is the same way all the other RPC calls are. We register our custom protocol 'App' using registerVtkWebProtocol. This registers our custom RPC calls with the websockets server.
 
 #### Slices
 
