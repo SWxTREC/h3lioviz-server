@@ -4,8 +4,8 @@
 
 ### Paraview Web Launcher
 
-The paraview web launcher is what is responsible for starting a new process for each user, generating a session key,
-distributing that session key back to the client, and mapping session key to the port the forked server is running on. It listens on localhost:9000.
+The paraview web launcher is responsible for starting a new process for each user, generating a session key,
+distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on. It listens on localhost:9000.
 
 #### Configuration
 
@@ -22,7 +22,13 @@ The configuration file is located in [../pvw/launcher/config.json](../pvw/launch
 
 ### Paraview Web Visualizer/Server
 
-The capablities of the visualizer are determined by which VtkWebProtocols are registered to the paraview websockets server which is forked with each connection. An example of one such protocol is the ParaviewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse. Another example is the custom ParaviewWebProtocol, a subclass of vtkWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py). This is how we define custom actions on the visualization that the frontend can request via RPC calls. The VtkWebProtocols are registered with the paraview web server in [../pvw/server/app_server.py](../pvw/server/app_server.py). The app_server.py file also configures some of these protocols.
+Each connection will create a new paraview web server process with it's own port.
+The capablities of the visualizer are determined by which VtkWebProtocols are registered to the paraview server.
+An example of one such protocol is the ParaviewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse.
+Another example is the custom ParaviewWebProtocol, a subclass of vtkWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py).
+This is how we define custom actions on the visualization that the frontend can request via RPC calls.
+The VtkWebProtocols are registered with the paraview web server in [../pvw/server/app_server.py](../pvw/server/app_server.py).
+The app_server.py file also configures some of these protocols where necessary.
 
 #### Logging
 
