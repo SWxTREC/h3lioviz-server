@@ -8,7 +8,7 @@ The configuration file for the apache server is located in [../docker/config/apa
 
 The Apache server listens on port 80 and acts as a reverse proxy for the Paraview Launcher, Paraview Web Servers, and Flask Server.
 The root directory is at `../pvw/www` which serves the frontend. Apache is also configured to attach the Access-Control-Allow-Origin "\*" header to all traffic it routes to avoid any CORS issues.
-Apache determines which port to route paraview web server requirests to using /opt/launcher/proxy-mapping.txt
+Apache determines which port to route paraview web server requests to using /opt/launcher/proxy-mapping.txt
 
 ### Proxy Mappings and Routes:
 

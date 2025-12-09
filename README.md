@@ -4,7 +4,7 @@ This repository hosts the code to run a ParaView visualization server for 3D hel
 
 Live deployment for interactive use: <https://swx-trec.com/h3lioviz/>
 
-## Addiitonal Documentation
+## Additonal Documentation
 
 - [Apache](docs/Apache.md)
 - [Flask](docs/Flask.md)
@@ -50,7 +50,8 @@ Paraview & Flask environment variables:
 - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
 - TABLE_NAME: The name of the table that will store run metadata
 
-Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail. If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
+Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail.
+If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
 ### Logging Locations Within Container
 
