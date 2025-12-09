@@ -10,7 +10,7 @@ The H3lioViz server is a containerized application that provides:
 - **ParaView Web Service**: 3D visualization of heliospheric simulation data
 - **Flask Metadata API**: Endpoints for retrieving run information and time-series data
 - **Apache Web Server**: Serves the frontend and acts as a reverse proxy
-- **ParaView PreProcessing**: Scripts that generate the data used by the ParaView Web Service (not containerized)
+- **ParaView Pre-Processing**: Scripts that generate the data used by the ParaView Web Service (not containerized)
 
 ### Architecture
 
@@ -20,15 +20,6 @@ Apache serves as the main entry point and handles routing:
 - `/h3lioviz/paraview` -> ParaView Web service (creates visualization sessions)
 - `/h3lioviz/proxy` -> WebSocket proxy (maps session IDs to ParaView ports)
 - `/h3lioviz/metadata/` -> Flask API for metadata operations
-
-### Flask API Endpoints
-
-The Flask server provides the following REST endpoints:
-
-- `GET /h3lioviz/metadata/health` - Health check endpoint, returns `{"status": "ok"}`
-- `GET /h3lioviz/metadata/getTimeSeries/<run_id>/<satellite>` - Retrieves time-series data for a specific run and satellite
-- `GET /h3lioviz/metadata/availableRuns` - Lists all available simulation runs
-- `GET /h3lioviz/metadata/syncMetadata` - Synchronizes metadata from data sources
 
 ### Container Startup Script
 The docker/scripts/server.sh script initializes the docker container by using certain environment variables to update configuration files.
@@ -235,6 +226,7 @@ h3lioviz-server/
 │   ├── config/
 │   │   └── apache/        # Apache configuration
 │   └── scripts/           # Container initialization script
+├── docs/                  # More documentation                 
 ├── pvw/
 │   ├── flask/             # Flask metadata API server
 │   ├── launcher/          # ParaView Web launcher configuration
@@ -244,6 +236,7 @@ h3lioviz-server/
 ├── scripts/               # Data processing scripts
 ├── test-data/             # Test simulation data
 ├── Dockerfile             # Container build definition
+├── README.md              # Root documentation page
 ```
 
 ## Container Implementation Details

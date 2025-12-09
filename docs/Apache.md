@@ -12,3 +12,6 @@ The Apache server listens on port 80 and proxies the Paraview Launcher, Paraview
 - Paraview Web Server Proxy: localhost:80/h3lioviz/proxy?sessionId=XXXX&path=ws -> ws://SOME_PORT:SESSION_ID/PATH
 - Flask Server Proxy: localhost:80/h3lioviz/metadata -> http://localhost:5000/h3lioviz/metadata
 
+## Logging
+
+`/var/log/apache2/001-pvw_access.log` & `/var/log/apache2/001-pvw_error.log`
