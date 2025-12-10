@@ -48,11 +48,12 @@ def sync_metadata():
         report = metadata.sync_metadata()
     except RuntimeError as exc:
         abort(500, description=str(exc))
-    except Exception:
-        logger.exception("Failed to sync metadata: %s", str(e))  
-        abort(500, description=f"Failed to sync metadata: {str(e)}")  
+    except Exception as e:
+        logger.exception("Failed to sync metadata: %s", str(e))
+        abort(500, description=f"Failed to sync metadata: {str(e)}")
     return jsonify(report), 200
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Listen on all interfaces so Apache can reverse-proxy to it
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=5000)
