@@ -23,7 +23,8 @@ The configuration file is located in [../pvw/launcher/config.json](../pvw/launch
 The following logs contain:
 
 - Launcher requests for a new session via POST to /h3lioviz/paraview
-- Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview?{some_random_number}
+- Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview?{some_random_number}.
+  A 400 status_code indicates the server is accessible
 - Any errors/warnings during the session launching process
 
 `/data/launcher/log/launcherLog.log`
