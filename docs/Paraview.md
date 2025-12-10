@@ -6,7 +6,8 @@
 
 The paraview web launcher is responsible for starting a new process for each user, generating a session key,
 distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on.
-It listens on localhost:9000.
+It listens on localhost:9000. Note that the launcher is only communicated to via HTTP.
+The Paraview web server/visualizer is what handles all websocket connections.
 
 #### Configuration
 
@@ -18,6 +19,12 @@ The configuration file is located in [../pvw/launcher/config.json](../pvw/launch
 - apps.visualizer-mpi: This provides parallelization for batch operations. I am not sure if this is being used.
 
 #### Logging
+
+The following logs contain:
+
+- Launcher requests for a new session via POST to /h3lioviz/paraview
+- Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview?{some_random_number}
+- Any errors/warnings during the session launching process
 
 `/data/launcher/log/launcherLog.log`
 
@@ -32,6 +39,12 @@ The VtkWebProtocols are registered with the paraview web server in [../pvw/serve
 The app_server.py file also configures some of these protocols where necessary.
 
 #### Logging
+
+The following logs contain:
+
+- Rendering logs including the time each step of the render took
+- Errors that occurred during the rendering or any errors that resulted from websocket RPC calls to the server
+- Any other information outputed by the python files in `../pvw/server` including information on on the fly run downloads
 
 `/data/launcher/log/<hashed_session_id>.log`
 

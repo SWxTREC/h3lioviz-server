@@ -18,4 +18,10 @@ The Flask server provides the following REST endpoints at localhost:5000:
 
 ## Logging
 
-`/data/launcher/log/flask.log`
+The logs include the following:
+
+- Server startup information
+- Any exceptions that occurred
+- Basic information on all requests including IP address, request method, date, browser, and status code
+
+  `/data/launcher/log/flask.log`

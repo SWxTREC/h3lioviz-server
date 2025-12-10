@@ -28,4 +28,16 @@ Apache determines which port to route paraview web server requests to using /opt
 
 ## Logging
 
-`/var/log/apache2/001-pvw_access.log` & `/var/log/apache2/001-pvw_error.log`
+The access log contains the following information:
+
+- Basic information on all incoming http requests to port 80 on the instance including IP address, request method, date, browser, and status code
+- It will NOT contain information on web sockets connections unless `LogLevel error proxy:trace5` is added to the config. This can create huge log files
+
+`/var/log/apache2/001-pvw_access.log`
+
+The error log contains the following information:
+
+- Failed proxies where the downstream server can't be accessed
+- Other Apache erorrs
+
+`/var/log/apache2/001-pvw_error.log`
