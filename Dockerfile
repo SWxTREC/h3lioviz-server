@@ -31,14 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         python3.9 \
         python3.9-venv \
-        git \
-        nodejs \
-        npm && \
+        git && \
         rm -rf /var/lib/apt/lists/*
 
 # Instructions for installing node for  https://deb.nodesource.com
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-RUN sudo apt-get install -y nodejs
+RUN apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
     tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
@@ -103,14 +102,15 @@ RUN mkdir /data
 
 # NOTE: Having the frontend build 
 RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
-    git clone https://github.com/SWxTREC/h3lioviz.git /h3lioviz && \
-    cd /h3lioviz && \
-    sed -i "s|[[:space:]]*sessionManagerURL:.*|sessionManagerURL: \"${SESSION_MANAGER_URL}\",|" src/environments/environment.dev.ts &&\
-    sed -i "s|[[:space:]]*api:.*|api: \"${API_URL}\",|" src/environments/environment.dev.ts && \
+    curl -L "https://github.com/SWxTREC/h3lioviz/archive/refs/heads/main.zip" -o /tmp/h3lioviz.zip && \
+    unzip /tmp/h3lioviz.zip -d /tmp/h3lioviz && \
+    rm -rf h3lioviz.zip && \
+    cd /tmp/h3lioviz/h3lioviz-main && \
     npm install && \
     npm run build:dev && \
     cp -r dist/h3lioviz /pvw/www/h3lioviz && \
-    cd /; \
+    cd / && \
+    rm -rf /tmp/h3lioviz/; \
 else \
     echo "pvw/www/h3lioviz found. Skipping frontend h3lioviz build."; \
 fi
