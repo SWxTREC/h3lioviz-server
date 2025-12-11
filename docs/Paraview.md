@@ -49,6 +49,59 @@ The following logs contain:
 
 `/data/launcher/log/<hashed_session_id>.log`
 
+#### Testing Websockets Without a Frontend
+
+[Install Postman](https://www.postman.com/downloads/) or another API testing tool. You can avoid all their sign in stuff if you don't want to persist your session. 
+The value of the id key doesn't seem to matter much, but it must be filled out in order for requests to be successful (flingus:0 seems to work just fine).
+
+1. Send a POST request to https://paraview-web.{YOUR_SUB_DOMAIN}.swx-trec.com/h3lioviz/paraview with the following JSON body:
+```json
+{
+    "application": "visualizer",
+    "sessionManagerURL": "https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/paraview/"
+}
+```
+Response:
+```json
+{
+    "sessionManagerURL": "https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/paraview/",
+    "id": "d6a03303-d6c6-11f0-b000-e555d37416b1",
+    "host": "0.0.0.0",
+    "port": 9100,
+    "sessionURL": "wss://paraview-web.noaa-demo.swx-trec.com/h3lioviz/proxy?sessionId=d6a03303-d6c6-11f0-b000-e555d37416b1&path=ws"
+}
+```
+2. Create a websockets request. Input the url from sessionURL then hit "Connect". You are now connected to the websocket!
+3. Send the following test message:
+```json
+ {"wslink": "1.0", "id": "system:c0:0", "method": "wslink.hello", "args": [{"secret": "wslink-secret"}]}
+ ```
+Response:
+```json
+{
+    "wslink": "1.0",
+    "id": "system:c0:0",
+    "result": {
+        "clientID": "c387976380d7746a7a42428f388e05ce1"
+    }
+}
+```
+4. Before you can do most other RPC calls you need to load a model. Do so with the following message:
+```json
+{"wslink": "1.0", "id": "rpc:c0ffd038671824f0db5efe17a02f5d3d4:9", "method": "pv.h3lioviz.load_model", "args": ["57758"]}
+```
+Response:
+```json
+{
+    "wslink": "1.0",
+    "id": "rpc:c0ffd038671824f0db5efe17a02f5d3d4:9",
+    "result": null
+}
+```
+5. Make any other RPC calls you want. Note that the order of arguments is the same as the function signature bellow the rpc decorator:
+{"wslink": "1.0", "method": "pv.h3lioviz.visibility", "id": "rpc:c0ffd038671824f0db5efe17a02f5d3d4:1", "args": ["color_bar", "off"]}
+
+
 ## Paraview GUI
 
 ### Installation
