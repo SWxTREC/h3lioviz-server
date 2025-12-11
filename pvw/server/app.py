@@ -291,6 +291,17 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Time string
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
+        # Logo watermark - fixed position in the corner using view's built-in logo
+        logo_path = pathlib.Path("/pvw/server/assets/lasp-stacked.reverse.xsmall.png")
+        if logo_path.exists():
+            self.view.UseTexturedBackground = 0
+            self.view.OrientationAxesVisibility = 1
+            # Use the view's logo texture property
+            self.view.LogoTexture = pvs.CreateTexture(str(logo_path))
+            self.view.LogoVisibility = 1
+            self.view.LogoPosition = "LowerRightCorner"
+        else:
+            self.view.LogoVisibility = 0
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
@@ -457,6 +468,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
+            elif obj == "logo":
+                self.view.LogoVisibility = 1
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -475,6 +488,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
+            elif obj == "logo":
+                self.view.LogoVisibility = 0
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
