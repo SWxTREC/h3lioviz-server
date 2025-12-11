@@ -472,11 +472,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
             elif obj == "color_bar":
-                disp = self.displays[self.cme_contours]
-                disp.SetScalarBarVisibility(self.view, True)
-                # ctf = disp.LookupTable
-                # cbar = pvs.GetScalarBar(ctf, self.view)
-                # cbar.Visibility = 1
+                for obj, disp in self.displays.items():
+                    disp.SetScalarBarVisibility(self.view, True)
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -496,11 +493,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
             elif obj == "color_bar":
-                disp = self.displays[self.cme_contours]
-                disp.SetScalarBarVisibility(self.view, False)
-                # ctf = disp.LookupTable
-                # cbar = pvs.GetScalarBar(ctf, self.view)
-                # cbar.Visibility = 0
+                for obj, disp in self.displays.items():
+                    disp.SetScalarBarVisibility(self.view, False)
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
@@ -546,6 +540,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         # hides old scalarbars that aren't in the view and
         # shows the new variable we are using now
         pvs.UpdateScalarBars(self.view)
+
         # But we want to hide the streamlines colorbar
         disp = self.lon_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
         disp = self.lat_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
