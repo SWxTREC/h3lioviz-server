@@ -9,6 +9,7 @@ import shutil
 import paraview.simple as pvs
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
+
 # For using additional packages not included with pvpython
 import paraview.web.venv
 
@@ -82,6 +83,7 @@ STORAGE_SPACE_CUTOFF_GIB = 5
 
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
+
 class App(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
         """
@@ -116,9 +118,9 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         self.view.UseLight = 1
         custom_light = pvs.AddLight()
-        custom_light.Coords = 'Camera'
+        custom_light.Coords = "Camera"
         custom_light.Intensity = 0.5
-        custom_light.Type = 'Positional'
+        custom_light.Type = "Positional"
         custom_light.Enable = 1
 
     @exportRpc("pv.h3lioviz.load_model")
@@ -138,28 +140,40 @@ class App(pv_protocols.ParaViewWebProtocol):
             free_GiB = free_B / 1024**3
             total_GiB = total_B / 1024**3
             if free_GiB < STORAGE_SPACE_CUTOFF_GIB:
-                raise RuntimeError(f"Less than {STORAGE_SPACE_CUTOFF_GIB}GiB of disk space for path {self._run_dir} so run cannot be downloaded. Currently there is {free_GiB:.1f}GiB of free space out of the total {total_GiB:.1f}GiB.")
+                raise RuntimeError(
+                    f"Less than {STORAGE_SPACE_CUTOFF_GIB}GiB of disk space for path {self._run_dir} so run cannot be downloaded. Currently there is {free_GiB:.1f}GiB of free space out of the total {total_GiB:.1f}GiB."
+                )
 
             s3_bucket = os.environ.get("S3_BUCKET_NAME")
             if s3_bucket is not None:
                 print("Run data does not exist locally, checking if data exists on S3")
-                s3_source_dir = f's3://{s3_bucket}/data/h3lioviz/{run_dir_name}'
-    
+                s3_source_dir = f"s3://{s3_bucket}/data/h3lioviz/{run_dir_name}"
+
                 download_start = datetime.datetime.now()
-                print(f"Attempting to copy run from S3 to local storage. Started at {download_start}")
+                print(
+                    f"Attempting to copy run from S3 to local storage. Started at {download_start}"
+                )
 
                 try:
-                    subprocess.check_output(["s5cmd", "cp", f"{s3_source_dir}/*", data_dir]).decode("utf-8")
+                    subprocess.check_output(
+                        ["s5cmd", "cp", f"{s3_source_dir}/*", data_dir]
+                    ).decode("utf-8")
                 except subprocess.CalledProcessError as e:
-                    if (e.output is not None) and ("no object found" in e.output.decode("utf-8")):
+                    if (e.output is not None) and (
+                        "no object found" in e.output.decode("utf-8")
+                    ):
                         raise ValueError(f"No run available for id: {run_id}")
                     else:
                         print(e.output)
-                        print(f"An error occurred while downloading data for run {run_id} from S3. See above output for command output.")
+                        print(
+                            f"An error occurred while downloading data for run {run_id} from S3. See above output for command output."
+                        )
                         raise e
-                
+
                 download_complete = datetime.datetime.now()
-                print(f"Download complete at {download_complete}. Duration: {download_complete - download_start}")
+                print(
+                    f"Download complete at {download_complete}. Duration: {download_complete - download_start}"
+                )
             else:
                 raise ValueError(f"No run available for id: {run_id}")
 
@@ -457,6 +471,11 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
+            elif obj == "color_bar":
+                disp = self.displays[self.cme_contours]
+                ctf = disp.LookupTable
+                cbar = pvs.GetScalarBar(ctf, self.view)
+                cbar.Visibility = 1
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -475,6 +494,11 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
+            elif obj == "color_bar":
+                disp = self.displays[self.cme_contours]
+                ctf = disp.LookupTable
+                cbar = pvs.GetScalarBar(ctf, self.view)
+                cbar.Visibility = 0
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
@@ -687,7 +711,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             loc = [0, 0, 1]
         else:
             raise ValueError(
-                "The snapping clip plane must be either " '"ecliptic" or "equator"'
+                'The snapping clip plane must be either "ecliptic" or "equator"'
             )
 
         self.lon_slice.slice_data.SliceType.Normal = loc
