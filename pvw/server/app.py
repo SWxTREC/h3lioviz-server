@@ -215,6 +215,13 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.time_string.Text = ""
         self._previous_time = None
 
+        # Create a logo watermark that stays fixed in the view
+        # The logo file should be placed in the assets directory
+        self.logo = pvs.Logo(registrationName="InstituteLogo")
+        logo_path = pathlib.Path("/pvw/server/assets/lasp-stacked.reverse.xsmall.png")
+        if logo_path.exists():
+            self.logo.Texture = pvs.CreateTexture(str(logo_path))
+
         # create a new 'Threshold' to represent the CME
         # self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
         # self.threshold_cme.UpperThreshold = 0.001
@@ -291,17 +298,10 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Time string
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
-        # Logo watermark - fixed position in the corner using view's built-in logo
-        logo_path = pathlib.Path("/pvw/server/assets/lasp-stacked.reverse.xsmall.png")
-        if logo_path.exists():
-            self.view.UseTexturedBackground = 0
-            self.view.OrientationAxesVisibility = 1
-            # Use the view's logo texture property
-            self.view.LogoTexture = pvs.CreateTexture(str(logo_path))
-            self.view.LogoVisibility = 1
-            self.view.LogoPosition = "LowerRightCorner"
-        else:
-            self.view.LogoVisibility = 0
+
+        # Logo watermark - fixed position in the corner
+        self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
+        self.logo_display.WindowLocation = 'Lower Right Corner'
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
@@ -469,7 +469,7 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
             elif obj == "logo":
-                self.view.LogoVisibility = 1
+                pvs.Show(self.logo, self.view)
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -489,7 +489,7 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
             elif obj == "logo":
-                self.view.LogoVisibility = 0
+                pvs.Hide(self.logo, self.view)
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
