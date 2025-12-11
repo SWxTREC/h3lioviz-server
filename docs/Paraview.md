@@ -98,7 +98,7 @@ Response:
     "result": null
 }
 ```
-5. Make any other RPC calls you want. Note that the order of arguments is the same as the function signature bellow the rpc decorator:
+5. Make any other RPC calls you want. Note that the order of arguments is the same as the function signature below the rpc decorator:
 {"wslink": "1.0", "method": "pv.h3lioviz.visibility", "id": "rpc:c0ffd038671824f0db5efe17a02f5d3d4:1", "args": ["color_bar", "off"]}
 
 
