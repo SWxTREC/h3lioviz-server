@@ -473,9 +473,10 @@ class App(pv_protocols.ParaViewWebProtocol):
                 self.earth.show_fieldline()
             elif obj == "color_bar":
                 disp = self.displays[self.cme_contours]
-                ctf = disp.LookupTable
-                cbar = pvs.GetScalarBar(ctf, self.view)
-                cbar.Visibility = 1
+                disp.SetScalarBarVisibility(self.view, True)
+                # ctf = disp.LookupTable
+                # cbar = pvs.GetScalarBar(ctf, self.view)
+                # cbar.Visibility = 1
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -496,9 +497,10 @@ class App(pv_protocols.ParaViewWebProtocol):
                 self.earth.hide_fieldline()
             elif obj == "color_bar":
                 disp = self.displays[self.cme_contours]
-                ctf = disp.LookupTable
-                cbar = pvs.GetScalarBar(ctf, self.view)
-                cbar.Visibility = 0
+                disp.SetScalarBarVisibility(self.view, False)
+                # ctf = disp.LookupTable
+                # cbar = pvs.GetScalarBar(ctf, self.view)
+                # cbar.Visibility = 0
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
