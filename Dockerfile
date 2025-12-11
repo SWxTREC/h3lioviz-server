@@ -14,10 +14,8 @@ USER root
 ARG DEBIAN_FRONTEND=noninteractive
 # Can be egl (GPU) or osmesa (CPU)
 ARG RENDERER=osmesa
-ARG SESSION_MANAGER_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/paraview/"
-ARG API_URL="https://paraview-web.noaa-demo.swx-trec.com/h3lioviz/metadata/"
 
-
+ARG FRONTEND_ENVIRONMENT="dev"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
@@ -108,7 +106,7 @@ RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
     cd /tmp/h3lioviz/h3lioviz-main && \
     npm install --prefer-offline --no-audit --progress=false && \
     npm rebuild esbuild && \
-    npm run build:dev && \
+    npm run build:${FRONTEND_ENVIRONMENT} && \
     cp -r dist/h3lioviz /pvw/www/h3lioviz && \
     cd / && \
     rm -rf /tmp/h3lioviz/; \
