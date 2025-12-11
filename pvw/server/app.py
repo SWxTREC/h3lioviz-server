@@ -319,6 +319,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Logo watermark - fixed position in the corner
         self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
+        self.logo_display.Interactivity = 0
         self.logo_display.Position = [0.95, 0.02]
 
         # get color transfer function/color map for Bz initially
