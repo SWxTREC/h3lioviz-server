@@ -121,6 +121,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         custom_light.Type = 'Positional'
         custom_light.Enable = 1
 
+        # Track the current scalar bar and its visibility
+        self._scalarbar_visible = False
+        self._current_lut = None
+
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
@@ -338,6 +342,11 @@ class App(pv_protocols.ParaViewWebProtocol):
         for name in DEFAULT_CMAP:
             self.set_colormap(name)
 
+        # Store the initial LUT and hide scalar bar by default
+        self._current_lut = bzLUT
+        cbar = pvs.GetScalarBar(bzLUT, self.view)
+        cbar.Visibility = 0
+
         # hide this data from the default initial view
         for x in [
             self.threshold,
@@ -457,6 +466,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
+            elif obj == "color_bar":
+                self.set_scalarbar_visibility(True)
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -475,6 +486,8 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
+            elif obj == "color_bar":
+                self.set_scalarbar_visibility(False)
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
@@ -517,17 +530,42 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.update_opacity(name)
         self.update_lut(name)
 
-        # hides old scalarbars that aren't in the view and
-        # shows the new variable we are using now
-        pvs.UpdateScalarBars(self.view)
-        # But we want to hide the streamlines colorbar
-        disp = self.lon_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
-        disp = self.lat_slice.streamlines_disp.SetScalarBarVisibility(self.view, False)
+        # Update the current LUT reference and apply visibility state
+        lut = pvs.GetColorTransferFunction(variable)
+        # Hide the old scalar bar if it was a different variable
+        if self._current_lut is not None and self._current_lut != lut:
+            old_cbar = pvs.GetScalarBar(self._current_lut, self.view)
+            old_cbar.Visibility = 0
+        self._current_lut = lut
+        # Apply the current visibility preference to the new scalar bar
+        self._update_scalarbar()
 
         # restore active source
         pvs.SetActiveSource(None)
         # Render the view
         pvs.Render(self.view)
+
+    def set_scalarbar_visibility(self, visible):
+        """
+        Set the visibility of the scalar bar.
+
+        visible : bool
+            Whether the scalar bar should be visible
+        """
+        self._scalarbar_visible = visible
+        self._update_scalarbar()
+
+    def _update_scalarbar(self):
+        """
+        Update the scalar bar visibility based on current state.
+
+        Shows or hides the single scalar bar for the current color variable.
+        """
+        if self._current_lut is None:
+            return
+
+        cbar = pvs.GetScalarBar(self._current_lut, self.view)
+        cbar.Visibility = 1 if self._scalarbar_visible else 0
 
     def update_lut(self, name):
         """
