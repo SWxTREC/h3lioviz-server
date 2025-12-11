@@ -106,7 +106,8 @@ RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
     unzip /tmp/h3lioviz.zip -d /tmp/h3lioviz && \
     rm -rf h3lioviz.zip && \
     cd /tmp/h3lioviz/h3lioviz-main && \
-    npm install && \
+    npm install --prefer-offline --no-audit --progress=false && \
+    npm rebuild esbuild && \
     npm run build:dev && \
     cp -r dist/h3lioviz /pvw/www/h3lioviz && \
     cd / && \
