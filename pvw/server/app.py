@@ -565,7 +565,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             cbar.AddRangeLabels = 0
             cbar.TitleFontSize = 12
             cbar.LabelFontSize = 12
-            cbar.Position = [0.98, 0.11]
+            cbar.Position = [0.98, 0.3]
             cbar.ScalarBarThickness = 10
             cbar.ScalarBarLength = 0.2
             # Label formatting
