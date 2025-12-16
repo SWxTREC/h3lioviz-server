@@ -312,8 +312,8 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Time string
         text_disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
-        text_disp.FontSize = 12
-        text_disp.WindowLocation = 'Lower Left Corner'
+        # text_disp.FontSize = 12
+        text_disp.WindowLocation = 'Upper Left Corner'
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
