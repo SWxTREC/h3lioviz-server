@@ -15,6 +15,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Can be egl (GPU) or osmesa (CPU)
 ARG RENDERER=osmesa
 
+ARG FRONTEND_ENVIRONMENT="dev"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-dev \
         apache2 \
@@ -26,8 +28,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         unzip \
         python3.9 \
-        python3.9-venv && \
+        python3.9-venv \
+        git && \
         rm -rf /var/lib/apt/lists/*
+
+# Instructions for installing node for  https://deb.nodesource.com
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
     tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
@@ -89,6 +97,22 @@ EXPOSE 80
 COPY pvw /pvw
 
 RUN mkdir /data
+
+# NOTE: Having the frontend build 
+RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
+    curl -L "https://github.com/SWxTREC/h3lioviz/archive/refs/heads/main.zip" -o /tmp/h3lioviz.zip && \
+    unzip /tmp/h3lioviz.zip -d /tmp/h3lioviz && \
+    rm -rf h3lioviz.zip && \
+    cd /tmp/h3lioviz/h3lioviz-main && \
+    npm install --prefer-offline --no-audit --progress=false && \
+    npm rebuild esbuild && \
+    npm run build:${FRONTEND_ENVIRONMENT} && \
+    cp -r dist/h3lioviz /pvw/www/h3lioviz && \
+    cd / && \
+    rm -rf /tmp/h3lioviz/; \
+else \
+    echo "pvw/www/h3lioviz found. Skipping frontend h3lioviz build."; \
+fi
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
