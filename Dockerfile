@@ -2,6 +2,36 @@ ARG BASE_IMAGE=ubuntu:20.04
 # Setting the below argument to false disables installing AWS packages
 ARG AWS_ENABLED=false
 
+# ============================================================================
+# Frontend builder stage - builds h3lioviz in a Node.js container
+# This stage only rebuilds when the h3lioviz repository changes
+# ============================================================================
+FROM node:22-slim AS frontend-builder
+
+ARG FRONTEND_ENVIRONMENT="dev"
+ARG H3LIOVIZ_VERSION=main
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        unzip \
+        ca-certificates && \
+        rm -rf /var/lib/apt/lists/*
+
+# Download and build h3lioviz
+# The H3LIOVIZ_VERSION arg can be used to bust cache when the repo changes
+RUN curl -L "https://github.com/SWxTREC/h3lioviz/archive/refs/heads/${H3LIOVIZ_VERSION}.zip" -o /tmp/h3lioviz.zip && \
+    unzip /tmp/h3lioviz.zip -d /tmp/h3lioviz && \
+    rm -rf /tmp/h3lioviz.zip
+
+WORKDIR /tmp/h3lioviz/h3lioviz-${H3LIOVIZ_VERSION}
+
+RUN npm install --prefer-offline --no-audit --progress=false && \
+    npm rebuild esbuild && \
+    npm run build:${FRONTEND_ENVIRONMENT}
+
+# ============================================================================
+# Main application stage
+# ============================================================================
 # ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
 FROM ${BASE_IMAGE} AS base
 
@@ -31,11 +61,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.9-venv \
         git && \
         rm -rf /var/lib/apt/lists/*
-
-# Instructions for installing node for  https://deb.nodesource.com
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-RUN apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
 
 RUN curl -L "https://github.com/peak/s5cmd/releases/download/v2.1.0/s5cmd_2.1.0_Linux-64bit.tar.gz" -o /tmp/s5cmd.tar.gz && \ 
     tar -xvzf /tmp/s5cmd.tar.gz -C /usr/local/bin && \
@@ -98,21 +123,9 @@ COPY pvw /pvw
 
 RUN mkdir /data
 
-# NOTE: Having the frontend build 
-RUN if [ ! -d "/pvw/www/h3lioviz" ]; then \
-    curl -L "https://github.com/SWxTREC/h3lioviz/archive/refs/heads/main.zip" -o /tmp/h3lioviz.zip && \
-    unzip /tmp/h3lioviz.zip -d /tmp/h3lioviz && \
-    rm -rf h3lioviz.zip && \
-    cd /tmp/h3lioviz/h3lioviz-main && \
-    npm install --prefer-offline --no-audit --progress=false && \
-    npm rebuild esbuild && \
-    npm run build:${FRONTEND_ENVIRONMENT} && \
-    cp -r dist/h3lioviz /pvw/www/h3lioviz && \
-    cd / && \
-    rm -rf /tmp/h3lioviz/; \
-else \
-    echo "pvw/www/h3lioviz found. Skipping frontend h3lioviz build."; \
-fi
+# Copy the built frontend from the builder stage
+# This only rebuilds when the frontend-builder stage changes
+COPY --from=frontend-builder /tmp/h3lioviz/h3lioviz-main/dist/h3lioviz /pvw/www/h3lioviz
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
