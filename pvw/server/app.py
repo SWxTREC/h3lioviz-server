@@ -557,12 +557,22 @@ class App(pv_protocols.ParaViewWebProtocol):
                 continue
             cbar = pvs.GetScalarBar(disp.LookupTable, self.view)
             cbar.AutoOrient = 0
-            cbar.Orientation = "Horizontal"
+            cbar.Orientation = "Vertical"
             cbar.TextPosition = "Ticks left/bottom, annotations right/top"
             cbar.Title = label
             cbar.ComponentTitle = ""
             # Disables the endpoints which can be formatted differently
             cbar.AddRangeLabels = 0
+            cbar.TitleFontSize = 12
+            cbar.LabelFontSize = 12
+            cbar.Position = [0.98, 0.11]
+            cbar.ScalarBarThickness = 10
+            cbar.ScalarBarLength = 0.2
+            # Label formatting
+            cbar.AutomaticLabelFormat = 0
+            cbar.LabelFormat = '%.0f'
+            # The top/bottom ticks
+            cbar.RangeLabelFormat = '%.0f'
 
         self.lon_slice.variable = variable
         self.lat_slice.variable = variable
