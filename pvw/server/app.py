@@ -315,7 +315,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         """Setup the rendering view."""
 
         # Time string
-        disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
+        text_disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
+        text_disp.FontSize = 12
+        text_disp.WindowLocation = 'Lower Left Corner'
 
         # Logo watermark - fixed position in the corner
         self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
@@ -879,7 +881,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             # This is the same timestep, so we don't need to
             # update anything now
             return
-        self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00")
+        self.time_string.Text = curr_time.strftime("%Y-%m-%d %H:00Z")
 
         for x in self.satellites:
             # Update the satellite positions based on the evolution data
