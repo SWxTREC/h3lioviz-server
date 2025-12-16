@@ -127,6 +127,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         self._scalarbar_visible = False
         self._current_lut = None
 
+        # Add static content like logos
+        self._add_logos()
+
     @exportRpc("pv.h3lioviz.load_model")
     def load_model(self, run_id, program="enlil"):
         """
@@ -233,13 +236,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.time_string.Text = ""
         self._previous_time = None
 
-        # Create a logo watermark that stays fixed in the view
-        # The logo file should be placed in the assets directory
-        self.logo = pvs.Logo(registrationName="InstituteLogo")
-        logo_path = pathlib.Path("/pvw/server/assets/lasp-stacked.reverse.xsmall.png")
-        if logo_path.exists():
-            self.logo.Texture = pvs.CreateTexture(str(logo_path))
-
         # create a new 'Threshold' to represent the CME
         # self.threshold_cme = pvs.Threshold(registrationName="CME", Input=self.data)
         # self.threshold_cme.UpperThreshold = 0.001
@@ -318,11 +314,6 @@ class App(pv_protocols.ParaViewWebProtocol):
         text_disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
         text_disp.FontSize = 12
         text_disp.WindowLocation = 'Lower Left Corner'
-
-        # Logo watermark - fixed position in the corner
-        self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
-        self.logo_display.Interactivity = 0
-        self.logo_display.Position = [0.95, 0.02]
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
@@ -432,6 +423,27 @@ class App(pv_protocols.ParaViewWebProtocol):
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
 
+    def _add_logos(self):
+        """Add any logos or static content to the view."""
+        # The logo files should be placed in the assets directory
+        logo_name_locs = [
+            # right to left ordering
+            ("lasp-stacked.reverse.xsmall.png", 0.955),
+            ("noaa-logo-white-line-rgb.png", 0.9),
+            ("NWS_logo.png", 0.845),
+        ]
+        for name, horizontal_pos in logo_name_locs:
+            logo_path = pathlib.Path(f"/pvw/server/assets/{name}")
+            if logo_path.exists():
+                # Create a logo watermark that stays fixed in the view
+                logo = pvs.Logo(registrationName=f"Logo-{name}")
+                logo.Texture = pvs.CreateTexture(str(logo_path))
+                logo_display = pvs.Show(logo, self.view, "LogoSourceRepresentation")
+                logo_display.Interactivity = 0
+                logo_display.Position = [horizontal_pos, 0.01]
+            else:
+                print("Couldn't find logo file:", logo_path)
+
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
         """
@@ -494,8 +506,6 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
-            elif obj == "logo":
-                pvs.Show(self.logo, self.view)
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(True)
             else:
@@ -516,8 +526,6 @@ class App(pv_protocols.ParaViewWebProtocol):
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
-            elif obj == "logo":
-                pvs.Hide(self.logo, self.view)
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(False)
             else:
