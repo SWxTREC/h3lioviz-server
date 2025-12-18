@@ -24,7 +24,7 @@ The H3lioViz server is a containerized application that provides:
 Apache serves as the main entry point and handles routing:
 
 - `/` -> Reroutes to `/h3lioviz/`
-- `/h3lioviz/` -> Frontend web application
+- `/h3lioviz/*` -> All routes except the below endpoints route to the Frontend Web Application
 - `/h3lioviz/paraview` -> ParaView Web service (creates visualization sessions)
 - `/h3lioviz/proxy` -> WebSocket proxy (maps session IDs to ParaView ports)
 - `/h3lioviz/metadata/` -> Flask API for metadata operations
@@ -36,8 +36,8 @@ The docker/scripts/server.sh script initializes the docker container by using ce
 server.sh (paraview/websockets) environment variables:
 
 - SERVER_NAME: the server name to use for the session url. Gets returned from paraview-web to tell the frontend where to connect to the websocket. Note that the current routing expects {domain}/h3lioviz.
-- PROTOCOL: the protocol to use for the session url
-  ws -> websocket
+- PROTOCOL: the protocol to use for the session url \
+  ws -> websocket \
   wss -> websocket secure
 - EXTRA_PVPYTHON_ARGS: extra arguments to pass to pvpython (comma-separated, no extra spaces)
   Example: "-dr,--mesa-swr"
@@ -50,10 +50,10 @@ Paraview & Flask environment variables:
 - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
 - TABLE_NAME: The name of the table that will store run metadata
 
-Note: If the two above parameters are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail.
+Note: If AWS_DEFAULT_REGION and TABLE_NAME are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail.
 If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
-### Logging Locations Within Container
+### Logging Locations ***Within*** Container
 
 - Flask: `/data/launcher/log/flask.log`
 - Paraview: `/data/launcher/log/<hashed_session_id>.log` & `/data/launcher/log/launcherLog.log`
@@ -68,6 +68,18 @@ To work with this repository, you will need:
 - Access to the SWx-TREC AWS ECR repository (for production/development deployments), or a personal one (for deployments to an account other than prod or dev).
 
 ## Building the Docker Image
+
+[!NOTE]
+The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available.
+
+Build the image locally:
+
+```bash
+docker build --build-arg FRONTEND_ENVIRONMENT=prod .
+```
+
+For advanced usage and to build a different version of the frontend locally, you can
+follow steps 1-7 to build and modify the frontend code directly.
 
 ### Step 1: Clone/Download the Frontend
 
@@ -134,8 +146,7 @@ docker build -t h3lioviz .
 This will run the h3lioviz docker image you have build locally. If you want to pull the latest dev/prod image, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag> with the dev or prod tag.
 
 NOTE: This does not currently entirely work due to the container's dependency on AWS resources.
-The paraview code will serve the websocket just fine, but the frontend served by the container will not function.
-See [Building & Running h3lioviz-server](https://confluence.lasp.colorado.edu/spaces/MODSDB/pages/271520419/Building+Running+h3lioviz-server) for more details.
+The paraview code will serve the websocket just fine, and the frontend will be accessible, but the flask routes served by the container as well as on-the-fly run downloading will not work.
 
 ```bash
 docker run -p 0.0.0.0:8080:80 \
@@ -210,7 +221,7 @@ docker push <ECR Name>
 docker logout public.ecr.aws
 ```
 
-> **Note**: Remember to log out of the public ECR after pushing, as credentials can interfere with other AWS Docker processes.
+> **Note**: Remember to log out of the public ECR after pushing, as credentials can interfere with accessing public AWS ECR repositories.
 
 ## Test Data
 
@@ -252,7 +263,6 @@ The virtual environment is created by the Dockerfile and is utilized for flask i
 ```
 h3lioviz-server/
 ├── docker/
-│   ├── binaries/          # ParaView binaries (bin/, lib/, share/)
 │   ├── config/
 │   │   └── apache/        # Apache configuration
 │   └── scripts/           # Container initialization script

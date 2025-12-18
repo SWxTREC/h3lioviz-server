@@ -6,14 +6,14 @@
 
 The paraview web launcher is responsible for starting a new process for each user, generating a session key,
 distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on.
-It listens on localhost:9000. Note that the launcher is only communicated to via HTTP.
-The Paraview web server/visualizer is what handles all websocket connections.
+It listens on localhost:9000. Note that the launcher is only communicated to via HTTP. Our cloud infrastructure handles any HTTP-to-HTTPS
+encapsulation. The Paraview web server/visualizer is what handles all websocket connections.
 
 #### Configuration
 
 The configuration file is located in [../pvw/launcher/config.json](../pvw/launcher/config.json). Here are a few of the most important parameters:
 
-- configuration.sessionURL: This is the url that the paraview launcher expects requests for new sessions to be made to. SESSION_URL_ROOT is replaced with $PROTOCOL://$SERVER_NAME by server.sh. Both $PROTOCOL and $SERVER_NAME are environment variables set by the docker-compose file mentioned in [../README.md](../README.md).
+- configuration.sessionURL: This is the url that the paraview launcher expects requests for new sessions to be made to. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. Both $PROTOCOL and $SERVER_NAME are environment variables that need to be set by a docker-compose file or command line flags.
 - configuration.proxyFile: This is the file that will store mappings between sessionIDs and ports that have been opened for the websocket controlled visualization.
 - apps.visualizer: This will run pvpython and is forked for each invocation of the paraview web launcher
 - apps.visualizer-mpi: This provides parallelization for batch operations. I am not sure if this is being used.
@@ -32,7 +32,7 @@ The following logs contain:
 ### Paraview Web Visualizer/Server
 
 Each connection will create a new paraview web server process with it's own port.
-The capablities of the visualizer are determined by which VtkWebProtocols are registered to the paraview server.
+The capabilities of the visualizer are determined by which VtkWebProtocols are registered to the paraview server.
 An example of one such protocol is the ParaviewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse.
 Another example is the custom ParaviewWebProtocol, a subclass of vtkWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py).
 This is how we define custom actions on the visualization that the frontend can request via RPC calls.
@@ -45,7 +45,7 @@ The following logs contain:
 
 - Rendering logs including the time each step of the render took
 - Errors that occurred during the rendering or any errors that resulted from websocket RPC calls to the server
-- Any other information outputed by the python files in `../pvw/server` including information on on the fly run downloads
+- Any other information output by the python files in `../pvw/server` including information on on the fly run downloads
 
 `/data/launcher/log/<hashed_session_id>.log`
 
@@ -54,7 +54,7 @@ The following logs contain:
 [Install Postman](https://www.postman.com/downloads/) or another API testing tool. You can avoid all their sign in stuff if you don't want to persist your session. 
 The value of the id key doesn't seem to matter much, but it must be filled out in order for requests to be successful (flingus:0 seems to work just fine).
 
-1. Send a POST request to https://paraview-web.{YOUR_SUB_DOMAIN}.swx-trec.com/h3lioviz/paraview with the following JSON body:
+1. Send a POST request to `https://paraview-web.{YOUR_SUB_DOMAIN}.swx-trec.com/h3lioviz/paraview` with the following JSON body:
 ```json
 {
     "application": "visualizer",
