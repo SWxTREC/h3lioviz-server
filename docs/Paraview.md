@@ -45,7 +45,7 @@ The following logs contain:
 
 - Rendering logs including the time each step of the render took
 - Errors that occurred during the rendering or any errors that resulted from websocket RPC calls to the server
-- Any other information outputted by the python files in `../pvw/server` including information on on the fly run downloads
+- Any other information output by the python files in `../pvw/server` including information on on the fly run downloads
 
 `/data/launcher/log/<hashed_session_id>.log`
 
