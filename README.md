@@ -70,7 +70,7 @@ To work with this repository, you will need:
 ## Building the Docker Image
 
 [!NOTE]
-The Dockerfile now includes steps to build the frontend. If you want to build the image with an included environment file (`dev`, `prod`, or `swpc`), then you can select the specific environment file with a docker buildarg (default is `dev` if unspecified).
+The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available.
 
 Build the image locally:
 
