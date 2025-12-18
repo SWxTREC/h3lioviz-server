@@ -69,7 +69,17 @@ To work with this repository, you will need:
 
 ## Building the Docker Image
 
-Note: The Dockerfile now includes steps to build the frontend for dev and prod deployments. Currently pending the addition of a `noaa` build script to the frontend. If you want to build the image with the `dev` or `prod` frontends, then skip steps 1-6 and run `docker build --build-arg FRONTEND_ENVIRONMENT=<dev|prod> .`. If you want to skip bundling a frontend altogether, then you can skip steps 1-6 and run `mkdir pvw/www/h3lioviz`.
+[!NOTE]
+The Dockerfile now includes steps to build the frontend. If you want to build the image with an included environment file (`dev`, `prod`, or `swpc`), then you can select the specific environment file with a docker buildarg (default is `dev` if unspecified).
+
+Build the image locally:
+
+```bash
+docker build --build-arg FRONTEND_ENVIRONMENT=prod .
+```
+
+For advanced usage and to build a different version of the frontend locally, you can
+follow steps 1-7 to build and modify the frontend code directly.
 
 ### Step 1: Clone/Download the Frontend
 
