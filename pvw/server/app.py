@@ -321,6 +321,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
         self.logo_display.Interactivity = 0
         self.logo_display.Position = [0.95, 0.02]
+        # Hide by default for NOAA
+        pvs.Hide(self.logo, self.view)
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
