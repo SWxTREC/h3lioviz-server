@@ -99,6 +99,8 @@ RUN groupadd proxy-mapping && \
     chown pvw-user:proxy-mapping /opt/launcher/proxy-mapping.txt && \
     chmod 660 /opt/launcher/proxy-mapping.txt
 
+RUN mkdir -p /data/launcher/log
+
 # Copy the apache configuration file into place
 COPY docker/config/apache/001-pvw.conf /etc/apache2/sites-available/001-pvw.conf
 

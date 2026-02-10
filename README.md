@@ -17,7 +17,7 @@ The H3lioViz server is a containerized application that provides:
 - **ParaView Web Service**: 3D visualization of heliospheric simulation data
 - **Flask Metadata API**: Endpoints for retrieving run information and time-series data
 - **Apache Web Server**: Serves the frontend and acts as a reverse proxy
-- **ParaView Pre-Processing**: Scripts that generate the data used by the ParaView Web Service (not containerized)
+- **ParaView Pre-Processing**: Scripts that generate the data used by the ParaView Web Service (not containerized). Found in the `scripts/` directory.
 
 ### Architecture
 
@@ -57,7 +57,7 @@ If S3_BUCKET_NAME is not specified, paraview will not be able to download new ru
 
 - Flask: `/data/launcher/log/flask.log`
 - Paraview: `/data/launcher/log/<hashed_session_id>.log` & `/data/launcher/log/launcherLog.log`
-- Apache: `/var/log/apache2/001-pvw_access.log` & `/var/log/apache2/001-pvw_error.log`
+- Apache: `/data/launcher/log/001-pvw_access.log` & `/data/launcher/log/001-pvw_error.log`
 
 ## Prerequisites
 
