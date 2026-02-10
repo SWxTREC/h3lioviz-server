@@ -6,6 +6,7 @@ ARG BUILD_FRONTEND=true
 # ============================================================================
 # Frontend builder stage - builds h3lioviz in a Node.js container
 # This stage only rebuilds when the h3lioviz repository changes
+# and the BUILD_FRONTEND arg is set to true
 # ============================================================================
 FROM node:22-slim AS frontend-builder
 
