@@ -126,8 +126,6 @@ EXPOSE 80
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
 
-RUN mkdir /data
-
 # Copy the built frontend from the builder stage
 # This only rebuilds when the frontend-builder stage changes
 FROM base AS frontend-true
