@@ -70,12 +70,12 @@ To work with this repository, you will need:
 ## Building the Docker Image
 
 [!NOTE]
-The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available.
+The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available. The `--build-arg BUILD_FRONTEND` is optional since this argument defaults to true. 
 
 Build the image locally:
 
 ```bash
-docker build --build-arg FRONTEND_ENVIRONMENT=prod .
+docker build --build-arg FRONTEND_ENVIRONMENT=prod --build-arg BUILD_FRONTEND=true .
 ```
 
 For advanced usage and to build a different version of the frontend locally, you can
@@ -133,10 +133,10 @@ cp -r {frontend-path}/dist/* pvw/www
 
 ### Step 7: Build the Docker Image
 
-Build the image locally:
+Build the image locally using a pre-built frontend:
 
 ```bash
-docker build -t h3lioviz .
+docker build --build-arg BUILD_FRONTEND=false -t h3lioviz .
 ```
 
 ## Deployment
