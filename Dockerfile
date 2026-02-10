@@ -133,7 +133,7 @@ COPY --from=frontend-builder /tmp/h3lioviz/h3lioviz-main/dist/h3lioviz /pvw/www/
 
 FROM base AS frontend-false
 
-FROM frontend-${BUILD_FRONTEND} as final 
+FROM frontend-${BUILD_FRONTEND} AS final 
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
