@@ -131,6 +131,7 @@ COPY pvw /pvw
 FROM base AS frontend-true
 COPY --from=frontend-builder /tmp/h3lioviz/h3lioviz-main/dist/h3lioviz /pvw/www/h3lioviz
 
+# Do nothing if BUILD_FRONTEND is set to false
 FROM base AS frontend-false
 
 FROM frontend-${BUILD_FRONTEND} AS final 
