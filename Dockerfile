@@ -1,6 +1,7 @@
 ARG BASE_IMAGE=ubuntu:20.04
 # Setting the below argument to false disables installing AWS packages
 ARG AWS_ENABLED=false
+ARG BUILD_FRONTEND=true
 
 # ============================================================================
 # Frontend builder stage - builds h3lioviz in a Node.js container
@@ -16,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         ca-certificates && \
         rm -rf /var/lib/apt/lists/*
+
 
 # Download and build h3lioviz
 # The H3LIOVIZ_VERSION arg can be used to bust cache when the repo changes
@@ -125,7 +127,12 @@ RUN mkdir /data
 
 # Copy the built frontend from the builder stage
 # This only rebuilds when the frontend-builder stage changes
+FROM base AS frontend-true
 COPY --from=frontend-builder /tmp/h3lioviz/h3lioviz-main/dist/h3lioviz /pvw/www/h3lioviz
+
+FROM base AS frontend-false
+
+FROM frontend-${BUILD_FRONTEND} as final 
 
 # Start the container.  If we're not running this container, but rather are
 # building other containers based on it, this entry point can/should be
