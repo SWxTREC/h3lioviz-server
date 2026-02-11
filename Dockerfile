@@ -99,6 +99,8 @@ RUN groupadd proxy-mapping && \
     chown pvw-user:proxy-mapping /opt/launcher/proxy-mapping.txt && \
     chmod 660 /opt/launcher/proxy-mapping.txt
 
+RUN mkdir -p /data/launcher/log
+
 # Copy the apache configuration file into place
 COPY docker/config/apache/001-pvw.conf /etc/apache2/sites-available/001-pvw.conf
 
@@ -124,13 +126,12 @@ EXPOSE 80
 # This can be overridden for local testing with `-v ${PWD}/pvw:/pvw`
 COPY pvw /pvw
 
-RUN mkdir /data
-
 # Copy the built frontend from the builder stage
 # This only rebuilds when the frontend-builder stage changes
 FROM base AS frontend-true
 COPY --from=frontend-builder /tmp/h3lioviz/h3lioviz-main/dist/h3lioviz /pvw/www/h3lioviz
 
+# Do nothing if BUILD_FRONTEND is set to false
 FROM base AS frontend-false
 
 FROM frontend-${BUILD_FRONTEND} AS final 
