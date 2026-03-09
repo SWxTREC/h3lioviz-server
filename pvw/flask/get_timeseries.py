@@ -6,6 +6,7 @@ import boto3
 
 from helpers import _get_env_var
 
+
 class Evolution:
     def __init__(self, name, json_data):
         """
@@ -137,4 +138,12 @@ def get_timeseries(run_id, satellite):
     # Load the json metadata and append it to our content list
     evo = Evolution(satellite.replace(".json", ""), json.loads(buffer.getvalue()))
 
-    return evo.as_latis()
+    response = {
+        "statusCode": 200,
+        "body": json.dumps(evo.as_latis()),
+        "headers": {
+            "Content-Type": "application/json",
+        },
+    }
+
+    return response
