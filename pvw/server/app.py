@@ -1,22 +1,18 @@
 import datetime
 import json
 import math
-import pathlib
 import os
-import subprocess
+import pathlib
 import shutil
-
-import paraview.simple as pvs
-from paraview.web import protocols as pv_protocols
-from wslink import register as exportRpc
+import subprocess
 
 # For using additional packages not included with pvpython
-import paraview.web.venv
-
 import models
+import paraview.simple as pvs
 import satellite
 import slice
-
+from paraview.web import protocols as pv_protocols
+from wslink import register as exportRpc
 
 # TODO: Try and use faster plugins where possible
 #       Investigate the use of various speedups. FlyingEdges3D requires image datasets
@@ -80,6 +76,8 @@ VARIABLE_LABEL = {
 }
 
 STORAGE_SPACE_CUTOFF_GIB = 5
+
+PLANET_SATELLITES = ["mars", "mercury", "venus"]
 
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
@@ -214,7 +212,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         """Initialize all of the paraview filters"""
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
-            registrationName=f"3D-CellDatatoPointData", Input=self.model.data
+            registrationName="3D-CellDatatoPointData", Input=self.model.data
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
@@ -426,7 +424,19 @@ class App(pv_protocols.ParaViewWebProtocol):
             for x in self.model.satellites.values()
             if "stereo" in x.name
         }
-
+        for x in self.model.satellites.values():
+            if "mars" in x.name:
+                self.satellites["mars"] = satellite.Satellite(
+                    self.model.satellites["mars"], "sphere", 0.02, view=self.view
+                )
+            elif "venus" in x.name:
+                self.satellites["venus"] = satellite.Satellite(
+                    self.model.satellites["venus"], "sphere", 0.025, view=self.view
+                )
+            elif "mercury" in x.name:
+                self.satellites["mercury"] = satellite.Satellite(
+                    self.model.satellites["mercury"], "sphere", 0.015, view=self.view
+                )
         # Add the fieldlines to the satellites + Earth
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)

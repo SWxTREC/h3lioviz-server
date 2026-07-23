@@ -1,5 +1,6 @@
 import pathlib
 
+import models
 import paraview.simple as pvs
 
 # List of satellite colors
@@ -7,10 +8,20 @@ SATELLITE_COLORS = {
     "earth": [0.0, 0.3333333333333333, 0.0],
     "stereoa": [177 / 255, 138 / 255, 142 / 255],
     "stereob": [94 / 255, 96 / 255, 185 / 255],
+    "mars": [1.0, 0.0, 0.0],
+    "venus": [1, 1, 0],
+    "mercury": [0.33, 0.33, 0.33],
 }
 
 # Keep track of the name mapping that we want to show to users
-SATELLITE_NAMES = {"earth": "Earth", "stereoa": "STEREO-A", "stereob": "STEREO-B"}
+SATELLITE_NAMES = {
+    "earth": "Earth",
+    "stereoa": "STEREO-A",
+    "stereob": "STEREO-B",
+    "mars": "Mars",
+    "venus": "Venus",
+    "mercury": "Mercury",
+}
 
 
 class Satellite:
@@ -34,7 +45,13 @@ class Satellite:
         A view to render the satellite into
     """
 
-    def __init__(self, model_satellite, representation="box", size=0.02, view=None):
+    def __init__(
+        self,
+        model_satellite: models.ModelSatellite,
+        representation="box",
+        size=0.02,
+        view=None,
+    ):
         self.size = size
         self.view = view
         if representation == "box":
@@ -203,10 +220,10 @@ class Earth(Satellite):
     size : Number
         radius of the Earth
     view : paraview.Simple.View
-        A view to render the sun into
+        A view to render the earth into
     """
 
-    def __init__(self, model_satellite, size=0.025, view=None):
+    def __init__(self, model_satellite: models.ModelSatellite, size=0.025, view=None):
         super().__init__(model_satellite, representation="sphere", size=size, view=view)
 
         # Path to the Earth texture on our local system

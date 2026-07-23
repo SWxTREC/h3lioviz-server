@@ -102,6 +102,7 @@ class Enlil(Model):
         return [str(x) for x in sorted(self.dir.glob("pv-tim*.nc"))]
 
     def _load_satellites(self):
+        self.satellites = {}
         sat_files = self.dir.glob("evo.*.json")
         for sat_file in sat_files:
             # strip the extra components from the name
