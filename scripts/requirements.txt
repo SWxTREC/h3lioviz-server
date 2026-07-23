@@ -4,3 +4,6 @@ numpy
 scipy
 xarray
 importlib-metadata==4.13.0
+
+# Additional dependencies for helioweb
+requests
