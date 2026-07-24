@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from typing import Any
 
-DATA_PATH = Path("/data")
+from helpers import DATA_PATH
 
 
 def list_runs() -> Any:
