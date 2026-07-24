@@ -170,7 +170,7 @@ def process_evo(ds):
 
     ds = ds.rename(name_map)
     rad = ds["X1"] / AU
-    # TODO This conversion from colat/zenith angle -> elevation angle is probably unecessary
+    # TODO This conversion from colat/zenith angle -> elevation angle is probably unnecessary
     # since we don't use the 'lat' variable anywhere else
     lat = np.pi / 2 - ds["X2"]
     # subtract pi to point towards Earth
@@ -343,12 +343,14 @@ def process_directory(
     print(f"Evo files processed: {time.time() - t0} s")
 
     if helioweb_objects:
-        print("Processing helioweb objects.")
+        t0 = time.time()
+        print("Processing HelioWeb objects.")
 
         start_datetime = tim_datetime(tim_fnames[0])
         end_datetime = tim_datetime(tim_fnames[-1])
 
         process_helioweb(helioweb_objects, start_datetime, end_datetime, newpath)
+        print(f"HelioWeb objects processed: {time.time() - t0} s")
 
     if download_images:
         # Downloading images now, we want to download for every day in the dataset
@@ -580,6 +582,14 @@ def main():
     path = args.path
     if not path.exists() or not path.is_dir():
         raise ValueError(f"Provided path {path} is not a directory")
+
+    if not all(
+        helioweb_object in HELIOWEB_OBJECT_CODES.keys()
+        for helioweb_object in args.helioweb_objects
+    ):
+        raise ValueError(
+            f"One or more helioweb objects provided does not exist in HELIOWEB_OBJECT_CODES. Available values are {HELIOWEB_OBJECT_CODES.keys()!s}"
+        )
 
     process_directory(
         path,

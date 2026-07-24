@@ -8,7 +8,13 @@ import requests
 import xarray as xr
 
 # Converts names of objects to the codes needed ot request position data from NASA HELIOWeb
-HELIOWEB_OBJECT_CODES = {"earth": "04", "mars": "42", "venus": "15", "mercury": "29"}
+HELIOWEB_OBJECT_CODES = {
+    "earth": "04",
+    "mars": "42",
+    "venus": "15",
+    "mercury": "29",
+    "solar_orbiter": "46",
+}
 J2000_JD = 2451545.0
 # Number of days in a julian century
 JULIAN_CENTURY_DAYS = 36525.0
@@ -126,6 +132,7 @@ def download_helioweb_hgi(object_name: str, start_date: datetime, end_date: date
             print(
                 f"Warning: malformed line in downloaded HELIOWeb data for {object_name}. See above output for details. Continuing..."
             )
+            continue
 
         rows.append(tuple(cols))
 
