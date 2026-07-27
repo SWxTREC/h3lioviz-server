@@ -7,7 +7,7 @@ import numpy as np
 import requests
 import xarray as xr
 
-# Converts names of objects to the codes needed ot request position data from NASA HELIOWeb
+# Converts names of objects to the codes needed to request position data from NASA HELIOWeb
 HELIOWEB_OBJECT_CODES = {
     "earth": "04",
     "mars": "42",
@@ -104,7 +104,7 @@ def download_helioweb_hgi(object_name: str, start_date: datetime, end_date: date
 
     # Get the data from HELIOWeb
     response = requests.post(
-        "https://omniweb.gsfc.nasa.gov/cgi/models/helios2_h.cgi", data=query
+        "https://omniweb.gsfc.nasa.gov/cgi/models/helios2_h.cgi", data=query, timeout=30
     )
     # Raises an error on any non 2XX status code
     response.raise_for_status()
@@ -294,7 +294,7 @@ def hnm_to_paraview(year, day_of_year, hour, r, colat, lon):
     times = np.array(
         [
             (
-                datetime(int(year), 1, 1)
+                datetime(int(year), 1, 1, tzinfo=timezone.utc)
                 + timedelta(days=int(day) - 1, hours=int(hour))
             ).timestamp()
             for year, day, hour in zip(year, day_of_year, hour)
