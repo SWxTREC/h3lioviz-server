@@ -1,22 +1,18 @@
 import datetime
 import json
 import math
-import pathlib
 import os
-import subprocess
+import pathlib
 import shutil
-
-import paraview.simple as pvs
-from paraview.web import protocols as pv_protocols
-from wslink import register as exportRpc
+import subprocess
 
 # For using additional packages not included with pvpython
-import paraview.web.venv
-
 import models
+import paraview.simple as pvs
 import satellite
 import slice
-
+from paraview.web import protocols as pv_protocols
+from wslink import register as exportRpc
 
 # TODO: Try and use faster plugins where possible
 #       Investigate the use of various speedups. FlyingEdges3D requires image datasets
@@ -78,6 +74,8 @@ VARIABLE_LABEL = {
     "bz": "Bz (nT)",
     "dp": "Cloud tracer (-)",
 }
+
+INNER_PLANETS = ["mars", "venus", "mercury"]
 
 STORAGE_SPACE_CUTOFF_GIB = 5
 
@@ -214,7 +212,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         """Initialize all of the paraview filters"""
         # Force all cell data to point data in the volume
         self.data = pvs.CellDatatoPointData(
-            registrationName=f"3D-CellDatatoPointData", Input=self.model.data
+            registrationName="3D-CellDatatoPointData", Input=self.model.data
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
@@ -427,8 +425,21 @@ class App(pv_protocols.ParaViewWebProtocol):
             if "stereo" in x.name
         }
 
+        # Add the inner planets
+        self.satellites["mars"] = satellite.Mars(
+            self.model.satellites["mars"], self.view
+        )
+        self.satellites["venus"] = satellite.Venus(
+            self.model.satellites["venus"], self.view
+        )
+        self.satellites["mercury"] = satellite.Mercury(
+            self.model.satellites["mercury"], self.view
+        )
+
         # Add the fieldlines to the satellites + Earth
         for sat in self.satellites:
+            if sat in INNER_PLANETS:
+                continue
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
 
@@ -835,7 +846,21 @@ class App(pv_protocols.ParaViewWebProtocol):
         else:
             return ["Visibility can only be 'on' or 'off'"]
         for sat in self.satellites:
+            if satellite in INNER_PLANETS:
+                continue
             # Call the hide() or show() method
+            getattr(self.satellites[sat], hide_show)()
+
+    @exportRpc("pv.h3lioviz.toggle_inner_planets")
+    def toggle_inner_planets(self, visibility):
+        if visibility == "on":
+            hide_show = "show"
+        elif visibility == "off":
+            hide_show = "hide"
+        else:
+            return ["Visibility can only be 'on' or 'off'"]
+
+        for sat in INNER_PLANETS:
             getattr(self.satellites[sat], hide_show)()
 
     @exportRpc("pv.h3lioviz.get_satellite_times")

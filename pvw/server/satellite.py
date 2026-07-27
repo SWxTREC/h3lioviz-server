@@ -1,16 +1,30 @@
 import pathlib
+import urllib.request
 
 import paraview.simple as pvs
+from models import ModelSatellite
 
 # List of satellite colors
 SATELLITE_COLORS = {
+    "mars": [1.0, 0.0, 0.0],
+    "venus": [0.5, 0.5, 0.0],
+    "mercury": [0.1, 0.1, 0.1],
     "earth": [0.0, 0.3333333333333333, 0.0],
     "stereoa": [177 / 255, 138 / 255, 142 / 255],
     "stereob": [94 / 255, 96 / 255, 185 / 255],
 }
 
 # Keep track of the name mapping that we want to show to users
-SATELLITE_NAMES = {"earth": "Earth", "stereoa": "STEREO-A", "stereob": "STEREO-B"}
+SATELLITE_NAMES = {
+    "earth": "Earth",
+    "stereoa": "STEREO-A",
+    "stereob": "STEREO-B",
+    "venus": "Venus",
+    "mars": "Mars",
+    "mercury": "Mercury",
+}
+
+EARTH_SIZE = 0.025
 
 
 class Satellite:
@@ -34,7 +48,13 @@ class Satellite:
         A view to render the satellite into
     """
 
-    def __init__(self, model_satellite, representation="box", size=0.02, view=None):
+    def __init__(
+        self,
+        model_satellite: ModelSatellite,
+        representation="box",
+        size=0.02,
+        view=None,
+    ):
         self.size = size
         self.view = view
         if representation == "box":
@@ -45,6 +65,8 @@ class Satellite:
         elif representation == "sphere":
             self.sat = pvs.Sphere()
             self.sat.Radius = size
+            self.sat.ThetaResolution = 50
+            self.sat.PhiResolution = 50
         else:
             raise ValueError("Satellite representation can only be 'box' or 'sphere'")
 
@@ -69,7 +91,7 @@ class Satellite:
         self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
         self.label_disp.Color = [0, 0, 0]  # Black text
 
-    def change_satellite_data(self, model_satellite):
+    def change_satellite_data(self, model_satellite: ModelSatellite):
         """Change the underlying satellite data file
 
         Parameters
@@ -136,10 +158,12 @@ class Satellite:
         pvs.Hide(self.label, self.view)
 
     def show_fieldline(self):
-        pvs.Show(self.streamlines, self.view)
+        if hasattr(self, "streamlines"):
+            pvs.Show(self.streamlines, self.view)
 
     def hide_fieldline(self):
-        pvs.Hide(self.streamlines, self.view)
+        if hasattr(self, "streamlines"):
+            pvs.Hide(self.streamlines, self.view)
 
     def update(self, time):
         """
@@ -206,8 +230,10 @@ class Earth(Satellite):
         A view to render the sun into
     """
 
-    def __init__(self, model_satellite, size=0.025, view=None):
-        super().__init__(model_satellite, representation="sphere", size=size, view=view)
+    def __init__(self, model_satellite: ModelSatellite, view=None):
+        super().__init__(
+            model_satellite, representation="sphere", size=EARTH_SIZE, view=view
+        )
 
         # Path to the Earth texture on our local system
         # cwd() is where paraview is launched from
@@ -217,7 +243,6 @@ class Earth(Satellite):
         if not earth_path.exists():
             # Make the directories if they don't already exist
             earth_path.parent.mkdir(parents=True, exist_ok=True)
-            import urllib.request
 
             url = (
                 "https://eoimages.gsfc.nasa.gov/images/imagerecords/"
@@ -314,3 +339,129 @@ class Earth(Satellite):
         self.rotation.Transform.Rotate = [0.0, 0.0, rot]
         # Then move it back positive to its actual location
         self.translation2.Transform.Translate = earth_pos
+
+
+class Mars(Satellite):
+    def __init__(self, model_satellite: ModelSatellite, view):
+        mars_earth_radius_ratio = 2106.1 / 3958.8
+        mars_relative_size = mars_earth_radius_ratio * EARTH_SIZE
+
+        super().__init__(
+            model_satellite,
+            representation="sphere",
+            size=mars_relative_size,
+            view=view,
+        )
+
+        mars_path = pathlib.Path.cwd() / "pvw" / "server" / "assets" / "mars.jpg"
+        if not mars_path.exists():
+            mars_path.parent.mkdir(parents=True, exist_ok=True)
+
+            req = urllib.request.urlopen(
+                "https://assets.science.nasa.gov/content/dam/science/missions/hubble/releases/2007/12/STScI-01EVT6PMZQSAE9S5C3K9Z2TENG.tif/jcr:content/renditions/1800x824.jpg"
+            )
+            with open(mars_path, "wb") as f:
+                f.write(req.read())
+
+        mars_texture = pvs.CreateTexture(str(mars_path))
+
+        texture_map = pvs.TextureMaptoSphere(
+            registrationName="MarsImage", Input=self.sat
+        )
+        texture_map.PreventSeam = 0
+
+        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        # trace defaults for the display properties.
+        texture_map_disp.Representation = "Surface"
+        texture_map_disp.ColorArrayName = [None, ""]
+        texture_map_disp.SelectTCoordArray = "Texture Coordinates"
+        texture_map_disp.SelectNormalArray = "Normals"
+        texture_map_disp.SelectTangentArray = "None"
+        texture_map_disp.Texture = mars_texture
+        # To get the proper orientation
+        texture_map_disp.FlipTextures = 1
+
+
+class Venus(Satellite):
+    def __init__(self, model_satellite: ModelSatellite, view):
+        # Create Venus with a size relative to earths size
+        venus_earth_radius_ratio = 3760.4 / 3958.8
+        venus_relative_size = venus_earth_radius_ratio * EARTH_SIZE
+
+        super().__init__(
+            model_satellite,
+            representation="sphere",
+            size=venus_relative_size,
+            view=view,
+        )
+
+        venus_path = pathlib.Path.cwd() / "pvw" / "server" / "assets" / "venus.jpg"
+        if not venus_path.exists():
+            venus_path.parent.mkdir(parents=True, exist_ok=True)
+
+            req = urllib.request.urlopen(
+                "https://space.jpl.nasa.gov/tmaps/pix/ven0aaa2.jpg"
+            )
+            with open(venus_path, "wb") as f:
+                f.write(req.read())
+
+        venus_texture = pvs.CreateTexture(str(venus_path))
+
+        texture_map = pvs.TextureMaptoSphere(
+            registrationName="venusImage", Input=self.sat
+        )
+        texture_map.PreventSeam = 0
+
+        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        # trace defaults for the display properties.
+        texture_map_disp.Representation = "Surface"
+        texture_map_disp.ColorArrayName = [None, ""]
+        texture_map_disp.SelectTCoordArray = "Texture Coordinates"
+        texture_map_disp.SelectNormalArray = "Normals"
+        texture_map_disp.SelectTangentArray = "None"
+        texture_map_disp.Texture = venus_texture
+        # To get the proper orientation
+        texture_map_disp.FlipTextures = 1
+
+
+class Mercury(Satellite):
+    def __init__(self, model_satellite: ModelSatellite, view):
+        # Create mercury with a size relative to earths size
+        mercury_earth_radius_ratio = 1516.0 / 3958.8
+        mercury_relative_size = mercury_earth_radius_ratio * EARTH_SIZE
+
+        super().__init__(
+            model_satellite,
+            representation="sphere",
+            size=mercury_relative_size,
+            view=view,
+        )
+
+        # Download the texture if needed
+        mercury_path = pathlib.Path.cwd() / "pvw" / "server" / "assets" / "mercury.jpg"
+        if not mercury_path.exists():
+            mercury_path.parent.mkdir(parents=True, exist_ok=True)
+
+            req = urllib.request.urlopen(
+                "https://svs.gsfc.nasa.gov/vis/a010000/a011100/a011197/Image1_1920x1080.jpg"
+            )
+            with open(mercury_path, "wb") as f:
+                f.write(req.read())
+
+        mercury_texture = pvs.CreateTexture(str(mercury_path))
+
+        texture_map = pvs.TextureMaptoSphere(
+            registrationName="mercuryImage", Input=self.sat
+        )
+        texture_map.PreventSeam = 0
+
+        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        # trace defaults for the display properties.
+        texture_map_disp.Representation = "Surface"
+        texture_map_disp.ColorArrayName = [None, ""]
+        texture_map_disp.SelectTCoordArray = "Texture Coordinates"
+        texture_map_disp.SelectNormalArray = "Normals"
+        texture_map_disp.SelectTangentArray = "None"
+        texture_map_disp.Texture = mercury_texture
+        # To get the proper orientation
+        texture_map_disp.FlipTextures = 1
