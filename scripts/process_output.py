@@ -23,6 +23,8 @@ m3_to_cm3 = (1.0 / 100) ** 3
 density_conversion = 1.0 / m_hydrogen * m3_to_cm3
 # m/s -> km/s
 velocity_conversion = 1.0 / 1000.0
+# Used to identify what processing code created the processed run
+H3LIOVIZ_PROCESSING_VERSION = "1.0.0"
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -217,7 +219,16 @@ def process_evo(ds):
 
     return ds
 
-def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean", boundary="trim"):
+
+def process_directory(
+    path,
+    download_images=False,
+    radius_downsample=1,
+    longitude_downsample=1,
+    latitude_downsample=1,
+    aggregation="mean",
+    boundary="trim",
+):
     """
     Processes the given directory to transform the files into
     suitable data for Paraview ingest.
@@ -258,7 +269,15 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
     for i, fname in enumerate(tim_fnames):
         with xr.load_dataset(fname) as ds:
             # Apply downsampling using the specified aggregation method
-            ds = getattr(ds.coarsen(n1=radius_downsample, n2=latitude_downsample, n3=longitude_downsample, boundary=boundary), aggregation)()
+            ds = getattr(
+                ds.coarsen(
+                    n1=radius_downsample,
+                    n2=latitude_downsample,
+                    n3=longitude_downsample,
+                    boundary=boundary,
+                ),
+                aggregation,
+            )()
 
             # Process single file
             ds = process_tim(ds)
@@ -272,9 +291,11 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                     cone_fname = cone_fnames[0]
                     cone_metadata = generate_cone_metadata_dict(cone_fname)
                     metadata = metadata | cone_metadata
-                else: 
-                    warnings.warn("No CONE file found so the following fields will not be present in metadata.json:" \
-                        " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity")
+                else:
+                    warnings.warn(
+                        "No CONE file found so the following fields will not be present in metadata.json:"
+                        " cme_longitude, cme_latitude, cme_time, cme_cone_half_angle, and cme_radial_velocity"
+                    )
 
                 # Save the metadata
                 newpath = path / f"pv-ready-data-{metadata['run_id']}"
@@ -289,7 +310,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                 newpath / f"pv-{fname.name}",
                 encoding={"time": {"units": "seconds since 1970-01-01"}},
             )
-    print(f"TIM files processed: {time.time()-t0} s")
+    print(f"TIM files processed: {time.time() - t0} s")
 
     print(f"Processing {len(evo_fnames)} EVO files")
     for fname in evo_fnames:
@@ -317,7 +338,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                         )
                     )
                 )
-    print(f"Evo files processed: {time.time()-t0} s")
+    print(f"Evo files processed: {time.time() - t0} s")
 
     if download_images:
         # Downloading images now, we want to download for every day in the dataset
@@ -331,7 +352,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
             download_hmi(curr_date, outdir=str(newpath) + "/solar_images")
             curr_date += dt
 
-        print(f"Images saved: {time.time()-t0} s")
+        print(f"Images saved: {time.time() - t0} s")
 
 
 def process_metadata(ds, path=None, run_id=None):
@@ -352,8 +373,8 @@ def process_metadata(ds, path=None, run_id=None):
     """
     s = json.dumps(ds.attrs, cls=NumpyEncoder)
     # Hash based on the metadata of the run
-    hash_digest = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]    
-    ds = ds.assign_attrs(hash_digest=hash_digest) 
+    hash_digest = hashlib.sha256(s.encode("utf-8")).hexdigest()[:8]
+    ds = ds.assign_attrs(hash_digest=hash_digest)
     # Determine the institute based on the project name
     project = ds.attrs.get("project", "")
     if project.startswith("a8b1"):
@@ -370,13 +391,17 @@ def process_metadata(ds, path=None, run_id=None):
     # Extract the run_id from the dataset attributes
     if not run_id:
         # In order to extract the run_id from a SWPC run, the path must end with wsa_enlil_57484.57285344.dbqs0
-        if institute == "SWPC" and re.match(r"^.*wsa_enlil_\d{5}\.\d*\.dbqs0", path.name):
+        if institute == "SWPC" and re.match(
+            r"^.*wsa_enlil_\d{5}\.\d*\.dbqs0", path.name
+        ):
             run_id = path.name.split("_")[-1].split(".")[0]
         else:
             run_id = hash_digest
-        
+
     ds = ds.assign_attrs(run_id=run_id)
-        
+
+    ds = ds.assign_attrs(h3lioviz_processing_version=H3LIOVIZ_PROCESSING_VERSION)
+
     return ds.attrs
 
 
@@ -457,7 +482,7 @@ def generate_cone_metadata_dict(cone_fname):
     dict
         Dictionary containing fields of interest from cone file
     """
-    
+
     with open(cone_fname, "r", encoding="utf-8") as cone_file:
         cone_text = cone_file.read()
 
@@ -465,7 +490,7 @@ def generate_cone_metadata_dict(cone_fname):
     data = {}
     for line in cone_text.splitlines():
         # Clear whitespace and remove trailing commas
-        line = line.strip().rstrip(',')
+        line = line.strip().rstrip(",")
         if line.startswith("lon="):
             data["cme_longitude"] = line.split("=")[1]
         elif line.startswith("ldates="):
@@ -520,18 +545,29 @@ def main():
         type=str,
         choices=["trim", "pad", "exact"],
         default="trim",
-        help="How to handle boundaries during coarsening. Default is trim."
+        help="How to handle boundaries during coarsening. Default is trim.",
     )
     args = parser.parse_args()
 
-    if args.radius_downsample < 1 or args.longitude_downsample < 1 or args.latitude_downsample < 1:
+    if (
+        args.radius_downsample < 1
+        or args.longitude_downsample < 1
+        or args.latitude_downsample < 1
+    ):
         raise ValueError("Downsampling factors must be greater than or equal to 1.")
 
     path = pathlib.Path(args.path)
     if not path.exists() or not path.is_dir():
         raise ValueError(f"Provided path {path} is not a directory")
-    
-    process_directory(path, radius_downsample=args.radius_downsample, longitude_downsample=args.longitude_downsample, latitude_downsample=args.latitude_downsample, boundary=args.boundary, aggregation=args.aggregation)
+
+    process_directory(
+        path,
+        radius_downsample=args.radius_downsample,
+        longitude_downsample=args.longitude_downsample,
+        latitude_downsample=args.latitude_downsample,
+        boundary=args.boundary,
+        aggregation=args.aggregation,
+    )
 
 
 if __name__ == "__main__":
