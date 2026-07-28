@@ -36,13 +36,10 @@ def migrate_run_v0_to_v1(path: Path):
     evo_paths = path.glob("evo.*.nc")
     for evo_path in evo_paths:
         new_path = output_path / evo_path.name
-        with xr.load_dataset(evo_path) as ds:
+        with xr.load_dataset(evo_path, decode_times=False) as ds:
             ds = migrate_evo_v0_to_v1(ds)
 
-            ds.to_netcdf(
-                new_path,
-                encoding={"time": {"units": "seconds since 1970-01-01"}},
-            )
+            ds.to_netcdf(new_path)
 
         with xr.load_dataset(new_path) as ds:
             json_file = Path(str(new_path).replace(".nc", ".json"))
