@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:20.04
+ARG BASE_IMAGE=ubuntu:24.04
 # Setting the below argument to false disables installing AWS packages
 ARG AWS_ENABLED=false
 ARG BUILD_FRONTEND=true
@@ -60,8 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
         unzip \
-        python3.9 \
-        python3.9-venv \
+        libpciaccess0 \
+        python3.12-venv \
         git && \
         rm -rf /var/lib/apt/lists/*
 
@@ -79,19 +79,22 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
 # base image has the necessary EGL libraries installed.
 # For EGL builds, consider using the nvidia/opengl base images.
 RUN mkdir -p /opt/paraview && \
-    curl -fSL "https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.10&type=binary&os=Linux&downloadFile=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz" -o /tmp/paraview.tar.gz && \
+    curl -fSL "https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v6.1&type=binary&os=Linux&downloadFile=ParaView-6.1.1-MPI-Linux-Python3.12-x86_64.tar.gz" -o /tmp/paraview.tar.gz && \
     tar -xzf /tmp/paraview.tar.gz -C /opt/paraview --strip-components=1 && \
     rm -f /tmp/paraview.tar.gz
 
 # Separate pip build to prevent having to re-install dependencies on every pvw code change.
 COPY pvw/requirements.txt /pvw/
-RUN python3.9 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
+RUN python3 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
+
+# The venv is necessary to access pip in this way 
+RUN python3 -m venv /pvw/server/venv && source /pvw/server/venv/bin/activate && python3 -m pip install --target /pvw/server/wslink-dependencies wslink
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
     useradd --system -g pvw-user -G proxy-mapping -s /sbin/nologin pvw-user && \
     usermod -a -G proxy-mapping www-data && \
-    useradd admin && echo "admin:admin" | chpasswd && adduser admin sudo && \
+    useradd admin && echo "admin:admin" | chpasswd && \
     mkdir -p /opt/launcher/log && \
     chown -R pvw-user:pvw-user /opt/launcher && \
     mkdir -p /opt/paraviewweb/scripts && \
