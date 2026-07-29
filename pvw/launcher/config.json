@@ -1,5 +1,13 @@
 {
-  "resources": [ {"port_range": [9010, 9100], "host": "0.0.0.0"} ],
+  "resources": [
+    {
+      "port_range": [
+        9010,
+        9100
+      ],
+      "host": "0.0.0.0"
+    }
+  ],
   "sessionData": {
     "updir": "/Home"
   },
@@ -9,8 +17,12 @@
     "port": 9000,
     "endpoint": "paraview",
     "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=ws",
-    "timeout": 45,
-    "fields": ["file", "host", "port"],
+    "timeout": 60,
+    "fields": [
+      "file",
+      "host",
+      "port"
+    ],
     "proxy_file": "/opt/launcher/proxy-mapping.txt"
   },
   "properties": {
@@ -21,30 +33,44 @@
   },
   "apps": {
     "visualizer": {
-      "cmd": ["env", 
+      "cmd": [
+        "env",
         "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
         "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
+        "VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow",
+        "PYTHONUNBUFFERED=1",
         "${python_exec}",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
-        "--port", "${port}",
-        "--dir", "/data",
-        "--timeout", "30"
+        "--port",
+        "${port}",
+        "--dir",
+        "/data",
+        "--timeout",
+        "30"
       ],
-      "ready_line" : "Starting factory"
+      "ready_line": "Starting factory"
     },
     "visualizer-mpi": {
-      "cmd": ["env", "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
-        "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
-        "${mpi_run}", "-np", "4",
+      "cmd": [
+        "env",
+        "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
+        "env",
+        "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
+        "${mpi_run}",
+        "-np",
+        "4",
         "${batch_exec}",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
-        "--port", "${port}",
-        "--dir", "/data",
-        "--timeout", "30"
+        "--port",
+        "${port}",
+        "--dir",
+        "/data",
+        "--timeout",
+        "30"
       ],
-      "ready_line" : "Starting factory"
+      "ready_line": "Starting factory"
     }
   }
 }

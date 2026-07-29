@@ -61,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         unzip \
         libpciaccess0 \
+        libosmesa6 \
         python3.12-venv \
         git && \
         rm -rf /var/lib/apt/lists/*
