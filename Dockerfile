@@ -62,6 +62,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         libpciaccess0 \
         libosmesa6 \
+        xvfb \
+        xauth \
+        libgl1-mesa-dri \
         python3.12-venv \
         git && \
         rm -rf /var/lib/apt/lists/*
@@ -89,7 +92,7 @@ COPY pvw/requirements.txt /pvw/
 RUN python3 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
 
 # The venv is necessary to access pip in this way 
-RUN python3 -m venv /pvw/server/venv && source /pvw/server/venv/bin/activate && python3 -m pip install --target /pvw/server/wslink-dependencies wslink
+RUN python3 -m venv /pvw/server/venv && source /pvw/server/venv/bin/activate && python3 -m pip install --target /pvw/server/wslink-dependencies "wslink==1.12.4"
 
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \

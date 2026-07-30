@@ -59,12 +59,12 @@ DEFAULT_CMAP = {
     "velocity": "WSA-Enlil",
     "density": "WSA-Enlil",
     "pressure": "WSA-Enlil",
-    "temperature": "Inferno (matplotlib)",
+    "temperature": "WSA-Enlil",
     "b": "Cool to Warm",
     "bx": "Cool to Warm",
     "by": "Cool to Warm",
     "bz": "Cool to Warm",
-    "dp": "Plasma (matplotlib)",
+    "dp": "WSA-Enlil",
 }
 
 VARIABLE_LABEL = {

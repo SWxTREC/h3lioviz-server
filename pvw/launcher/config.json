@@ -47,7 +47,7 @@
         "--dir",
         "/data",
         "--timeout",
-        "30"
+        "60"
       ],
       "ready_line": "Starting factory"
     },
