@@ -365,12 +365,14 @@ class Mars(Satellite):
 
         mars_texture = pvs.CreateTexture(str(mars_path))
 
-        texture_map = pvs.TextureMaptoSphere(
+        self.texture_map = pvs.TextureMaptoSphere(
             registrationName="MarsImage", Input=self.sat
         )
-        texture_map.PreventSeam = 0
+        self.texture_map.PreventSeam = 0
 
-        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        texture_map_disp = pvs.Show(
+            self.texture_map, self.view, "GeometryRepresentation"
+        )
         # trace defaults for the display properties.
         texture_map_disp.Representation = "Surface"
         texture_map_disp.ColorArrayName = [None, ""]
@@ -380,6 +382,16 @@ class Mars(Satellite):
         texture_map_disp.Texture = mars_texture
         # To get the proper orientation
         texture_map_disp.FlipTextures = 1
+
+    def hide(self):
+        pvs.Hide(self.texture_map, self.view)
+        pvs.Hide(self.sat, self.view)
+        pvs.Hide(self.label)
+
+    def show(self):
+        pvs.Show(self.texture_map, self.view)
+        pvs.Show(self.sat, self.view)
+        pvs.Show(self.label)
 
 
 class Venus(Satellite):
@@ -407,12 +419,12 @@ class Venus(Satellite):
 
         venus_texture = pvs.CreateTexture(str(venus_path))
 
-        texture_map = pvs.TextureMaptoSphere(
+        self.texture_map = pvs.TextureMaptoSphere(
             registrationName="venusImage", Input=self.sat
         )
-        texture_map.PreventSeam = 0
+        self.texture_map.PreventSeam = 0
 
-        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        texture_map_disp = pvs.Show(self.texture_map, view, "GeometryRepresentation")
         # trace defaults for the display properties.
         texture_map_disp.Representation = "Surface"
         texture_map_disp.ColorArrayName = [None, ""]
@@ -422,6 +434,16 @@ class Venus(Satellite):
         texture_map_disp.Texture = venus_texture
         # To get the proper orientation
         texture_map_disp.FlipTextures = 1
+
+    def hide(self):
+        pvs.Hide(self.texture_map, self.view)
+        pvs.Hide(self.sat, self.view)
+        pvs.Hide(self.label)
+
+    def show(self):
+        pvs.Show(self.texture_map, self.view)
+        pvs.Show(self.sat, self.view)
+        pvs.Show(self.label)
 
 
 class Mercury(Satellite):
@@ -450,12 +472,12 @@ class Mercury(Satellite):
 
         mercury_texture = pvs.CreateTexture(str(mercury_path))
 
-        texture_map = pvs.TextureMaptoSphere(
+        self.texture_map = pvs.TextureMaptoSphere(
             registrationName="mercuryImage", Input=self.sat
         )
-        texture_map.PreventSeam = 0
+        self.texture_map.PreventSeam = 0
 
-        texture_map_disp = pvs.Show(texture_map, view, "GeometryRepresentation")
+        texture_map_disp = pvs.Show(self.texture_map, view, "GeometryRepresentation")
         # trace defaults for the display properties.
         texture_map_disp.Representation = "Surface"
         texture_map_disp.ColorArrayName = [None, ""]
@@ -465,3 +487,13 @@ class Mercury(Satellite):
         texture_map_disp.Texture = mercury_texture
         # To get the proper orientation
         texture_map_disp.FlipTextures = 1
+
+    def hide(self):
+        pvs.Hide(self.texture_map, self.view)
+        pvs.Hide(self.sat, self.view)
+        pvs.Hide(self.label)
+
+    def show(self):
+        pvs.Show(self.texture_map, self.view)
+        pvs.Show(self.sat, self.view)
+        pvs.Show(self.label)
