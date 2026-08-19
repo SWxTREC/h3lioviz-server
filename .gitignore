@@ -5,6 +5,7 @@ pv-ready-data*
 pvw/www/swt
 pvw/launcher/log/*.txt
 pvw/launcher/log/*.log
+wsa_*
 test-data/pv-ready-data*
 */launcher/log/*.txt
 */launcher/log/*.log
