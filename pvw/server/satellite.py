@@ -283,7 +283,7 @@ class Earth(Satellite):
         texture_map_disp.SelectTangentArray = "None"
         texture_map_disp.Texture = earth_image
         # To get the proper orientation
-        texture_map_disp.FlipTextures = 1
+        texture_map_disp.TextureTransform.Scale = [1.0, -1.0, 1.0]
 
     def show(self):
         pvs.Show(self.translation2, self.view)

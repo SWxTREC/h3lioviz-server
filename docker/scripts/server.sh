@@ -54,7 +54,7 @@ echo -e "$OUTPUT" > "${LAUNCHER_PATH}"
 
 echo "Starting flask webserver"
 source /pvw/venv/bin/activate
-python3.9 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
+python3 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
 
 # Make sure the apache webserver is running
 echo "Starting/Restarting Apache webserver"
@@ -62,5 +62,5 @@ service apache2 restart
 
 # Run the pvw launcher in the foreground so this script doesn't end
 echo "Starting the wslink launcher"
-/opt/paraview/bin/pvpython -m wslink.launcher ${LAUNCHER_PATH}
+PYTHONPATH="/pvw/server/wslink-dependencies" /opt/paraview/bin/pvpython -m wslink.launcher ${LAUNCHER_PATH}
 # python3 -m wslink.launcher ${LAUNCHER_PATH}
