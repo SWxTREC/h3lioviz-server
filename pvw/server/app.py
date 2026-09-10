@@ -10,6 +10,7 @@ import subprocess
 import models
 import paraview.simple as pvs
 import satellite
+import seam
 import slice
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
@@ -216,6 +217,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         )
         self.data.ProcessAllArrays = 1
         self.data.PassCellData = 1
+        # The grid's 0 and 360 degree longitudes aren't connected, so join them
+        # to avoid a discontinuity in the point data there
+        self.data = seam.close_seam(self.data, registrationName="3D-CloseSeam")
 
         self.bvec = pvs.Calculator(registrationName="3D-Bvec", Input=self.data)
         self.bvec.AttributeType = "Point Data"
@@ -273,13 +277,13 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Create the slices
         self.lon_slice = slice.Slice(
-            self.model.data, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
+            self.data, slice_type="Plane", normal=(0, 0, 1), name="Longitude"
         )
         self.lat_slice = slice.Slice(
-            self.model.data, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
+            self.data, slice_type="Plane", normal=(0, 1, 0), name="Latitude"
         )
         self.radial_slice = slice.Slice(
-            self.model.data, slice_type="Sphere", radius=1, name="Radial"
+            self.data, slice_type="Sphere", radius=1, name="Radial"
         )
 
         # Dictionary mapping of string names to the object
