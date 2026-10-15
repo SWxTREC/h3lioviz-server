@@ -18,6 +18,7 @@ import paraview.web.venv
 import models
 import satellite
 import slice
+from display import LazyDisplay, color_by
 
 
 # TODO: Try and use faster plugins where possible
@@ -98,6 +99,26 @@ RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 # The model classes for each simulation program
 MODELS = {"enlil": models.Enlil, "euhforia": models.Euhforia}
+
+# What is visible when a run is first loaded: what the h3lioviz frontend shows
+# by default (its LAYER_FORM_DEFAULT_VALUES, with the CME and the threshold
+# off), which it sets right after loading a run.
+# Displays are only created when first shown (see display.LazyDisplay), so
+# nothing is built only to be hidden again. The color bar is not a geometry
+# display; it stays hidden until the client turns it on.
+INITIAL_VISIBILITY = {
+    "lon_slice": True,
+    "lon_streamlines": False,
+    "lat_slice": True,
+    "lat_streamlines": False,
+    "radial_slice": False,
+    "cme": False,
+    "cme_contours": False,
+    "threshold": False,
+    "logo": False,
+    "satellites": False,
+    "sat_fieldlines": False,
+}
 
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
@@ -342,8 +363,6 @@ class App(pv_protocols.ParaViewWebProtocol):
                 "cme_contours",
             )
         }
-        # Initialize an empty dictionary to store the displays of the objects
-        self.displays = {}
         self._setup_views()
         # After we have a view, we can start adding the satellites
         self._setup_satellites()
@@ -447,11 +466,13 @@ class App(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
 
         # Logo watermark - fixed position in the corner
-        self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
-        self.logo_display.Interactivity = 0
-        self.logo_display.Position = [0.95, 0.02]
-        # Hide by default for NOAA
-        pvs.Hide(self.logo, self.view)
+        def setup_logo(disp):
+            disp.Interactivity = 0
+            disp.Position = [0.95, 0.02]
+
+        self.logo_display = LazyDisplay(
+            self.logo, self.view, "LogoSourceRepresentation", setup=setup_logo
+        )
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
@@ -475,25 +496,32 @@ class App(pv_protocols.ParaViewWebProtocol):
         bzPWF.Points = [-10, 0.0, 0.5, 0.0, 10, 1.0, 0.5, 0.0]
         bzPWF.ScalarRangeInitialized = 1
 
+        # The variable the colored surfaces are colored by
+        self._color_variable = self.model.get_variable("bz")
+
         # CME Threshold
-        disp = pvs.Show(self.cme, self.view, "GeometryRepresentation")
-        self.displays[self.cme] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = [None, ""]
-        disp.Opacity = 0.25
+        def setup_cme(disp):
+            disp.Representation = "Surface"
+            disp.ColorArrayName = [None, ""]
+            disp.Opacity = 0.25
 
-        # CME Contours
-        disp = pvs.Show(self.cme_contours, self.view, "GeometryRepresentation")
-        self.displays[self.cme_contours] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
-        disp.LookupTable = bzLUT
+        # CME Contours and the threshold
+        def setup_colored(disp):
+            disp.Representation = "Surface"
+            disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
+            disp.LookupTable = bzLUT
+            if self._color_variable != self.model.get_variable("bz"):
+                # The coloring a display shown from the start would have now
+                color_by(disp, self._color_variable)
 
-        disp = pvs.Show(self.threshold, self.view, "GeometryRepresentation")
-        self.displays[self.threshold] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
-        disp.LookupTable = bzLUT
+        # The displays are created when first shown
+        self.displays = {
+            "cme": LazyDisplay(self.cme, self.view, setup=setup_cme),
+            "cme_contours": LazyDisplay(
+                self.cme_contours, self.view, setup=setup_colored
+            ),
+            "threshold": LazyDisplay(self.threshold, self.view, setup=setup_colored),
+        }
 
         # Set colormaps
         for name in DEFAULT_CMAP:
@@ -504,17 +532,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         cbar = pvs.GetScalarBar(bzLUT, self.view)
         cbar.Visibility = 0
 
-        # hide this data from the default initial view
-        for x in [
-            self.threshold,
-            self.cme_contours,
-        ]:
-            pvs.Hide(x, self.view)
-
-        self.lon_slice.hide()
-        self.radial_slice.hide()
-        # We don't want any lat streamlines
-        self.lat_slice.hide_streamlines()
+        # Show what is visible initially; only these displays get created
+        for obj, visible in INITIAL_VISIBILITY.items():
+            if visible and obj not in ("satellites", "sat_fieldlines"):
+                self.change_visibility(obj, "on")
 
         # restore active source
         pvs.SetActiveSource(None)
@@ -526,6 +547,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         If we are changing runs, we start by hiding and deleting all
         previous instances of the objects.
         """
+        first_load = not hasattr(self, "sun")
         if hasattr(self, "sun"):
             self.sun.hide()
             del self.sun
@@ -560,6 +582,19 @@ class App(pv_protocols.ParaViewWebProtocol):
         for sat in self.satellites:
             self.satellites[sat].add_fieldline(self.bvec)
         self.earth.add_fieldline(self.bvec)
+
+        # On first load show what is visible initially. On a change of run
+        # the new satellites and fieldlines are all shown.
+        show_satellites = INITIAL_VISIBILITY["satellites"] if first_load else True
+        show_fieldlines = INITIAL_VISIBILITY["sat_fieldlines"] if first_load else True
+        self.earth.show()
+        for sat in self.satellites.values():
+            if show_satellites:
+                sat.show()
+            if show_fieldlines:
+                sat.show_fieldline()
+        if show_fieldlines:
+            self.earth.show_fieldline()
 
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
@@ -625,9 +660,11 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
             elif obj == "logo":
-                pvs.Show(self.logo, self.view)
+                self.logo_display.show()
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(True)
+            elif obj in self.displays:
+                self.displays[obj].show()
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -647,9 +684,11 @@ class App(pv_protocols.ParaViewWebProtocol):
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
             elif obj == "logo":
-                pvs.Hide(self.logo, self.view)
+                self.logo_display.hide()
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(False)
+            elif obj in self.displays:
+                self.displays[obj].hide()
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
@@ -668,24 +707,23 @@ class App(pv_protocols.ParaViewWebProtocol):
         variable = self.model.get_variable(name)
         label = VARIABLE_LABEL[name]
 
-        # Update all displays to be colored by this variable
-        for obj, disp in self.displays.items():
-            if obj in (self.cme,):
-                # We don't want to update the longitude arrow colors
-                continue
-            pvs.ColorBy(disp, variable)
+        # Update all displays to be colored by this variable. Those not
+        # created yet are colored by it when they are created.
+        self._color_variable = variable
+        for obj in ("cme_contours", "threshold"):
+            if self.displays[obj].created:
+                pvs.ColorBy(self.displays[obj].display, variable)
 
-            # Also update the colorbar orientation information
-            if disp.LookupTable is None:
-                continue
-            cbar = pvs.GetScalarBar(disp.LookupTable, self.view)
-            cbar.AutoOrient = 0
-            cbar.Orientation = "Horizontal"
-            cbar.TextPosition = "Ticks left/bottom, annotations right/top"
-            cbar.Title = label
-            cbar.ComponentTitle = ""
-            # Disables the endpoints which can be formatted differently
-            cbar.AddRangeLabels = 0
+        # Also update the colorbar orientation information. It belongs to the
+        # variable's color map, so it is set whether or not those displays exist.
+        cbar = pvs.GetScalarBar(pvs.GetColorTransferFunction(variable), self.view)
+        cbar.AutoOrient = 0
+        cbar.Orientation = "Horizontal"
+        cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+        cbar.Title = label
+        cbar.ComponentTitle = ""
+        # Disables the endpoints which can be formatted differently
+        cbar.AddRangeLabels = 0
 
         self.lon_slice.variable = variable
         self.lat_slice.variable = variable
