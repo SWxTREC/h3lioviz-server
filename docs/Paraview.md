@@ -4,9 +4,11 @@
 
 ### Paraview Web Launcher
 
-The paraview web launcher is responsible for starting a new process for each user, generating a session key,
-distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on.
-It listens on port 9000 on all interfaces (0.0.0.0) inside the container, and Apache reaches it at localhost:9000. Note that the launcher is only communicated to via HTTP. Our cloud infrastructure handles any HTTP-to-HTTPS
+The paraview web launcher is responsible for starting a visualization server process for each user, generating a session key,
+distributing that session key back to the client, and mapping session key to the port that process is running on.
+It is wslink's launcher with a few changes, chiefly in [../pvw/launcher/spare_launcher.py](../pvw/launcher/spare_launcher.py): it keeps one
+"spare" process started ahead of time and hands it to the next request, so a new user does not wait for pvpython to start
+(the module's docstring lists every change). It listens on port 9000 on all interfaces (0.0.0.0) inside the container, and Apache reaches it at localhost:9000. Note that the launcher is only communicated to via HTTP. Our cloud infrastructure handles any HTTP-to-HTTPS
 encapsulation. The Paraview web server/visualizer is what handles all websocket connections.
 
 #### Configuration
@@ -15,7 +17,9 @@ The configuration file is located in [../pvw/launcher/config.json](../pvw/launch
 
 - configuration.sessionURL: This is the websocket url that the paraview launcher returns to the client for each new session; the client connects to it. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. $PROTOCOL and $SERVER_NAME are environment variables set by a docker-compose file or command line flags; set both so the browser can reach the session. If either is unset, server.sh uses ws://localhost. Use `wss` when the frontend is served over https: browsers block a `ws://` connection from an https page as mixed content.
 - configuration.proxy_file: This is the file that will store mappings between sessionIDs and ports that have been opened for the websocket controlled visualization.
-- apps.visualizer: This will run pvpython and is started once for each new session request (POST) to the paraview web launcher
+- apps.visualizer: This will run pvpython, one process per session (the spare is one of these, started early)
+- spare: Which app to keep a spare process of, and how many seconds after handing one out to start the next. Remove it to start every process on request.
+- configuration.sanitize: Limits the values a launch request (POST) may give for the executables in the app commands to the configured ParaView binaries.
 - apps.visualizer-mpi: This provides parallelization for batch operations. It is not used: the frontend always requests the `visualizer` application.
 
 #### Logging
@@ -24,14 +28,14 @@ The following logs contain:
 
 - Launcher requests for a new session via POST to /h3lioviz/paraview/
 - Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview/?{some_random_number}.
-  A 400 status_code indicates the server is accessible
+  A 405 status_code (400 from the wslink bundled with ParaView 5.10) indicates the launcher is running; the wslink this image installs only answers GET when WSLINK_LAUNCHER_GET is set
 - Any errors/warnings during the session launching process
 
 `/data/launcher/log/launcherLog.log`
 
 ### Paraview Web Visualizer/Server
 
-Each new session request (POST to the launcher) starts a new paraview web server process with its own port.
+Each session gets its own paraview web server process with its own port: the spare started ahead of time, or one started for the session request (POST to the launcher).
 The capabilities of the visualizer are determined by which VtkWebProtocols are registered to the paraview server.
 An example of one such protocol is the ParaViewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse.
 Another example is the custom `App` class, a subclass of ParaViewWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py).
