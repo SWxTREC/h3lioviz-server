@@ -162,7 +162,8 @@ class Slice:
         disp.LookupTable = bpLUT
 
     def _setup_arrows_display(self, disp):
-        # Uses the streamlines' colormap, so they are always shown first
+        # Uses the streamlines' colormap, which their display's setup creates;
+        # show_streamlines shows the streamlines first, so it always exists
         disp.Representation = "Surface"
         disp.ColorArrayName = ["POINTS", "Br"]
         disp.LookupTable = self._bpLUT

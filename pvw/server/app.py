@@ -168,7 +168,9 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Track the current scalar bar and its visibility
         self._scalarbar_visible = False
-        # The client's latest calls that set up the view, by kind
+        # The latest call of each kind that set up the view (the client's, and
+        # the defaults this class applies itself), replayed when a run of the
+        # other model type rebuilds the pipeline
         self._client_calls = {}
         # Whether the satellites and their fieldlines are shown, kept across
         # changes of run
@@ -406,14 +408,19 @@ class App(pv_protocols.ParaViewWebProtocol):
         Delete the pipeline objects of the current model, including its
         readers, so a model of another type can be built in their place.
 
+        Parameters
+        ----------
         sources : list
             Every pipeline object of the current model
         """
         pvs.GetAnimationScene().TimeKeeper.RemoveObserver(self._time_observer)
-        # The new model's color maps have their own scalar bars
+        # Hide the current scalar bar: color maps are not pipeline objects and
+        # outlive it, so a bar for a variable the new model lacks would stay
         if self._current_lut is not None:
             pvs.GetScalarBar(self._current_lut, self.view).Visibility = 0
             self._current_lut = None
+        # Textures are not pipeline sources, so note them before deleting the
+        # sources that use them
         textures = [self.earth.texture, self.logo.Texture]
         self._delete_sources(sources)
         for texture in textures:
@@ -456,7 +463,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         self._client_calls[key] = (method, args)
 
     def _replay(self, calls):
-        """Make again the calls the client made before the pipeline was rebuilt"""
+        """Repeat the remembered calls on the rebuilt pipeline, in the order
+        they were made; a call that fails is reported and skipped"""
         for method, args in calls:
             try:
                 getattr(self, method)(*args)
@@ -536,7 +544,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         cbar = pvs.GetScalarBar(bzLUT, self.view)
         cbar.Visibility = 0
 
-        # Show what is visible initially; only these displays get created
+        # Show what is visible initially, so only those displays get created.
+        # _setup_satellites shows the satellites and fieldlines when they are on.
         for obj, visible in INITIAL_VISIBILITY.items():
             if visible and obj not in ("satellites", "sat_fieldlines"):
                 self.change_visibility(obj, "on")
@@ -907,6 +916,8 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the plane to snap to. Either "ecliptic" (Earth) or
             "equator" (heliographic equator).
         """
+        # Same key as rotate_plane("lon", ...): both set the longitude plane,
+        # so only the later of the two is replayed
         self._remember("lon_plane", "snap_solar_plane", clip)
         if clip == "ecliptic":
             if not hasattr(self, "earth"):

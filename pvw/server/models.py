@@ -17,9 +17,9 @@ ENLIL_DIMENSIONS = "(longitude, latitude, radius)"
 #    "files": [{"name": "pv-tim.0000.nc", "time": 1759644046}, ...]}
 # Names are relative to the .series file and in name order, times in seconds
 # since 1970 and strictly increasing. Given this file, the reader takes the
-# times from it instead of opening every file to find its time, which under
-# ParaView 6.2 reads about 8 MB of each file, twice per load. Written by the
-# server on the first load of a run, or by the ingest step.
+# times from it instead of opening every file to find its time (under
+# ParaView 6.2, about 8 MB read from each file, twice per load). Written by
+# the server on the first load of a run, or by the ingest step.
 SERIES_NAME = "pv-tim.series"
 
 
@@ -137,6 +137,8 @@ def private_series_path(run_dir, create=True):
         private_dir.mkdir(mode=0o700, exist_ok=True)
     elif not private_dir.exists():
         return None
+    # The name is predictable in a shared directory: refuse one that another
+    # user made, or a symlink, rather than read or write series there
     if private_dir.is_symlink() or private_dir.stat().st_uid != os.getuid():
         raise PermissionError(f"{private_dir} is not this user's own directory")
     return private_dir / f"{run_dir.name}.series"
@@ -254,9 +256,11 @@ class Enlil(Model):
         if not files:
             raise ValueError(f"No model output files in {dirname}")
         names = [f.name for f in files]
+        # The run's own index, if it lists exactly these files
         series = dirname / SERIES_NAME
         if read_series(series) == names:
             return [str(series)]
+        # Else one this server saved privately for exactly these files
         private = private_series_path(dirname, create=False)
         if private and read_series(private, names_only=True) == [
             str(f) for f in files
@@ -275,6 +279,7 @@ class Enlil(Model):
             write_series(series, names, times)
             return [str(series)]
         except OSError:
+            # The run directory cannot be written to
             private = private_series_path(dirname)
             write_series(private, [str(f) for f in files], times)
             return [str(private)]
@@ -294,8 +299,9 @@ class Enlil(Model):
         Parameters
         ----------
         dirname : Path
-            Path of the directory containing the EUHFORIA model output
+            Path of the directory containing the Enlil model output
         """
+        # First, so a run with no files is refused before anything changes
         filenames = self._get_filenames(dirname)
         self.dir = dirname
         self.data.FileName = filenames
@@ -303,8 +309,9 @@ class Enlil(Model):
         # and this one may have been rewritten for files that arrived since
         self.data.SMProxy.UpdateProperty("FileName", 1)
         self.data.UpdatePipelineInformation()
-        # Reload the satellite files for this run, dropping the previous
-        # run's: a satellite this run has no file for must not keep them
+        # Reload the satellite files for this run, starting again from the
+        # default Earth as __init__ does, so a satellite this run has no file
+        # for does not keep the previous run's track
         self.satellites = {"earth": ModelSatellite("earth", (-1, 0, 0))}
         self._load_satellites()
 
@@ -372,12 +379,14 @@ class Euhforia(Model):
         dirname : Path
             Path of the directory containing the EUHFORIA model output
         """
+        # Refuse a run with no files before anything changes
         fnames = sorted(str(fname) for fname in dirname.glob("data_*.vts"))
         if not fnames:
             raise ValueError(f"No model output files in {dirname}")
         self.dir = dirname
         self._input_data.FileName = fnames
-        # As Enlil.change_run: the new run's times before anything reads them
+        # Read the new run's time steps now, as Enlil.change_run does, so the
+        # caller's move to the first time step sees this run's times
         self._input_data.UpdatePipelineInformation()
 
 

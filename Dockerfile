@@ -106,8 +106,8 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
 RUN uv venv --python ${PARAVIEW_PYTHON} /opt/pv-venv && \
     uv pip install --python /opt/pv-venv/bin/python "wslink==${WSLINK_VERSION}"
 
-# Render with OSMesa as 5.10 did. Left alone, ParaView 6 picks EGL, which in
-# testing crashed when the pvpython process exited.
+# Render with OSMesa as 5.10 did. Left alone, ParaView 6 picks EGL, which
+# crashed at pvpython exit in this image.
 ENV VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow
 
 # Separate pip build to prevent having to re-install dependencies on every pvw code change.

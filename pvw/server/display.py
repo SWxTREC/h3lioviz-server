@@ -16,11 +16,10 @@ class LazyDisplay:
     """
     A display (representation) that is only created the first time it is shown.
 
-    Under ParaView 6.2 creating a geometry representation costs about 0.2 s and
-    75 MB whatever the data (measured in the 6.2 image), most of it for the
-    data axes grid each one builds.
-    Most of what h3lioviz builds is hidden until the user asks for it, so only
-    the representations that are shown get built.
+    Creating a geometry representation costs time and memory whatever the
+    data (under ParaView 6.2 about 0.2 s and 75 MB each, mostly for the data
+    axes grid each one builds). Most of what h3lioviz builds is hidden until
+    the user asks for it, so only the representations that are shown get built.
 
     Parameters
     ----------
