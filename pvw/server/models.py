@@ -120,7 +120,9 @@ class Enlil(Model):
         """
         self.dir = dirname
         self.data.FileName = self._get_filenames()
-        # Reload the satellite files for this run
+        # Reload the satellite files for this run, dropping the previous
+        # run's: a satellite this run has no file for must not keep them
+        self.satellites = {"earth": ModelSatellite("earth", (-1, 0, 0))}
         self._load_satellites()
 
 

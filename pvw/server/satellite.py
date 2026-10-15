@@ -231,6 +231,7 @@ class Earth(Satellite):
 
         # We should have a local image file to use as a texture
         earth_image = pvs.CreateTexture(str(earth_path))
+        self.texture = earth_image
         # Set up the sphere source
         sphere = self.sat
         sphere.ThetaResolution = 50

@@ -3,10 +3,12 @@ import json
 import math
 import pathlib
 import os
+import re
 import subprocess
 import shutil
 
 import paraview.simple as pvs
+from paraview import servermanager
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
@@ -89,6 +91,14 @@ VARIABLE_LABEL = {
 
 STORAGE_SPACE_CUTOFF_GIB = 5
 
+# A run id becomes one directory name under the data directory and one S3
+# prefix (copied with s5cmd, which treats *, ? and [ as wildcards), so allow
+# only characters that are safe in both, and no "." or ".." on their own
+RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+# The model classes for each simulation program
+MODELS = {"enlil": models.Enlil, "euhforia": models.Euhforia}
+
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
 
@@ -137,6 +147,8 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Track the current scalar bar and its visibility
         self._scalarbar_visible = False
+        # The client's latest calls that set up the view, by kind
+        self._client_calls = {}
         self._current_lut = None
 
     @exportRpc("pv.h3lioviz.load_model")
@@ -149,6 +161,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         program : str
             Name of the program (enlil or euhforia)
         """
+        if not isinstance(run_id, str) or not RUN_ID_PATTERN.fullmatch(run_id):
+            raise ValueError(f"Invalid run id: {run_id!r}")
         run_dir_name = f"pv-ready-data-{run_id}"
         data_dir = self._run_dir / run_dir_name
         if not data_dir.exists():
@@ -198,28 +212,50 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Euhforia data has vts files, so if we detect any in
             # this directory then that is the model we will use
             program = "euhforia"
+        if program not in MODELS:
+            raise ValueError(
+                f"We cannot load {program} data at this time, only enlil and euhforia are supported"
+            )
+        model_class = MODELS[program]
 
-        if hasattr(self, "model"):
-            # We already have a model initialized, so we just need to switch
-            # the directory underneath the hood without recreating all the filters
+        if hasattr(self, "model") and type(self.model) is model_class:
+            # We already have a model of this type initialized, so we just
+            # need to switch the directory underneath the hood without
+            # recreating all the filters
             self.model.change_run(data_dir)
             # Update the satellite data files associated with the run
             self._setup_satellites()
+            self._show_first_time_step()
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
             return
 
+        if hasattr(self, "model"):
+            # The other model type: its variable names and pipeline differ,
+            # so build everything again. Build the new model's reader first,
+            # so a run whose reader cannot be built leaves the current one as
+            # it was. A failure after that leaves this session unusable; the
+            # client has to start a new one.
+            old_sources = list(pvs.GetSources().values())
+            try:
+                model = model_class(data_dir)
+            except Exception:
+                self._delete_sources(
+                    s for s in pvs.GetSources().values() if s not in old_sources
+                )
+                raise
+            client_calls = list(self._client_calls.values())
+            self._delete_pipeline(old_sources)
+            self.model = model
+            self._init_filters()
+            # The client does not send its settings again on a change of run
+            self._replay(client_calls)
+            return
+
         # We are in initialization and don't have a model yet, so
         # we need to create one
-        if program == "enlil":
-            self.model = models.Enlil(data_dir)
-        elif program == "euhforia":
-            self.model = models.Euhforia(data_dir)
-        else:
-            raise ValueError(
-                f"We cannot load {program} data at this time, only enlil and euhforia are supported"
-            )
+        self.model = model_class(data_dir)
         self._init_filters()
 
     def _init_filters(self):
@@ -316,12 +352,93 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Call the update function every time the TimeKeeper gets modified
         # The final 1.0 is optional, but sets it as high priority to first
         # do this before other rendering.
-        pvs.GetAnimationScene().TimeKeeper.AddObserver(
+        self._time_observer = pvs.GetAnimationScene().TimeKeeper.AddObserver(
             "PropertyModifiedEvent", self.update, 1.0
         )
+        self._show_first_time_step()
 
         # Set the default to have the slice go through Earth
         self.snap_solar_plane("ecliptic")
+
+    def _show_first_time_step(self):
+        """
+        Move the view to the first time step of the loaded run.
+
+        Until the client picks a time, the view would otherwise stay at time
+        0, labelled 1970-01-01, or after a change of run at the previous
+        run's time, which is outside this run, so none of its data is drawn.
+        """
+        scene = pvs.GetAnimationScene()
+        scene.UpdateAnimationUsingDataTimeSteps()
+        times = list(scene.TimeKeeper.TimestepValues)
+        if times:
+            scene.AnimationTime = times[0]
+        # Position everything for this time, even if the time is unchanged:
+        # the satellites may have been rebuilt for a new run
+        self._previous_time = None
+        self.update(None, None)
+
+    def _delete_pipeline(self, sources):
+        """
+        Delete the pipeline objects of the current model, including its
+        readers, so a model of another type can be built in their place.
+
+        sources : list
+            Every pipeline object of the current model
+        """
+        pvs.GetAnimationScene().TimeKeeper.RemoveObserver(self._time_observer)
+        # The new model's color maps have their own scalar bars
+        if self._current_lut is not None:
+            pvs.GetScalarBar(self._current_lut, self.view).Visibility = 0
+            self._current_lut = None
+        textures = [self.earth.texture, self.logo.Texture]
+        self._delete_sources(sources)
+        for texture in textures:
+            if texture is not None:
+                self._delete_texture(texture)
+        # The streamlines' own color maps (GetColorTransferFunction with
+        # separate=True); their displays are gone with the sources
+        pxm = servermanager.ProxyManager()
+        groups = ("lookup_tables", "piecewise_functions", "transfer_2d_functions")
+        for group in groups:
+            for (name, _), proxy in list(pxm.GetProxiesInGroup(group).items()):
+                if name.startswith("Separate_"):
+                    pxm.UnRegisterProxy(group, name, proxy)
+        # _init_filters and _setup_satellites build these again
+        for name in ("model", "sun", "earth", "satellites"):
+            delattr(self, name)
+
+    @staticmethod
+    def _delete_texture(texture):
+        """Delete a texture made by pvs.CreateTexture. pvs.Delete leaves a
+        texture registered, and so alive, in the "textures" group that
+        CreateTexture registered it in, so unregister it from there."""
+        pxm = servermanager.ProxyManager()
+        name = pxm.SMProxyManager.GetProxyName("textures", texture.SMProxy)
+        if name:
+            pxm.UnRegisterProxy("textures", name, texture)
+
+    @staticmethod
+    def _delete_sources(sources):
+        """Delete pipeline objects, newest first, so no object is deleted
+        while one built on it remains"""
+        for source in sorted(
+            sources, key=lambda s: int(s.GetGlobalIDAsString()), reverse=True
+        ):
+            pvs.Delete(source)
+
+    def _remember(self, key, method, *args):
+        """Keep the client's latest call of each kind (key), in call order"""
+        self._client_calls.pop(key, None)
+        self._client_calls[key] = (method, args)
+
+    def _replay(self, calls):
+        """Make again the calls the client made before the pipeline was rebuilt"""
+        for method, args in calls:
+            try:
+                getattr(self, method)(*args)
+            except Exception as e:
+                print(f"Could not restore {method}{args} after a change of model: {e}")
 
     def _setup_views(self):
         """Setup the rendering view."""
@@ -491,6 +608,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         visibility : str ("on", "off")
             What to set the visibility to for the given object
         """
+        self._remember(("visibility", obj), "change_visibility", obj, visibility)
         if visibility == "on":
             if obj == "lon_slice":
                 self.lon_slice.show()
@@ -545,6 +663,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to colormap all of the surfaces by
         """
+        self._remember("colorby", "change_color_variable", name)
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         label = VARIABLE_LABEL[name]
@@ -678,6 +797,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         cmap_name : str
             Name of the colormap to apply
         """
+        self._remember(("colormap", name), "set_colormap", name, cmap_name)
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
@@ -727,6 +847,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
+        self._remember("threshold", "set_threshold", name, range)
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
@@ -742,6 +863,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
+        self._remember("contours", "set_contours", name, values)
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
@@ -755,6 +877,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the plane to snap to. Either "ecliptic" (Earth) or
             "equator" (heliographic equator).
         """
+        self._remember("lon_plane", "snap_solar_plane", clip)
         if clip == "ecliptic":
             if not hasattr(self, "earth"):
                 # We don't have earth's location, so just return
@@ -787,6 +910,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         angle : float
             Angle (in degrees) for the tilt of the ecliptic/solar plane.
         """
+        self._remember(f"{plane}_plane", "rotate_plane", plane, angle)
         angle_rad = math.radians(angle)
         x = math.cos(angle_rad)
         y = math.sin(angle_rad)
@@ -841,6 +965,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         visibility : str ("on", "off")
             What to set the visibility to
         """
+        self._remember("satellites", "toggle_satellites", visibility)
         if visibility == "on":
             hide_show = "show"
         elif visibility == "off":
@@ -902,7 +1027,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Rotate the Earth image
         self.earth.update(curr_time)
-        self._previous_time == curr_time
+        self._previous_time = curr_time
 
     def get_current_time(self):
         """Retrieves the current time of the view.
