@@ -60,7 +60,9 @@ python3.9 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
 echo "Starting/Restarting Apache webserver"
 service apache2 restart
 
-# Run the pvw launcher in the foreground so this script doesn't end
+# Run the pvw launcher in the foreground so this script doesn't end. It is
+# wslink's launcher plus one session process started ahead of time (the
+# "spare" entry of the launcher config)
 echo "Starting the wslink launcher"
-/opt/paraview/bin/pvpython --venv /opt/pv-venv -m wslink.launcher ${LAUNCHER_PATH}
+/opt/paraview/bin/pvpython --venv /opt/pv-venv /pvw/launcher/spare_launcher.py ${LAUNCHER_PATH}
 # python3 -m wslink.launcher ${LAUNCHER_PATH}

@@ -1,5 +1,7 @@
 import argparse
+import asyncio
 import os
+import signal
 import sys
 import time
 
@@ -51,6 +53,14 @@ class _ImageDelivery(pv_protocols.ParaViewWebPublishImageDelivery):
 class _AppServer(pv_wslink.PVServerProtocol):
     authKey = "wslink-secret"
     settingsLODThreshold = 102400
+    # Started as the launcher's spare process (pvw/launcher/spare_launcher.py)
+    spare = False
+    # The idle timeout once a spare process belongs to a client
+    client_timeout = 0
+    # The wslink web server, once wslink has created it
+    web_server = None
+    # Connected clients
+    clients = 0
 
     @staticmethod
     def add_arguments(parser):
@@ -67,6 +77,16 @@ class _AppServer(pv_wslink.PVServerProtocol):
             help="LOD Threshold in Megabytes",
             dest="settingsLODThreshold",
         )
+        parser.add_argument(
+            "--spare",
+            action="store_true",
+            help=(
+                "Started by the launcher before any client asked for it: no idle "
+                "timeout until the launcher hands it to a client (SIGUSR1), then "
+                "--timeout applies"
+            ),
+            dest="spare",
+        )
 
     @staticmethod
     def configure(args):
@@ -75,6 +95,47 @@ class _AppServer(pv_wslink.PVServerProtocol):
         _AppServer.data_dir = args.data_dir
         _AppServer.settingsLODThreshold = args.settingsLODThreshold
         _AppServer.host = args.host
+        _AppServer.spare = args.spare
+
+    def set_server(self, web_server):
+        """Called by wslink with its web server, before it starts serving"""
+        _AppServer.web_server = web_server
+
+    def onConnect(self, request, client_id):
+        _AppServer.clients += 1
+
+    def onClose(self, client_id):
+        # wslink also calls this when a connection failed before onConnect
+        _AppServer.clients = max(0, _AppServer.clients - 1)
+
+    @staticmethod
+    def handed_to_client():
+        """
+        The launcher has handed this spare process to a client: from now on
+        it times out when idle like a process started for that client,
+        including when the client never connects.
+        """
+        if not _AppServer.spare:
+            return
+        _AppServer.spare = False
+        # wslink 1.12 also keeps its web server in server.ws_server
+        web_server = _AppServer.web_server or getattr(server, "ws_server", None)
+        if web_server is None:
+            # Not reached with wslink 1.12, which sets both. Keep serving the
+            # client rather than drop it, but say the timeout is not applied
+            print("Handed to a client, but no web server to set the idle timeout on")
+            return
+        web_server.config["timeout"] = _AppServer.client_timeout
+        # wslink registers a connection before it calls onConnect, so ask its
+        # handlers (WebAppServer._ws_handlers in wslink 1.12) whether one is
+        # open; the onConnect count is the fallback
+        handlers = getattr(web_server, "_ws_handlers", None)
+        if handlers is not None:
+            connected = any(handler.connections for handler in handlers)
+        else:
+            connected = _AppServer.clients > 0
+        if not connected:
+            web_server.shutdown_schedule()
 
     def initialize(self):
         # Bring used components
@@ -110,6 +171,30 @@ if __name__ == "__main__":
 
     # Extract arguments
     args = parser.parse_args()
+    if args.spare:
+        try:
+            from wslink.protocol import AbstractWebApp
+
+            spare_supported = hasattr(AbstractWebApp, "shutdown_schedule")
+        except ImportError:
+            spare_supported = False
+        if spare_supported:
+            # No idle timeout until the launcher hands this process to a
+            # client, which it signals with SIGUSR1
+            _AppServer.client_timeout = args.timeout
+            args.timeout = 0
+            signal.signal(
+                signal.SIGUSR1,
+                lambda signum, frame: asyncio.get_event_loop().call_soon_threadsafe(
+                    _AppServer.handed_to_client
+                ),
+            )
+        else:
+            # This wslink cannot change the timeout later: run as an ordinary
+            # session, and ignore the launcher's signal rather than die of it
+            print("--spare needs a newer wslink (1.12.4 works); running as an ordinary session")
+            args.spare = False
+            signal.signal(signal.SIGUSR1, signal.SIG_IGN)
     _AppServer.configure(args)
 
     # Start server

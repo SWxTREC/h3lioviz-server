@@ -3,6 +3,10 @@
   "sessionData": {
     "updir": "/Home"
   },
+  "spare": {
+    "application": "visualizer",
+    "delay": 10
+  },
   "configuration": {
     "log_dir": "/data/launcher/log",
     "host": "0.0.0.0",
