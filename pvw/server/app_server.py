@@ -1,14 +1,47 @@
 import argparse
 import os
 import sys
+import time
 
 # import paraview modules.
 from paraview.web import pv_wslink
 from paraview.web import protocols as pv_protocols
 
-from wslink import server
+from wslink import schedule_callback, server
 
 from app import App
+
+
+class _ImageDelivery(pv_protocols.ParaViewWebPublishImageDelivery):
+    """
+    ParaView's image delivery, with its retries for stale images fixed.
+
+    When a render's image is not encoded yet, the reply is marked stale and
+    the image is asked for again later. ParaView (5.10.1, 6.1.1 and 6.2.0)
+    means to retry up to staleCountLimit times, retry n once (n + 1) times
+    deltaStaleTimeBeforeRender have passed since the last stale reply. But
+    each retry's own stale reply resets that time, so only the first retry
+    ever happens, and an image that takes longer than one delay to encode is
+    not sent until something renders again. Here each retry is rescheduled
+    until its time has come.
+    """
+
+    def renderStaleImage(self, vId, staleCount=0):
+        if self.staleHandlerCount.get(vId, 0) <= 0:
+            return
+        self.staleHandlerCount[vId] -= 1
+        if self.lastStaleTime[vId] == 0:
+            # An image that was not stale has been sent since
+            return
+        wait = self.deltaStaleTimeBeforeRender * (staleCount + 1) - (
+            time.time() - self.lastStaleTime[vId]
+        )
+        if wait > 0:
+            self.staleHandlerCount[vId] += 1
+            schedule_callback(wait + 0.001, lambda: self.renderStaleImage(vId, staleCount))
+        elif staleCount < self.staleCountLimit:
+            self.pushRender(vId, False, staleCount + 1)
+
 
 # =============================================================================
 # Create custom PVServerProtocol class to handle clients requests
@@ -48,9 +81,13 @@ class _AppServer(pv_wslink.PVServerProtocol):
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebMouseHandler())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebViewPort())
         self.registerVtkWebProtocol(pv_protocols.ParaViewWebTimeHandler())
-        self.registerVtkWebProtocol(
-            pv_protocols.ParaViewWebPublishImageDelivery(decode=False)
-        )
+        image_delivery = _ImageDelivery(decode=False)
+        # Ask for a stale image again after 0.02 s rather than ParaView's
+        # 0.1 s, so it reaches the client sooner. With the retries fixed, an
+        # image that takes longer to encode is still sent: the retries wait
+        # 0.02, 0.04, ... 0.2 s, 1.1 s in all.
+        image_delivery.deltaStaleTimeBeforeRender = 0.02
+        self.registerVtkWebProtocol(image_delivery)
         self.updateSecret(_AppServer.authKey)
 
         # tell the C++ web app to use no encoding.
