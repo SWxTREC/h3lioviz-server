@@ -735,8 +735,8 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # restore active source
         pvs.SetActiveSource(None)
-        # Render the view
-        pvs.Render(self.view)
+        # No render here: a render in an RPC sends no image to the client,
+        # which asks for one itself (viewport.image.push) after the change
 
     def set_scalarbar_visibility(self, visible):
         """
