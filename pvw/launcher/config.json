@@ -25,6 +25,7 @@
         "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
         "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
         "${python_exec}",
+        "--venv", "/opt/pv-venv",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
         "--port", "${port}",
@@ -38,6 +39,7 @@
         "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
         "${mpi_run}", "-np", "4",
         "${batch_exec}",
+        "--venv", "/opt/pv-venv",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
         "--port", "${port}",

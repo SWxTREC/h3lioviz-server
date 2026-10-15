@@ -108,7 +108,7 @@ Response:
 
 ### Installation
 
-Navigate to the [Paraview download page](https://www.paraview.org/download/). Set the version selector to v5.10 and change your platform appropriately (the platforms are below the version selector).
+Navigate to the [Paraview download page](https://www.paraview.org/download/). Set the version selector to the version the server image runs (`PARAVIEW_VERSION` in the Dockerfile, currently v6.1) and change your platform appropriately (the platforms are below the version selector).
 
 ### Basic Usage
 

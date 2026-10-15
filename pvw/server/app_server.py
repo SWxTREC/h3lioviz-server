@@ -1,4 +1,6 @@
 import argparse
+import os
+import sys
 
 # import paraview modules.
 from paraview.web import pv_wslink
@@ -76,3 +78,11 @@ if __name__ == "__main__":
     # Start server
     args.host = "0.0.0.0"  # aiohttp doesn't like "localhost" here
     server.start_webserver(options=args, protocol=_AppServer)
+
+    # The session is over. Exit without running ParaView's C++ teardown:
+    # under ParaView 6.x it can segfault (in vtkXRenderWindowInteractor's
+    # Finalize, though this process is headless) or hang, and a hung
+    # process keeps its memory until the instance stops.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)

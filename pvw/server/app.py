@@ -67,6 +67,14 @@ DEFAULT_CMAP = {
     "dp": "Plasma (matplotlib)",
 }
 
+# ParaView 6 names these presets without the " (matplotlib)" suffix. The
+# frontend still sends the old names, so translate them before applying.
+PRESET_RENAMES = {
+    "Inferno (matplotlib)": "Inferno",
+    "Plasma (matplotlib)": "Plasma",
+    "Viridis (matplotlib)": "Viridis",
+}
+
 VARIABLE_LABEL = {
     "velocity": "Velocity (km/s)",
     "density": "Density (r$^2$N/cm$^3$)",
@@ -105,6 +113,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Get the initial 'Render View'
         self.view = pvs.GetActiveView()
         self.view.ViewSize = [600, 600]
+        # Keep the blue-grey background ParaView 5.10 drew by default. Newer
+        # versions default to a warm grey palette, so set it explicitly.
+        self.view.UseColorPaletteForBackground = 0
+        self.view.Background = [0.32, 0.34, 0.43]
         self.view.AxesGrid = "GridAxes3DActor"
         self.view.CenterOfRotation = [0, 0, 0]
         self.view.StereoType = "Crystal Eyes"
@@ -670,7 +682,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
-        lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
+        preset = cmap_name or DEFAULT_CMAP[name]
+        lut.ApplyPreset(PRESET_RENAMES.get(preset, preset))
         lut.EnableOpacityMapping = 1
 
     @exportRpc("pv.h3lioviz.set_range")

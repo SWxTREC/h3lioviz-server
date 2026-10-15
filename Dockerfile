@@ -45,9 +45,6 @@ USER root
 
 # Need to force noninteractive for apt-get updates
 ARG DEBIAN_FRONTEND=noninteractive
-# Can be egl (GPU) or osmesa (CPU)
-ARG RENDERER=osmesa
-
 ARG FRONTEND_ENVIRONMENT="dev"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -74,14 +71,44 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     ./aws/install && \
     rm -rf ./aws awscliv2.zip 
 
-# NOTE: We are using the osmesa build here.  If you want to use EGL (GPU) rendering,
-# you'll need to change the URL to point to the EGL build and ensure that your
-# base image has the necessary EGL libraries installed.
-# For EGL builds, consider using the nvidia/opengl base images.
+# Since ParaView 6.0 there is one Linux binary for every renderer (X, EGL and
+# a bundled OSMesa). VTK_DEFAULT_OPENGL_WINDOW below picks OSMesa.
+ARG PARAVIEW_VERSION=6.1.1
+ARG PARAVIEW_PYTHON=3.12
 RUN mkdir -p /opt/paraview && \
-    curl -fSL "https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.10&type=binary&os=Linux&downloadFile=ParaView-5.10.1-osmesa-MPI-Linux-Python3.9-x86_64.tar.gz" -o /tmp/paraview.tar.gz && \
+    curl -fSL "https://www.paraview.org/files/v${PARAVIEW_VERSION%.*}/ParaView-${PARAVIEW_VERSION}-MPI-Linux-Python${PARAVIEW_PYTHON}-x86_64.tar.gz" -o /tmp/paraview.tar.gz && \
     tar -xzf /tmp/paraview.tar.gz -C /opt/paraview --strip-components=1 && \
     rm -f /tmp/paraview.tar.gz
+
+# System libraries the ParaView 6 binaries link against but do not bundle.
+# pvpython will not start without libpciaccess, and without the rest of these
+# rendering segfaults, even with OSMesa doing the drawing.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpciaccess0 \
+        libgl1 \
+        libegl1 \
+        libx11-6 \
+        libxkbcommon0 \
+        libdbus-1-3 \
+        libfontconfig1 && \
+        rm -rf /var/lib/apt/lists/*
+
+# ParaView 6 no longer bundles wslink, the websocket server every h3lioviz
+# session runs on. Install it into a venv on the same Python version as
+# pvpython, which loads it through `pvpython --venv /opt/pv-venv`. Stay on
+# wslink 1.x: 2.x switched the wire format to msgpack and would need the
+# frontend's wslink client upgraded at the same time.
+# ParaView 6.2 ships uv in /opt/paraview/bin but 6.1 does not, so take uv
+# from its official image, pinned to the version ParaView 6.2.0 bundles.
+COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /usr/local/bin/uv
+ARG WSLINK_VERSION=1.12.4
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+RUN uv venv --python ${PARAVIEW_PYTHON} /opt/pv-venv && \
+    uv pip install --python /opt/pv-venv/bin/python "wslink==${WSLINK_VERSION}"
+
+# Render with OSMesa as 5.10 did. Left alone, ParaView 6 picks EGL, which in
+# testing crashed when the pvpython process exited.
+ENV VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow
 
 # Separate pip build to prevent having to re-install dependencies on every pvw code change.
 COPY pvw/requirements.txt /pvw/

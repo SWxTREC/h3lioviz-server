@@ -282,8 +282,9 @@ class Earth(Satellite):
         texture_map_disp.SelectNormalArray = "Normals"
         texture_map_disp.SelectTangentArray = "None"
         texture_map_disp.Texture = earth_image
-        # To get the proper orientation
-        texture_map_disp.FlipTextures = 1
+        # To get the proper orientation, flip the texture vertically. This
+        # is what FlipTextures = 1 did before ParaView 5.13 removed it.
+        texture_map_disp.TextureTransform.Scale = [1, -1, 1]
 
     def show(self):
         pvs.Show(self.translation2, self.view)

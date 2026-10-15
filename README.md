@@ -247,10 +247,9 @@ Python packages are installed via a virtual environment during the Docker build 
 1. Add the required packages to `pvw/requirements.txt`
 2. Rebuild the Docker image
 
-The virtual environment is created by the Dockerfile and is utilized for flask in server.sh. Note that there is code in place to allow paraview to access the venv, but is currently not in use.
+The virtual environment `/pvw/venv` is created by the Dockerfile and is used for flask in server.sh. ParaView's `pvpython` runs with a separate venv, `/opt/pv-venv` (`pvpython --venv`), which holds wslink and its dependencies, because ParaView 6 no longer bundles it.
 
-> **Note**: While paraview can get access to additional python packages, our current version of paraview was built with a now outdated SSL version, which makes it close to impossible to use libraries like boto3.
-> We currently rely on the s5cmd command line tool for downloading runs. This restriction only applies to python scripts invoked using the pvpython command.
+> **Note**: Python scripts run with `pvpython` download runs with s5cmd (`pvw/server/app.py`) rather than boto3. ParaView 5.10, which this server ran before the 6.1 upgrade, was built with an outdated SSL version that made libraries like boto3 close to impossible to use there; this has not been re-checked on 6.1.
 
 ## Repository Structure
 
