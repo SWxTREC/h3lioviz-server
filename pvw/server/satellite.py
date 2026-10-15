@@ -145,6 +145,12 @@ class Satellite:
         # and the tube empty, so ParaView picked no normals array for it
         disp.SelectNormalArray = "None"
 
+    def delete(self):
+        """Delete this satellite's pipeline objects and their displays"""
+        # Newest first, so nothing is deleted while a filter on it remains
+        for source in (self.streamlines, self.stream_input, self.label, self.sat):
+            pvs.Delete(source)
+
     def show(self):
         """Make the satellite visible"""
         self.sat_display.show()

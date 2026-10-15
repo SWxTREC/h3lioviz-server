@@ -170,6 +170,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         self._scalarbar_visible = False
         # The client's latest calls that set up the view, by kind
         self._client_calls = {}
+        # Whether the satellites and their fieldlines are shown, kept across
+        # changes of run
+        self._satellites_visible = INITIAL_VISIBILITY["satellites"]
+        self._fieldlines_visible = INITIAL_VISIBILITY["sat_fieldlines"]
         self._current_lut = None
 
     @exportRpc("pv.h3lioviz.load_model")
@@ -393,7 +397,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         if times:
             scene.AnimationTime = times[0]
         # Position everything for this time, even if the time is unchanged:
-        # the satellites may have been rebuilt for a new run
+        # the satellites may have a new run's position data
         self._previous_time = None
         self.update(None, None)
 
@@ -544,57 +548,43 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellite locations and objects.
 
-        If we are changing runs, we start by hiding and deleting all
-        previous instances of the objects.
+        On a change of run, the Sun, the Earth and the satellites both runs
+        have are kept and given the new run's position data; satellites
+        only the old run has are deleted, and those only the new run has are
+        created. Satellites and fieldlines keep the visibility the user chose.
+        The caller moves them to the new run's time.
         """
-        first_load = not hasattr(self, "sun")
-        if hasattr(self, "sun"):
-            self.sun.hide()
-            del self.sun
-        self.sun = satellite.Sun(view=self.view)
+        if not hasattr(self, "sun"):
+            self.sun = satellite.Sun(view=self.view)
+            self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
+            self.earth.add_fieldline(self.bvec)
+            self.earth.show()
+            if self._fieldlines_visible:
+                self.earth.show_fieldline()
+            self.satellites = {}
+        else:
+            self.earth.change_satellite_data(self.model.satellites["earth"])
 
-        if hasattr(self, "earth"):
-            self.earth.hide()
-            if hasattr(self.earth, "streamlines"):
-                # Remove any streamlines if there were some
-                self.earth.hide_fieldline()
-                del self.earth.streamlines
-            del self.earth
-        self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
-        if hasattr(self, "satellites"):
-            for sat in self.satellites.values():
-                sat.hide()
-                if hasattr(sat, "streamlines"):
-                    # Remove any streamlines if there were some
-                    sat.hide_fieldline()
-                    del sat.streamlines
-                del sat
-            del self.satellites
         # TODO: Use the other satellites eventually
         # For now, we are only showing the stereo spacecraft
-        self.satellites = {
-            x.name: satellite.Satellite(x, view=self.view)
-            for x in self.model.satellites.values()
-            if "stereo" in x.name
+        wanted = {
+            x.name: x for x in self.model.satellites.values() if "stereo" in x.name
         }
-
-        # Add the fieldlines to the satellites + Earth
-        for sat in self.satellites:
-            self.satellites[sat].add_fieldline(self.bvec)
-        self.earth.add_fieldline(self.bvec)
-
-        # On first load show what is visible initially. On a change of run
-        # the new satellites and fieldlines are all shown.
-        show_satellites = INITIAL_VISIBILITY["satellites"] if first_load else True
-        show_fieldlines = INITIAL_VISIBILITY["sat_fieldlines"] if first_load else True
-        self.earth.show()
-        for sat in self.satellites.values():
-            if show_satellites:
+        for name in list(self.satellites):
+            if name not in wanted:
+                self.satellites.pop(name).delete()
+        for name, model_satellite in wanted.items():
+            if name in self.satellites:
+                self.satellites[name].change_satellite_data(model_satellite)
+                continue
+            sat = satellite.Satellite(model_satellite, view=self.view)
+            # Add the fieldline to the satellite
+            sat.add_fieldline(self.bvec)
+            if self._satellites_visible:
                 sat.show()
-            if show_fieldlines:
+            if self._fieldlines_visible:
                 sat.show_fieldline()
-        if show_fieldlines:
-            self.earth.show_fieldline()
+            self.satellites[name] = sat
 
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
@@ -656,6 +646,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             elif obj == "lat_streamlines":
                 self.lat_slice.show_streamlines()
             elif obj == "sat_fieldlines":
+                self._fieldlines_visible = True
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
@@ -680,6 +671,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             elif obj == "lat_streamlines":
                 self.lat_slice.hide_streamlines()
             elif obj == "sat_fieldlines":
+                self._fieldlines_visible = False
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
@@ -1010,6 +1002,7 @@ class App(pv_protocols.ParaViewWebProtocol):
             hide_show = "hide"
         else:
             return ["Visibility can only be 'on' or 'off'"]
+        self._satellites_visible = visibility == "on"
         for sat in self.satellites:
             # Call the hide() or show() method
             getattr(self.satellites[sat], hide_show)()
