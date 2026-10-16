@@ -6,24 +6,24 @@
 
 The paraview web launcher is responsible for starting a new process for each user, generating a session key,
 distributing that session key back to the client, and mapping session key to the port the forked visualization server is running on.
-It listens on localhost:9000. Note that the launcher is only communicated to via HTTP. Our cloud infrastructure handles any HTTP-to-HTTPS
+It listens on port 9000 on all interfaces (0.0.0.0) inside the container, and Apache reaches it at localhost:9000. Note that the launcher is only communicated to via HTTP. Our cloud infrastructure handles any HTTP-to-HTTPS
 encapsulation. The Paraview web server/visualizer is what handles all websocket connections.
 
 #### Configuration
 
 The configuration file is located in [../pvw/launcher/config.json](../pvw/launcher/config.json). Here are a few of the most important parameters:
 
-- configuration.sessionURL: This is the url that the paraview launcher expects requests for new sessions to be made to. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. Both $PROTOCOL and $SERVER_NAME are environment variables that need to be set by a docker-compose file or command line flags.
-- configuration.proxyFile: This is the file that will store mappings between sessionIDs and ports that have been opened for the websocket controlled visualization.
-- apps.visualizer: This will run pvpython and is forked for each invocation of the paraview web launcher
-- apps.visualizer-mpi: This provides parallelization for batch operations. I am not sure if this is being used.
+- configuration.sessionURL: This is the websocket url that the paraview launcher returns to the client for each new session; the client connects to it. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. $PROTOCOL and $SERVER_NAME are environment variables set by a docker-compose file or command line flags; set both so the browser can reach the session. If either is unset, server.sh uses ws://localhost.
+- configuration.proxy_file: This is the file that will store mappings between sessionIDs and ports that have been opened for the websocket controlled visualization.
+- apps.visualizer: This will run pvpython and is started once for each new session request (POST) to the paraview web launcher
+- apps.visualizer-mpi: This provides parallelization for batch operations. It is not used: the frontend always requests the `visualizer` application.
 
 #### Logging
 
 The following logs contain:
 
-- Launcher requests for a new session via POST to /h3lioviz/paraview
-- Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview?{some_random_number}.
+- Launcher requests for a new session via POST to /h3lioviz/paraview/
+- Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview/?{some_random_number}.
   A 400 status_code indicates the server is accessible
 - Any errors/warnings during the session launching process
 
@@ -31,10 +31,10 @@ The following logs contain:
 
 ### Paraview Web Visualizer/Server
 
-Each connection will create a new paraview web server process with it's own port.
+Each new session request (POST to the launcher) starts a new paraview web server process with its own port.
 The capabilities of the visualizer are determined by which VtkWebProtocols are registered to the paraview server.
-An example of one such protocol is the ParaviewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse.
-Another example is the custom ParaviewWebProtocol, a subclass of vtkWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py).
+An example of one such protocol is the ParaViewWebMouseHandler which automatically handles RPC calls for moving the visualization on the frontend with your mouse.
+Another example is the custom `App` class, a subclass of ParaViewWebProtocol, defined in [../pvw/server/app.py](../pvw/server/app.py).
 This is how we define custom actions on the visualization that the frontend can request via RPC calls.
 The VtkWebProtocols are registered with the paraview web server in [../pvw/server/app_server.py](../pvw/server/app_server.py).
 The app_server.py file also configures some of these protocols where necessary.
@@ -47,14 +47,14 @@ The following logs contain:
 - Errors that occurred during the rendering or any errors that resulted from websocket RPC calls to the server
 - Any other information output by the python files in `../pvw/server` including information on on the fly run downloads
 
-`/data/launcher/log/<hashed_session_id>.log`
+`/data/launcher/log/<session_id>.txt`
 
 #### Testing Websockets Without a Frontend
 
 [Install Postman](https://www.postman.com/downloads/) or another API testing tool. You can avoid all their sign in stuff if you don't want to persist your session. 
-The value of the id key doesn't seem to matter much, but it must be filled out in order for requests to be successful (flingus:0 seems to work just fine).
+The id key must be filled out in order for requests to be successful. For the `wslink.hello` message in step 3 it must start with `system:`, or the server answers "Unregistered method called". For other calls the value doesn't seem to matter much (flingus:0 seems to work just fine).
 
-1. Send a POST request to `https://paraview-web.{YOUR_SUB_DOMAIN}.swx-trec.com/h3lioviz/paraview` with the following JSON body:
+1. Send a POST request to `https://paraview-web.{YOUR_SUB_DOMAIN}.swx-trec.com/h3lioviz/paraview/` (the trailing slash is required; the launcher returns 404 without it) with the following JSON body:
 ```json
 {
     "application": "visualizer",
@@ -71,7 +71,7 @@ Response:
     "sessionURL": "wss://paraview-web.noaa-demo.swx-trec.com/h3lioviz/proxy?sessionId=d6a03303-d6c6-11f0-b000-e555d37416b1&path=ws"
 }
 ```
-2. Create a websockets request. Input the url from sessionURL then hit "Connect". You are now connected to the websocket!
+2. Create a websockets request. Input the url from sessionURL then hit "Connect". You are now connected to the websocket! Connect within 30 seconds (`--timeout 30` in the launcher config), or the session's server shuts down.
 3. Send the following test message:
 ```json
  {"wslink": "1.0", "id": "system:c0:0", "method": "wslink.hello", "args": [{"secret": "wslink-secret"}]}
@@ -99,7 +99,9 @@ Response:
 }
 ```
 5. Make any other RPC calls you want. Note that the order of arguments is the same as the function signature below the rpc decorator:
+```json
 {"wslink": "1.0", "method": "pv.h3lioviz.visibility", "id": "rpc:c0ffd038671824f0db5efe17a02f5d3d4:1", "args": ["color_bar", "off"]}
+```
 
 
 ## Paraview GUI
@@ -111,9 +113,9 @@ Navigate to the [Paraview download page](https://www.paraview.org/download/). Se
 ### Basic Usage
 
 You will need processed data in order to use the Paraview GUI for visualizing h3lioviz data. There are instructions for this in [../scripts/README.md](../scripts/README.md).
-It is recommended you use the default downsampling as the visualization can be pretty hard on your system depending on it's specs.
+It is recommended you use the default downsampling as the visualization can be pretty hard on your system depending on its specs.
 
-Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your pv-ready-{RUN_ID} folder and select the pv-tim-\*.nc files.
+Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your pv-ready-data-{RUN_ID} folder and select the pv-tim.\*.nc files.
 You should be able to select them all at once.
 Once you open these files you will be prompted for a reader. Select 'NetCDF Reader'. This will read the data into Paraview.
 In the left panel navigate to 'Properties' and select apply.

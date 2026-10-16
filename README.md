@@ -4,7 +4,7 @@ This repository hosts the code to run a ParaView visualization server for 3D hel
 
 Live deployment for interactive use: <https://swx-trec.com/h3lioviz/>
 
-## Additonal Documentation
+## Additional Documentation
 
 - [Apache](docs/Apache.md)
 - [Flask](docs/Flask.md)
@@ -50,13 +50,14 @@ Paraview & Flask environment variables:
 - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
 - TABLE_NAME: The name of the table that will store run metadata
 
-Note: If AWS_DEFAULT_REGION and TABLE_NAME are not specified, any calls to flask (except /h3lioviz/metadata/health) will fail.
+Note: Each flask route needs only the variables it uses: getTimeSeries needs S3_BUCKET_NAME, availableRuns needs TABLE_NAME, and syncMetadata needs both. A route whose variable is missing returns HTTP 500; /h3lioviz/metadata/health needs none.
+The EC2s deployed by swxtrec-cdk set only SERVER_NAME, PROTOCOL and S3_BUCKET_NAME, so availableRuns and syncMetadata fail on them; deployed sites use the swxtrec-cdk Lambda functions for those.
 If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
 ### Logging Locations ***Within*** Container
 
 - Flask: `/data/launcher/log/flask.log`
-- Paraview: `/data/launcher/log/<hashed_session_id>.log` & `/data/launcher/log/launcherLog.log`
+- Paraview: `/data/launcher/log/<session_id>.txt` & `/data/launcher/log/launcherLog.log`
 - Apache: `/data/launcher/log/001-pvw_access.log` & `/data/launcher/log/001-pvw_error.log`
 
 ## Prerequisites
@@ -65,17 +66,20 @@ To work with this repository, you will need:
 
 - [Docker](https://docs.docker.com/get-docker/).
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (for AWS deployments)
-- Access to the SWx-TREC AWS ECR repository (for production/development deployments), or a personal one (for deployments to an account other than prod or dev).
+- [Node.js](https://nodejs.org/) 20 (only for building the frontend yourself, steps 1-7 below; the frontend's `package.json` requires `>=20.19.3 <21`)
+- Access to the SWx-TREC AWS ECR repository (for deployments). swxtrec-cdk always pulls the image from this repository, in every account; only the image tag is configurable.
 
 ## Building the Docker Image
 
-[!NOTE]
-The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available. The `--build-arg BUILD_FRONTEND` is optional since this argument defaults to true. 
+> [!NOTE]
+> The Dockerfile now includes steps to build the frontend. You can build the image with an included environment file by selecting one of the currently supported options (`dev`, `prod`, or `swpc`) via a Docker build argument (default is `dev` if unspecified). Other environments (for example, a future `noaa` option) are not yet available. The `--build-arg BUILD_FRONTEND` is optional since this argument defaults to true. 
+
+On an Apple Silicon Mac, add `--platform linux/amd64` to every `docker build` and `docker run` command below: the image downloads x86_64 builds of ParaView, the AWS CLI and s5cmd.
 
 Build the image locally:
 
 ```bash
-docker build --build-arg FRONTEND_ENVIRONMENT=prod --build-arg BUILD_FRONTEND=true .
+docker build --build-arg FRONTEND_ENVIRONMENT=prod --build-arg BUILD_FRONTEND=true -t h3lioviz .
 ```
 
 For advanced usage and to build a different version of the frontend locally, you can
@@ -91,8 +95,8 @@ Enter the repo and open `src/environments/environment.dev.ts` and `src/environme
 
 Edit the following configuration items:
 
-- Set `environment.aws.api` to `https://h3lioviz-api.{your-domain}/` (an API Gateway created by swxtrec-cdk).
-- Set `environmentConfig.sessionManagerURL` to `https://paraview-web.{your-domain}/h3lioviz/paraview`.
+- Set `environment.aws.api` to `https://h3lioviz-api.{your-domain}/` (a CloudFront distribution created by swxtrec-cdk, which forwards to a load balancer that routes to AWS Lambda functions).
+- Set `environmentConfig.sessionManagerURL` to `https://paraview-web.{your-domain}/h3lioviz/paraview/` (the trailing slash is required; the launcher returns 404 without it).
 
 ### Step 3: Install the Frontend Dependencies
 
@@ -105,13 +109,13 @@ npm install
 Depending on whether or not you're trying to build the frontend for dev or prod run:
 
 ```bash
-npm build:dev
+npm run build:dev
 ```
 
 or
 
 ```bash
-npm build:prod
+npm run build:prod
 ```
 
 ### Step 5: Clone the h3lioviz-server Repository
@@ -152,14 +156,15 @@ The paraview code will serve the websocket just fine, and the frontend will be a
 docker run -p 0.0.0.0:8080:80 \
   -e SERVER_NAME=127.0.0.1:8080/h3lioviz \
   -e PROTOCOL=ws \
-  -v ${PWD}/pvw:/pvw \
   -v ${PWD}/test-data:/data \
   -it h3lioviz:latest
 ```
 
 The server will be available at `http://127.0.0.1:8080`.
 
-The pvw directory is mounted directly within the docker container, so any changes to the code within will be reflected next time the connection is refreshed.
+To test changes to the pvw directory without rebuilding, add `-v ${PWD}/pvw:/pvw` to mount it directly within the docker container.
+The mount hides the image's `/pvw/venv`, so flask will not start, and the frontend bundled in `/pvw/www`, so copy a built frontend into `pvw/www` first (see step 6).
+Changes to `pvw/server` take effect in the next ParaView session; changes to `pvw/flask` or `pvw/launcher/config.json` need a container restart.
 
 ### AWS ECR Deployment
 
@@ -229,9 +234,9 @@ docker logout public.ecr.aws
 
 You can download test data from one of the dev account data buckets. Thinned runs are around 1.2GB.
 
-1. Locate a bucket called `h3lioviz.<domain_name>.com`
+1. Locate a bucket called `h3lioviz.<domain_name>` (for example `h3lioviz.dev.swx-trec.com`)
 2. Identify a run to download: `/data/h3lioviz/pv-ready-data-<run_id>`
-3. Download the run: `s5cmd cp "s3://<bucket_name>/data/h3lioviz/pv-ready-data-<run_id>/\*" ./test-data/pv-ready-data-<run_id>/`
+3. Download the run: `s5cmd cp "s3://<bucket_name>/data/h3lioviz/pv-ready-data-<run_id>/*" ./test-data/pv-ready-data-<run_id>/`
 
 ### Generating Your Own Data
 
@@ -242,9 +247,11 @@ Reference the [README](scripts/README.md) in `scripts/` for instructions on how 
 The primary data files used by ParaView for visualization are:
 
 - `pv-tim.XXXX.nc` - Time-step files (where XXXX is the time-step number)
+- `data_*.vts` - Time-step files for Euhforia runs
+- `pv-data-3d.nc` - A single file holding every time step, for runs processed the legacy way
 
-These NetCDF files contain the 3D heliospheric simulation data.
-The test-data directory contains additional files (satellite evolution files, metadata, etc.) that are graphed by the frontend but are not directly loaded by ParaView.
+These files contain the 3D heliospheric simulation data.
+A run directory also holds the satellite evolution files (`evo.*.json`, which ParaView reads for satellite positions and the frontend graphs; `process_output.py` also writes `evo.*.nc` copies) and `metadata.json`, which describes the run.
 
 ## Adding Python Packages
 
@@ -256,7 +263,7 @@ Python packages are installed via a virtual environment during the Docker build 
 The virtual environment is created by the Dockerfile and is utilized for flask in server.sh. Note that there is code in place to allow paraview to access the venv, but is currently not in use.
 
 > **Note**: While paraview can get access to additional python packages, our current version of paraview was built with a now outdated SSL version, which makes it close to impossible to use libraries like boto3.
-> We currently rely on using AWS CLI commands for downloading runs. This restriction only applies to python scripts invoked using the pvpython command.
+> We currently rely on the s5cmd command line tool for downloading runs. This restriction only applies to python scripts invoked using the pvpython command.
 
 ## Repository Structure
 
@@ -276,7 +283,8 @@ h3lioviz-server/
 ├── scripts/               # Data processing scripts
 ├── test-data/             # Test simulation data
 ├── Dockerfile             # Container build definition
-├── README.md              # Root documentation page
+├── LICENSE                # License
+└── README.md              # Root documentation page
 ```
 
 ## Container Implementation Details
