@@ -1,0 +1,251 @@
+# Build the h3lioviz server image, prove it serves a ParaView session, then
+# publish it and point `dev` at it.
+#
+# Before this the image was built on someone's machine and pushed by hand, so
+# nothing recorded which commit `dev` and `prod` ran. (In October 2026 both
+# pointed at one image built 2025-12-22, two commits behind main.)
+#
+# This workflow only ever moves the `dev` tag. Moving `prod` is
+# promote-image.yml, run by hand once an image has been tested on dev.
+#
+# Nothing restarts the boxes. Each EC2 runs /docker/docker-launch.sh at boot,
+# which pulls its tag, so a new `dev` goes live at the next start of each box
+# that pulls `dev` (dev, legacy and accounts that leave the tag unset).
+#
+# No build overwrites another build's tag or deletes anything, so every earlier
+# build can still be pulled or promoted to roll back.
+
+name: Build and publish image
+
+# Only changes to what goes into the image (the Dockerfile copies from pvw/
+# and docker/), or to how it is built and tested, start a build: a merge that
+# changes only docs leaves `dev` alone. Every IMAGE_INPUTS entry below must be
+# in this list. A dispatch always builds.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - 'pvw/**'
+      - 'docker/**'
+      - .github/workflows/build-image.yml
+      - .github/scripts/smoke-test.sh
+  # Pull requests build and smoke test the image but publish nothing
+  pull_request:
+    paths:
+      - Dockerfile
+      - 'pvw/**'
+      - 'docker/**'
+      - .github/workflows/build-image.yml
+      - .github/scripts/smoke-test.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Lets the runner mint the OIDC token it trades for the role. A pull request
+  # from a branch of this repository gets a token too (one from a fork gets
+  # none), but its `sub` is not the main branch's, which the role's trust
+  # policy requires (see .github/iam/README.md).
+  id-token: write
+
+# GitHub's default queue keeps one pending run and cancels it when another
+# arrives, which would leave a push to main with no image. `queue: max` keeps
+# up to 100 pending runs, so each push that starts a build is built (a push of
+# several commits builds its last one). A run that finishes after main has
+# taken a newer change to the image inputs does not move `dev` (the push step
+# checks).
+# GitHub does not allow `queue: max` with `cancel-in-progress: true`, so a
+# newer push to a pull request waits for the running build instead.
+# actionlint 1.7.x does not know `queue` yet and reports it; GitHub accepts it.
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+# bash with pipefail (GitHub's default `bash -e` has no pipefail)
+defaults:
+  run:
+    shell: bash
+
+env:
+  AWS_REGION: us-east-1
+  # The swx-trec public registry belongs to the dev account (174369828756).
+  # The boxes pull from it without credentials, so it is the only registry.
+  REGISTRY: public.ecr.aws/swx-trec
+  REPOSITORY: pvw-h3lioviz-osmesa
+  AWS_ROLE_ARN: arn:aws:iam::174369828756:role/GitHubH3liovizImagePublisher
+  # What the image is built from: the Dockerfile, what it copies, and this
+  # workflow (its build arguments and platform). The smoke test is left out:
+  # it checks the image but does not change it.
+  IMAGE_INPUTS: Dockerfile pvw docker .github/workflows/build-image.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Publishing runs only for main. The role's trust policy enforces the same
+      # thing; this step fails before the build with a clear message instead.
+      - name: Require main
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ "${GITHUB_REF}" != refs/heads/main ]; then
+            echo "Only main publishes images; this run is on ${GITHUB_REF}."
+            exit 1
+          fi
+
+      # Actions are pinned by commit, since this job can assume the publish role
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Record the version being built
+        id: vars
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      # Deployed boxes get the frontend from CloudFront, so the dev and prod
+      # image carries no frontend of its own. A bundled copy would come from the
+      # GitHub mirror of the frontend and could lag the one users get.
+      # linux/amd64 because the EC2 instances are x86_64.
+      - name: Build
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --build-arg BUILD_FRONTEND=false \
+            --label "org.opencontainers.image.revision=${{ steps.vars.outputs.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -t "h3lioviz-server:build" \
+            .
+          docker image inspect h3lioviz-server:build --format 'built image size: {{.Size}} bytes'
+
+      - name: Smoke test the image
+        run: .github/scripts/smoke-test.sh h3lioviz-server:build
+
+      # Credentials come after the build and smoke test, so neither the Docker
+      # build nor the container under test runs with them.
+      - name: Configure AWS credentials
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: h3lioviz-server-build-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ECR Public authenticates in us-east-1 only
+      - name: Log in to ECR Public
+        if: github.event_name != 'pull_request'
+        run: |
+          aws ecr-public get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin public.ecr.aws
+
+      # The build tag names this image, and no build takes over another's: the
+      # first build of a commit is `sha-<first 12 hex of the commit>`; a rebuild
+      # of the same commit (a rerun, or a dispatch to pick up base image
+      # updates) gives a different image, so it gets
+      # `sha-<commit>-run<run id>.<attempt>` instead. (A hand push could still
+      # overwrite one; the README says not to.) The digest is the image's identity; `dev` is the
+      # moving tag the dev, legacy and test accounts' EC2s pull (cdk.json
+      # paraview_image_tag, which defaults to dev).
+      - name: Push
+        id: push
+        if: github.event_name != 'pull_request'
+        run: |
+          REMOTE="${REGISTRY}/${REPOSITORY}"
+          ERR=$(mktemp)
+          digest_of() {
+            # Prints the digest, or nothing when no image has that tag; any
+            # other error (for example access denied) fails the step. stderr
+            # is kept apart so a warning cannot end up in the digest.
+            local out
+            if out=$(aws ecr-public describe-images --region us-east-1 \
+                --repository-name "${REPOSITORY}" --image-ids "imageTag=$1" \
+                --query 'imageDetails[0].imageDigest' --output text 2>"${ERR}"); then
+              echo "${out}"
+            elif grep -q ImageNotFoundException "${ERR}"; then
+              echo ""
+            else
+              cat "${ERR}" >&2
+              return 1
+            fi
+          }
+
+          TAG="${{ steps.vars.outputs.sha_tag }}"
+          # Assigned first so a failed lookup stops the step (set -e does not
+          # see a failure inside a test's argument)
+          EXISTING=$(digest_of "${TAG}")
+          if [ -n "${EXISTING}" ]; then
+            TAG="${TAG}-run${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          docker tag h3lioviz-server:build "${REMOTE}:${TAG}"
+          docker push "${REMOTE}:${TAG}"
+          DIGEST=$(digest_of "${TAG}")
+          if ! [[ "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "pushed ${TAG} but could not read its digest back (got '${DIGEST}')"
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "published ${REMOTE}:${TAG} at ${DIGEST}"
+
+          # Move `dev` only while the image inputs at the tip of main are the
+          # ones this run built, so a rerun or a late run of an older commit
+          # cannot put dev back on an older image. Comparing the inputs rather
+          # than the commit lets a build finish while docs-only commits (which
+          # start no build of their own) land on main.
+          git fetch --quiet --depth=1 origin main
+          TIP=$(git rev-parse FETCH_HEAD)
+          # shellcheck disable=SC2086 # IMAGE_INPUTS is a list of paths
+          if git diff --quiet "${GITHUB_SHA}" FETCH_HEAD -- ${IMAGE_INPUTS}; then
+            echo "the tip of main (${TIP}) has the image inputs this run built"
+          else
+            rc=$?
+            if [ "${rc}" != 1 ]; then
+              echo "could not compare with the tip of main (git diff exit ${rc})"
+              exit 1
+            fi
+            echo "main (${TIP}) has newer image inputs; leaving dev where it is"
+            echo "moved_dev=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PREVIOUS=$(digest_of dev)
+          echo "previous_dev=${PREVIOUS:-none}" >> "$GITHUB_OUTPUT"
+          # Recorded before the push so a failure after it is reported as such
+          echo "dev_push=attempted" >> "$GITHUB_OUTPUT"
+          docker tag h3lioviz-server:build "${REMOTE}:dev"
+          docker push "${REMOTE}:dev"
+          AFTER=$(digest_of dev)
+          if [ "${AFTER}" != "${DIGEST}" ]; then
+            echo "dev reads back as ${AFTER}, not ${DIGEST}"
+            exit 1
+          fi
+          echo "moved_dev=true" >> "$GITHUB_OUTPUT"
+          echo "dev now ${DIGEST} (was ${PREVIOUS:-none})"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### h3lioviz server image"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| commit | \`${GITHUB_SHA::12}\` |"
+            echo "| tag | \`${{ steps.push.outputs.tag || 'not published' }}\` |"
+            echo "| digest | \`${{ steps.push.outputs.digest || 'not published' }}\` |"
+            echo "| dev moved | ${{ steps.push.outputs.moved_dev || 'false' }} (was \`${{ steps.push.outputs.previous_dev || '-' }}\`) |"
+            if [ "${{ job.status }}" != success ]; then
+              echo ""
+              echo "The run failed. If a tag is shown above, it may have been pushed."
+              if [ "${{ steps.push.outputs.dev_push }}" = attempted ] && [ "${{ steps.push.outputs.moved_dev }}" != true ]; then
+                echo "The dev push was attempted, so dev may now name this build: check the"
+                echo "repository before acting on it."
+              fi
+            elif [ -n "${{ steps.push.outputs.digest }}" ]; then
+              echo ""
+              echo "The dev EC2s pull \`dev\` at their next start. To promote this image"
+              echo "once it has been tested on dev, dispatch \`Promote image to prod\` with"
+              echo "the digest above. An empty input promotes whatever \`dev\` names at"
+              echo "that moment, which is a newer image if main has moved since."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

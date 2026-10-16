@@ -8,7 +8,11 @@ pvw/launcher/log/*.log
 test-data/pv-ready-data*
 */launcher/log/*.txt
 */launcher/log/*.log
-.github/
+# Local .github files stay ignored; the image workflows and what they use are tracked
+.github/*
+!.github/workflows/
+!.github/scripts/
+!.github/iam/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
