@@ -96,7 +96,7 @@ jobs:
 
       # Actions are pinned by commit, since this job can assume the publish role
       - name: Check out
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Record the version being built
         id: vars
@@ -126,7 +126,7 @@ jobs:
       # build nor the container under test runs with them.
       - name: Configure AWS credentials
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: h3lioviz-server-build-${{ github.run_id }}
