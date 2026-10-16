@@ -143,7 +143,7 @@ docker build --build-arg BUILD_FRONTEND=false -t h3lioviz .
 
 ### Local Development Deployment
 
-This will run the h3lioviz docker image you have build locally. If you want to pull the latest dev/prod image, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag> with the dev or prod tag.
+This will run the h3lioviz docker image you have built locally. To run a published image instead, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag>. The `dev` and `prod` images carry no frontend (deployed sites get it from CloudFront), so with them only the ParaView launcher and websocket work locally.
 
 NOTE: This does not currently entirely work due to the container's dependency on AWS resources.
 The paraview code will serve the websocket just fine, and the frontend will be accessible, but the flask routes served by the container as well as on-the-fly run downloading will not work.
@@ -169,10 +169,10 @@ The official ECR repository is: `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa`. I
 
 `dev` and `prod` are built and moved by workflows, not by hand:
 
-- **Build and publish image** (`.github/workflows/build-image.yml`) runs on every push to `main` that changes the image (the `Dockerfile`, `pvw/` or `docker/`) or the build workflow and smoke test; a docs-only merge builds nothing. It builds the image without a bundled frontend (`BUILD_FRONTEND=false`; deployed sites get the frontend from CloudFront), checks that it starts a ParaView session (`.github/scripts/smoke-test.sh`), pushes it under a tag no other build reuses (`sha-<12 hex of the commit>`, or `sha-<commit>-run<run id>.<attempt>` for a rebuild of the same commit), and moves `dev` to it unless `main` has taken a newer change to the image in the meantime. Pull requests run the build and the smoke test only.
+- **Build and publish image** (`.github/workflows/build-image.yml`) runs on every push to `main` that changes the image (the `Dockerfile`, `pvw/` or `docker/`) or the build workflow and smoke test; a docs-only merge builds nothing. It builds the image without a bundled frontend (`BUILD_FRONTEND=false`; deployed sites get the frontend from CloudFront), checks that it starts a ParaView session and that its metadata server answers the health route (`.github/scripts/smoke-test.sh`), pushes it under a tag no other build reuses (`sha-<12 hex of the commit>`, or `sha-<12 hex>-run<run id>.<attempt>` for a rebuild of the same commit), and moves `dev` to it unless `main` has taken a newer change to the image in the meantime. Pull requests run the build and the smoke test only. A manual dispatch from the Actions tab always builds.
 - **Promote image to prod** (`.github/workflows/promote-image.yml`) is started by hand from the Actions tab once an image has been tested on dev, and waits for a reviewer's approval (the `prod` environment; see `.github/iam/README.md`). Give it that image's digest (`sha256:...`, shown in the build's summary) or build tag; an empty input promotes whatever `dev` names at that moment, which is a newer image if main has moved since the test. Nothing is rebuilt, so prod runs exactly the image promoted. Rolling back is the same dispatch with an older digest.
 
-Older images are kept for rollback and reference: each build keeps its own tag, and each promotion tags the image `prod` named before as `prod-until-<UTC time>`. The workflows never delete images. Very old ones can be removed by hand; see `.github/iam/README.md` for which must stay. The workflows' AWS roles are also described there.
+Older images are kept for rollback and reference: each build keeps its own tag, and each promotion that moves `prod` tags the image it named before as `prod-until-<UTC time>`. The workflows never delete images. Very old ones can be removed by hand; see `.github/iam/README.md` for which must stay. The workflows' AWS roles are also described there.
 
 To run a new image before the instance's next start, remotely connect to the instance and run:
 
@@ -184,12 +184,12 @@ export PATH="$PATH:/usr/local/bin"
 
 #### Pushing by hand
 
-Other tags (for example the SWPC stand-in images `noaa` and `noaatest`, which bundle their own frontend build) are still pushed by hand. Do not push `dev`, `prod`, `sha-*` or `prod-until-*` by hand: the workflows own those tags, a hand push records no commit, and overwriting a `sha-` or `prod-until-` tag would make a promotion or rollback by that tag pick up a different image.
+Other tags (for example the SWPC stand-in images `noaa` and `noaatest`, which bundle their own frontend build) are still pushed by hand. Do not push `dev`, `prod`, `sha-*` or `prod-until-*` by hand: the workflows own those tags, a hand push records no commit, overwriting a `sha-` tag would make a promotion by that tag pick up a different image, and overwriting a `prod-until-` tag would lose track of an earlier prod image.
 
 1. Authenticate with AWS ECR:
 
 ```bash
-aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 ```
 
 2. Tag your image:
