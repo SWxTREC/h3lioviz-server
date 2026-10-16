@@ -42,7 +42,7 @@ server.sh (paraview/websockets) environment variables:
 - EXTRA_PVPYTHON_ARGS: extra arguments to pass to pvpython (comma-separated, no extra spaces)
   Example: "-dr,--mesa-swr"
 
-Note: If SERVER_NAME and PROTOCOL are not specified, the container defaults to `ws://localhost`.
+Note: If either SERVER_NAME or PROTOCOL is unset, the container uses `ws://localhost`.
 
 Paraview & Flask environment variables:
 
@@ -50,7 +50,7 @@ Paraview & Flask environment variables:
 - AWS_DEFAULT_REGION: Required by flask for dynamodb access.
 - TABLE_NAME: The name of the table that will store run metadata
 
-Note: Each flask route needs only the variables it uses: getTimeSeries needs S3_BUCKET_NAME, availableRuns needs TABLE_NAME, and syncMetadata needs both. A route whose variable is missing returns HTTP 500; /h3lioviz/metadata/health needs none.
+Note: Each flask route needs only the variables it uses: getTimeSeries needs S3_BUCKET_NAME, availableRuns needs TABLE_NAME and AWS_DEFAULT_REGION, and syncMetadata needs all three. A route whose variable is missing returns HTTP 500; /h3lioviz/metadata/health needs none.
 The EC2s deployed by swxtrec-cdk set only SERVER_NAME, PROTOCOL and S3_BUCKET_NAME, so availableRuns and syncMetadata fail on them; deployed sites use the swxtrec-cdk Lambda functions for those.
 If S3_BUCKET_NAME is not specified, paraview will not be able to download new runs on-the-fly, but will still be able to utilize runs on disk.
 
@@ -66,7 +66,7 @@ To work with this repository, you will need:
 
 - [Docker](https://docs.docker.com/get-docker/).
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (for AWS deployments)
-- [Node.js](https://nodejs.org/) 20 (only for building the frontend yourself, steps 1-7 below; the frontend's `package.json` requires `>=20.19.3 <21`)
+- [Node.js](https://nodejs.org/) 20 (only for building the frontend yourself, steps 1-7 below; the frontend's `package.json` declares `>=20.19.3 <21`; npm only warns outside that range, and the Dockerfile builds the frontend with Node 22)
 - Access to the SWx-TREC AWS ECR repository (for deployments). swxtrec-cdk always pulls the image from this repository, in every account; only the image tag is configurable.
 
 ## Building the Docker Image
@@ -235,7 +235,7 @@ docker logout public.ecr.aws
 You can download test data from one of the dev account data buckets. Thinned runs are around 1.2GB.
 
 1. Locate a bucket called `h3lioviz.<domain_name>` (for example `h3lioviz.dev.swx-trec.com`)
-2. Identify a run to download: `/data/h3lioviz/pv-ready-data-<run_id>`
+2. Identify a run to download: `data/h3lioviz/pv-ready-data-<run_id>`
 3. Download the run: `s5cmd cp "s3://<bucket_name>/data/h3lioviz/pv-ready-data-<run_id>/*" ./test-data/pv-ready-data-<run_id>/`
 
 ### Generating Your Own Data
