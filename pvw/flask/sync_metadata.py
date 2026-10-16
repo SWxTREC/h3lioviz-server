@@ -44,7 +44,10 @@ def get_runs_in_s3(s3_client, bucket_name):
             for obj in filter(lambda x: "Key" in x and x["Key"].endswith("metadata.json"), page.get("Contents", [])):
 
                 # Extract run id from object key
-                pattern = r"data/h3lioviz/pv-ready-data-(?P<run_id>\d[^/]*)/metadata.json"
+                # Any one path segment: process_output.py names runs without an
+                # SWPC run number by an 8 hex digit hash, which can start with a
+                # letter (the sync Lambda in swxtrec-cdk accepts those too)
+                pattern = r"data/h3lioviz/pv-ready-data-(?P<run_id>[^/]+)/metadata.json"
                 match = re.search(pattern, obj["Key"])
 
                 if match:
