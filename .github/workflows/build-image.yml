@@ -143,10 +143,10 @@ jobs:
       # first build of a commit is `sha-<first 12 hex of the commit>`; a rebuild
       # of the same commit (a rerun, or a dispatch to pick up base image
       # updates) gives a different image, so it gets
-      # `sha-<commit>-run<run id>.<attempt>` instead. (A hand push could still
-      # overwrite one; the README says not to.) The digest is the image's identity; `dev` is the
-      # moving tag the dev, legacy and test accounts' EC2s pull (cdk.json
-      # paraview_image_tag, which defaults to dev).
+      # `sha-<12 hex>-run<run id>.<attempt>` instead. (A hand push could still
+      # overwrite one; the README says not to.) The digest is the image's
+      # identity; `dev` is the moving tag the dev, legacy and test accounts'
+      # EC2s pull (cdk.json paraview_image_tag, which defaults to dev).
       - name: Push
         id: push
         if: github.event_name != 'pull_request'

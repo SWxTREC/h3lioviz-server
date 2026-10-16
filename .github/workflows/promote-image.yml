@@ -29,8 +29,9 @@ on:
     inputs:
       image:
         description: >-
-          Image to promote: the digest (sha256:...) or build tag (sha-<commit>)
-          tested on dev. Empty promotes whatever `dev` names now.
+          Image to promote: the digest (sha256:...) or build tag
+          (sha-<12 hex>[-run<id>.<attempt>]) tested on dev. Empty promotes
+          whatever `dev` names now.
         required: false
         type: string
         default: ''

@@ -106,13 +106,16 @@ a workflow names it.
 
 Both roles trust whatever the workflow files on `main` say. `main` requires
 a pull request with one approving review, and new commits dismiss earlier
-approvals, so a changed workflow needs a second person before it runs with
-either role. Administrators are exempt (the protection does not apply to
-admins): an administrator can push a changed workflow straight to `main`, and
-an edited `build-image.yml` then runs with the publisher role, whose
+approvals. GitHub stops a pull request's author approving it, but not
+someone who pushed the last commit to another person's pull request, unless
+"Require approval of the most recent reviewable push" is on (it is off), so
+two people are needed only for a change one of them did not push last.
+Administrators, and roles with the "bypass branch protections" permission,
+are exempt: an administrator can push a changed workflow straight to `main`,
+and an edited `build-image.yml` then runs with the publisher role, whose
 `PutImage` can point any tag (`prod` included) at any image, with no
-environment and no reviewer. Applying the protection to administrators too
-would close that.
+environment and no reviewer. Applying the protection to administrators would
+make that take a settings change first.
 
 ## Changing them
 
