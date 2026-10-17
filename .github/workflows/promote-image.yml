@@ -19,8 +19,9 @@
 # so the first step checks that the protection is really there.
 #
 # Older images are kept. Before `prod` moves, the image it named is given its
-# own tag, `prod-until-<UTC time>`, so every earlier prod image stays easy to
-# find and to promote again. Rolling back is a dispatch with that digest.
+# own tag, `prod-until-<UTC time>-run<run id>`, so every earlier prod image
+# stays easy to find and to promote again. Rolling back is a dispatch with
+# that digest.
 
 name: Promote image to prod
 
@@ -176,7 +177,9 @@ jobs:
         id: keep
         if: steps.resolve.outputs.target != steps.resolve.outputs.previous
         run: |
-          KEEP="prod-until-$(date -u +%Y%m%dT%H%M%SZ)"
+          # The run id makes the tag unique even if two promotions ever reached
+          # this step in the same second
+          KEEP="prod-until-$(date -u +%Y%m%dT%H%M%SZ)-run${GITHUB_RUN_ID}"
           .github/scripts/tag-image.sh "${REPOSITORY}" "${{ steps.resolve.outputs.previous }}" "${KEEP}"
           echo "kept=${KEEP}" >> "$GITHUB_OUTPUT"
 

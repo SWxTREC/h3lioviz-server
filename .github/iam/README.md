@@ -106,10 +106,9 @@ a workflow names it.
 
 Both roles trust whatever the workflow files on `main` say. `main` requires
 a pull request with one approving review, and new commits dismiss earlier
-approvals. GitHub stops a pull request's author approving it, but not
-someone who pushed the last commit to another person's pull request, unless
-"Require approval of the most recent reviewable push" is on (it is off), so
-two people are needed only for a change one of them did not push last.
+approvals. "Require approval of the most recent reviewable push" is on, so
+whoever pushed a pull request's last commit cannot be the one approving it:
+a changed workflow needs a second person.
 Administrators, and roles with the "bypass branch protections" permission,
 are exempt: an administrator can push a changed workflow straight to `main`,
 and an edited `build-image.yml` then runs with the publisher role, whose
@@ -135,7 +134,7 @@ Older images are kept for rollback and for checking what ran when. Each build
 gets a tag no other build reuses (`sha-<12 hex of the commit>`, or
 `sha-<12 hex>-run<run id>.<attempt>` when the same commit is built again),
 and each promotion that moves `prod` gives the image it named before a
-`prod-until-<UTC time>` tag. Nothing deletes images automatically.
+`prod-until-<UTC time>-run<run id>` tag. Nothing deletes images automatically.
 
 Very old images can be removed by hand when they are no longer useful, by
 someone with delete rights in the dev account. Never remove an image that a
