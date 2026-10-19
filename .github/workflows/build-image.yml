@@ -17,10 +17,11 @@
 
 name: Build and publish image
 
-# Only changes to what goes into the image (the Dockerfile copies from pvw/
-# and docker/), or to how it is built and tested, start a build: a merge that
-# changes only docs leaves `dev` alone. Every IMAGE_INPUTS entry below must be
-# in this list. A dispatch always builds.
+# `paths` limits the push and pull request triggers to changes that can alter
+# the image: the Dockerfile, the pvw/ and docker/ folders it copies, and this
+# workflow and its smoke test. A merge that changes only docs therefore starts
+# no build and leaves `dev` alone. Every IMAGE_INPUTS entry below must also be
+# listed here. A manual dispatch always builds.
 on:
   push:
     branches:
@@ -49,9 +50,10 @@ permissions:
   # policy requires (see .github/iam/README.md).
   id-token: write
 
-# GitHub's default queue keeps one pending run and cancels it when another
-# arrives, which would leave a push to main with no image. `queue: max` keeps
-# up to 100 pending runs, so each push that starts a build is built (a push of
+# GitHub's default queue keeps one pending run per concurrency group (here,
+# one group per branch or pull request) and cancels it when another arrives,
+# which would leave a push to main with no image. `queue: max` keeps up to
+# 100 pending runs, so each push that starts a build is built (a push of
 # several commits builds its last one). A run that finishes after main has
 # taken a newer change to the image inputs does not move `dev` (the push step
 # checks).
@@ -84,8 +86,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Publishing runs only for main. The role's trust policy enforces the same
-      # thing; this step fails before the build with a clear message instead.
+      # Publishing runs only for main. A manual dispatch can be started on any
+      # branch, so this stops one that is not on main before it builds. The
+      # role's trust policy refuses other branches too; this fails earlier and
+      # with a clear message.
       - name: Require main
         if: github.event_name != 'pull_request'
         run: |
@@ -94,7 +98,9 @@ jobs:
             exit 1
           fi
 
-      # Actions are pinned by commit, since this job can assume the publish role
+      # Actions are pinned to a full commit SHA rather than a tag such as v7:
+      # a tag can be moved to different code, and this job can assume the
+      # publish role
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -106,7 +112,6 @@ jobs:
       - name: Record the version being built
         id: vars
         run: |
-          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "sha_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
       # Deployed boxes get the frontend from CloudFront, so the dev and prod
@@ -118,7 +123,7 @@ jobs:
           docker build \
             --platform linux/amd64 \
             --build-arg BUILD_FRONTEND=false \
-            --label "org.opencontainers.image.revision=${{ steps.vars.outputs.sha }}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -t "h3lioviz-server:build" \
             .

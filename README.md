@@ -206,7 +206,7 @@ docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag>
 
 #### Testing an image on legacy or a test account
 
-Legacy and any account that leaves `paraview_image_tag` unset pull `dev` from the swx-trec repository, so they follow the build workflow. To run a different image there, push it to swx-trec under a tag of your own (as above) and set that account's `paraview_image_tag` in swxtrec-cdk's `cdk.json`.
+Legacy and any account that leaves `paraview_image_tag` unset pull `dev` from the swx-trec repository, so they follow the build workflow. To run a different image there, push it to swx-trec under a tag of your own (as above), then connect to the instance (Session Manager is enabled on it), set the `image:` line in `/docker/docker-compose-cpu.yaml` to your tag, and run `/docker/docker-launch.sh` as shown above, which pulls the image and restarts the container. Set the line back the same way when you are done. Changing `paraview_image_tag` in swxtrec-cdk's `cdk.json` alone does not do this on an existing instance: the tag is written into the instance's user data, which runs only at first boot, so a deploy restarts the instance without rewriting the compose file. It takes effect on a newly created instance.
 
 > **Note**: Log out of the public ECR after pushing (`docker logout public.ecr.aws`), as credentials can interfere with pulling from public AWS ECR repositories.
 
