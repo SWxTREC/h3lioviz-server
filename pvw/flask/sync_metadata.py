@@ -44,8 +44,13 @@ def get_runs_in_s3(s3_client, bucket_name):
             for obj in filter(lambda x: "Key" in x and x["Key"].endswith("metadata.json"), page.get("Contents", [])):
 
                 # Extract run id from object key
-                pattern = r"data/h3lioviz/pv-ready-data-(?P<run_id>\d[^/]*)/metadata.json"
-                match = re.search(pattern, obj["Key"])
+                # Any one path segment: process_output.py names runs without an
+                # SWPC run number by an 8 hex digit hash, which can start with a
+                # letter (the sync Lambda in swxtrec-cdk accepts those too).
+                # Anchored to the whole key, so a copy nested deeper under
+                # data/h3lioviz is not taken for a top level run.
+                pattern = r"data/h3lioviz/pv-ready-data-(?P<run_id>[^/]+)/metadata\.json"
+                match = re.fullmatch(pattern, obj["Key"])
 
                 if match:
                     run_id = match.group('run_id')
@@ -116,6 +121,17 @@ def sync_metadata():
         except Exception as e:
             logger.error(f"Error, failed to parse object {metadata_path}: {e}")
             continue 
+
+        # The DynamoDB key comes from metadata.json's own run_id, while
+        # ids_in_s3 comes from the directory name. Reconcile them, as the sync
+        # Lambda in swxtrec-cdk does, so a divergence can't overwrite another
+        # run's entry or cause add/delete churn on every sync.
+        if data.get("run_id") != id:
+            logger.warning(
+                f"Run id mismatch for {metadata_path}: path says {id}, "
+                f"metadata.json says {data.get('run_id')}; using {id}"
+            )
+            data["run_id"] = id
 
         data["last_accessed"] = 0 # Add last_accessed value and set to 0
         logger.info(f"Adding metadata for run {id} into table {ddb_table_name}")

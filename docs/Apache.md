@@ -25,7 +25,7 @@ Apache determines which port to route paraview web server requests to using /opt
 - /helioviz ->(302) /h3lioviz
 - /h3lioviz/[FRONTEND-FILENAME]
 - /h3lioviz/[FRONTEND-DIR]/[FRONTEND-FILENAME]
-- If none of the above conditions are included and the request does not hit a reverse proxy endpoint, serve /h3lioviz/index.html.
+- Any other /h3lioviz/... path that has no file extension, is not under /h3lioviz/metadata, /h3lioviz/paraview or /h3lioviz/proxy, and is not an existing file or directory under the document root, is served /h3lioviz/index.html (the frontend's own routes, such as /h3lioviz/visualizer). Other paths that match nothing return 404.
 
 ## Logging
 
