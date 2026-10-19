@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadImagesAndMoveTags",
+      "Effect": "Allow",
+      "Action": [
+        "ecr-public:DescribeImages",
+        "ecr-public:PutImage"
+      ],
+      "Resource": "arn:aws:ecr-public::174369828756:repository/pvw-h3lioviz-osmesa"
+    }
+  ]
+}

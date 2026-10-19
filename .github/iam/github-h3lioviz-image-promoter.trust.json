@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::174369828756:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": "repo:SWxTREC/h3lioviz-server:environment:prod",
+          "token.actions.githubusercontent.com:job_workflow_ref": "SWxTREC/h3lioviz-server/.github/workflows/promote-image.yml@refs/heads/main",
+          "token.actions.githubusercontent.com:repository_id": "368988856",
+          "token.actions.githubusercontent.com:repository_owner_id": "60273811"
+        }
+      }
+    }
+  ]
+}

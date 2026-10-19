@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LogInToEcrPublic",
+      "Effect": "Allow",
+      "Action": [
+        "ecr-public:GetAuthorizationToken",
+        "sts:GetServiceBearerToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PushTheServerImage",
+      "Effect": "Allow",
+      "Action": [
+        "ecr-public:BatchCheckLayerAvailability",
+        "ecr-public:InitiateLayerUpload",
+        "ecr-public:UploadLayerPart",
+        "ecr-public:CompleteLayerUpload",
+        "ecr-public:PutImage",
+        "ecr-public:DescribeImages"
+      ],
+      "Resource": "arn:aws:ecr-public::174369828756:repository/pvw-h3lioviz-osmesa"
+    }
+  ]
+}

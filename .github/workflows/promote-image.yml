@@ -1,0 +1,243 @@
+# Promote an image to prod by moving the `prod` tag to it.
+#
+# Nothing is rebuilt: `prod` is pointed at an existing digest, so prod runs the
+# same image as the build that made it. Pass the digest of the image that was
+# tested on dev. An empty input promotes whatever `dev` names at that moment,
+# which is a newer image if main has moved since the test; nothing here can
+# check what a dev box actually ran.
+#
+# The prod EC2 pulls `prod` at its next start (/docker/docker-launch.sh at
+# boot); nothing here restarts it. `prod` is also the tag cdk.json gives the
+# swpc account, so once SWPC deploys from this repository this moves them too.
+# This workflow writes only `prod` and `prod-until-*` tags.
+#
+# Each run waits for approval: the job runs in the `prod` environment, which
+# must require a reviewer and must not let administrators bypass it (see
+# .github/iam/README.md). The gate is only as strong as `main`: anyone who can
+# change this workflow on `main` can change the gate. GitHub creates an
+# environment with no protection if a workflow names one that does not exist,
+# so the first step checks that the protection is really there.
+#
+# Older images are kept. Before `prod` moves, the image it named is given its
+# own tag, `prod-until-<UTC time>-run<run id>`, so every earlier prod image
+# stays easy to find and to promote again. Rolling back is a dispatch with
+# that digest.
+
+name: Promote image to prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: >-
+          Image to promote: the digest (sha256:...) or build tag
+          (sha-<12 hex>[-run<id>.<attempt>]) tested on dev. Empty promotes
+          whatever `dev` names now.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  # Lets the runner mint the OIDC token it trades for the role. In the `prod`
+  # environment its `sub` is repo:SWxTREC/h3lioviz-server:environment:prod.
+  id-token: write
+
+# One promotion at a time. GitHub's default queue keeps one pending run and
+# cancels it when another arrives; `queue: max` keeps up to 100. GitHub says
+# pending runs go first in, first out but that "ordering is not guaranteed", so
+# two dispatches made close together can land in either order: check the
+# summaries if you dispatch more than one.
+# actionlint 1.7.x does not know `queue` yet and reports it; GitHub accepts it
+# (liveswx_dst's promote-image.yml uses it).
+concurrency:
+  group: promote-image
+  cancel-in-progress: false
+  queue: max
+
+# bash with pipefail (GitHub's default `bash -e` has no pipefail)
+defaults:
+  run:
+    shell: bash
+
+env:
+  AWS_REGION: us-east-1
+  REPOSITORY: pvw-h3lioviz-osmesa
+  AWS_ROLE_ARN: arn:aws:iam::174369828756:role/GitHubH3liovizImagePromoter
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    # A reviewer approves the run before any step starts
+    environment: prod
+    steps:
+      # Fails closed before any credentials: GitHub would run this job at once
+      # in an environment created without protection. The environment API has
+      # no `permissions:` key for the job token; these reads work because the
+      # repository is public. If it ever goes private this step fails (safely)
+      # until it is given a token that can read environments.
+      - name: Require an approval rule on the prod environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! ENV_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/environments/prod"); then
+            echo "Could not read the prod environment; create it as .github/iam/README.md describes."
+            exit 1
+          fi
+          REVIEWERS=$(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "${ENV_JSON}")
+          if [ "${REVIEWERS}" -lt 1 ]; then
+            echo "The prod environment has no required reviewers; set them up before promoting (.github/iam/README.md)."
+            exit 1
+          fi
+          # GitHub lets administrators skip the approval unless this is off
+          if [ "$(jq -r '.can_admins_bypass' <<< "${ENV_JSON}")" != false ]; then
+            echo "The prod environment lets administrators bypass the approval; turn that off before promoting (.github/iam/README.md)."
+            exit 1
+          fi
+          # Selected branches only, and that selection is exactly main
+          ALLOWED=none
+          if [ "$(jq -r '.deployment_branch_policy.custom_branch_policies // false' <<< "${ENV_JSON}")" = true ]; then
+            ALLOWED=$(gh api "repos/${GITHUB_REPOSITORY}/environments/prod/deployment-branch-policies" \
+              --jq '[.branch_policies[] | "\(.type // "branch"):\(.name)"] | join(",")')
+          fi
+          if [ "${ALLOWED}" != "branch:main" ]; then
+            echo "The prod environment must allow the main branch only (it allows: ${ALLOWED}); set that up before promoting."
+            exit 1
+          fi
+          echo "prod requires one of ${REVIEWERS} reviewers, admins cannot bypass it, and it allows ${ALLOWED} only"
+
+      - name: Require main
+        run: |
+          if [ "${GITHUB_REF}" != refs/heads/main ]; then
+            echo "Promote from main; this run is on ${GITHUB_REF}."
+            exit 1
+          fi
+
+      # A rerun would read prod afresh and could undo a promotion made since
+      # the first attempt (prod moved to B, then a rerun of A moves it back).
+      # Dispatch again instead: a new run shows its intent in its own input.
+      - name: Refuse reruns
+        run: |
+          if [ "${GITHUB_RUN_ATTEMPT}" != 1 ]; then
+            echo "This is attempt ${GITHUB_RUN_ATTEMPT}. Dispatch a new run instead of rerunning."
+            exit 1
+          fi
+
+      # Only a digest or one of the build workflow's own tags, which no build
+      # takes over (a hand push could; the README says not to). Other tags (dev, prod, v1, noaa, noaatest) move, so they are not
+      # accepted as a name for "the image to promote"; empty means `dev`.
+      - name: Validate input
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          if [ -n "${IMAGE}" ] \
+            && ! [[ "${IMAGE}" =~ ^sha256:[0-9a-f]{64}$ ]] \
+            && ! [[ "${IMAGE}" =~ ^sha-[0-9a-f]{12}(-run[0-9]+\.[0-9]+)?$ ]]; then
+            echo "image must be empty, sha256:<64 hex> or a build tag (sha-<12 hex>[-run<id>.<attempt>]); got '${IMAGE}'"
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here uses git after checkout
+          persist-credentials: false
+
+      # Actions are pinned to a full commit SHA rather than a tag such as v6:
+      # a tag can be moved to different code, and this job can assume the
+      # promote role
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: h3lioviz-server-promote-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Resolved once, here. Every later step uses this digest, so a tag that
+      # moves while the run is going cannot change what gets promoted.
+      - name: Resolve the image
+        id: resolve
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          digest_of() {
+            aws ecr-public describe-images --region us-east-1 \
+              --repository-name "${REPOSITORY}" --image-ids "$1" \
+              --query 'imageDetails[0].imageDigest' --output text
+          }
+          case "${IMAGE}" in
+            '')       TARGET=$(digest_of imageTag=dev) ;;
+            sha256:*) TARGET=$(digest_of "imageDigest=${IMAGE}") ;;
+            *)        TARGET=$(digest_of "imageTag=${IMAGE}") ;;
+          esac
+          CURRENT=$(digest_of imageTag=prod)
+          for v in "${TARGET}" "${CURRENT}"; do
+            [[ "${v}" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "could not resolve a digest (got '${v}')"; exit 1; }
+          done
+          echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "previous=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "promoting ${TARGET}; prod is ${CURRENT} now"
+
+      - name: Keep the current prod image tagged
+        id: keep
+        if: steps.resolve.outputs.target != steps.resolve.outputs.previous
+        run: |
+          # The run id makes the tag unique even if two promotions ever reached
+          # this step in the same second
+          KEEP="prod-until-$(date -u +%Y%m%dT%H%M%SZ)-run${GITHUB_RUN_ID}"
+          .github/scripts/tag-image.sh "${REPOSITORY}" "${{ steps.resolve.outputs.previous }}" "${KEEP}"
+          echo "kept=${KEEP}" >> "$GITHUB_OUTPUT"
+
+      # Check, then set: move `prod` only if it still names the image this run
+      # read above, and read it back afterwards. This is not atomic; it is
+      # enough because promotions run one at a time and nothing else here
+      # writes `prod`. A hand push between the check and the move would be lost.
+      - name: Move the prod tag
+        id: move
+        if: steps.resolve.outputs.target != steps.resolve.outputs.previous
+        run: |
+          NOW=$(aws ecr-public describe-images --region us-east-1 \
+            --repository-name "${REPOSITORY}" --image-ids imageTag=prod \
+            --query 'imageDetails[0].imageDigest' --output text)
+          if [ "${NOW}" != "${{ steps.resolve.outputs.previous }}" ]; then
+            echo "prod moved to ${NOW} while this run was going; not changing it"
+            exit 1
+          fi
+          echo "moved=attempted" >> "$GITHUB_OUTPUT"
+          .github/scripts/tag-image.sh "${REPOSITORY}" "${{ steps.resolve.outputs.target }}" prod
+          AFTER=$(aws ecr-public describe-images --region us-east-1 \
+            --repository-name "${REPOSITORY}" --image-ids imageTag=prod \
+            --query 'imageDetails[0].imageDigest' --output text)
+          if [ "${AFTER}" != "${{ steps.resolve.outputs.target }}" ]; then
+            echo "prod reads back as ${AFTER}, not ${{ steps.resolve.outputs.target }}"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        # The input reaches the shell only through env: this step also runs
+        # when validation failed
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          {
+            echo "### Promote h3lioviz server image to prod"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| input | \`${IMAGE:-(empty: dev)}\` |"
+            echo "| promoted | \`${{ steps.resolve.outputs.target || '-' }}\` |"
+            echo "| prod before | \`${{ steps.resolve.outputs.previous || '-' }}\`, kept as \`${{ steps.keep.outputs.kept || '-' }}\` |"
+            echo ""
+            if [ "${{ job.status }}" != success ]; then
+              echo "The run failed; see the step logs. If \"kept as\" is set, that tag was added."
+              if [ "${{ steps.move.outputs.moved }}" = attempted ]; then
+                echo "The prod tag move was attempted, so prod may now name the promoted image: check it."
+              fi
+            elif [ "${{ steps.resolve.outputs.target }}" = "${{ steps.resolve.outputs.previous }}" ]; then
+              echo "prod already named this image; nothing changed."
+            else
+              echo "The prod EC2 pulls \`prod\` at its next start. To roll back, dispatch this"
+              echo "workflow with the \"prod before\" digest."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -143,7 +143,7 @@ docker build --build-arg BUILD_FRONTEND=false -t h3lioviz .
 
 ### Local Development Deployment
 
-This will run the h3lioviz docker image you have build locally. If you want to pull the latest dev/prod image, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag> with the dev or prod tag.
+This will run the h3lioviz docker image you have built locally. To run a published image instead, replace h3lioviz:latest with public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag>. The `dev` and `prod` images carry no frontend of their own (deployed sites get it from CloudFront). With the `pvw` mount, the server code and any frontend come from your checkout, whichever image you run.
 
 NOTE: This does not currently entirely work due to the container's dependency on AWS resources.
 The paraview code will serve the websocket just fine, and the frontend will be accessible, but the flask routes served by the container as well as on-the-fly run downloading will not work.
@@ -163,30 +163,18 @@ The pvw directory is mounted directly within the docker container, so any change
 
 ### AWS ECR Deployment
 
-The official ECR repository is: `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa`
+The official ECR repository is: `public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa`. It is a public repository in the dev account. Each EC2 runs `/docker/docker-launch.sh` at boot, which pulls the tag its account names in swxtrec-cdk's `cdk.json` (`paraview_image_tag`: `prod` for prod and swpc; `dev` for dev, legacy and any account that leaves it unset). A new image therefore goes live at the instance's next start.
 
-#### Pushing to Development
+#### Development and production: GitHub Actions
 
-1. Authenticate with AWS ECR:
+`dev` and `prod` are built and moved by workflows, not by hand:
 
-```bash
-aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/swx-trec/
-```
+- **Build and publish image** (`.github/workflows/build-image.yml`) runs on every push to `main` that changes the image (the `Dockerfile`, `pvw/` or `docker/`) or the build workflow and smoke test; a docs-only merge builds nothing. It builds the image without a bundled frontend (`BUILD_FRONTEND=false`; deployed sites get the frontend from CloudFront), checks that it starts a ParaView session and that its metadata server answers the health route (`.github/scripts/smoke-test.sh`), pushes it under a tag no other build reuses (`sha-<12 hex of the commit>`, or `sha-<12 hex>-run<run id>.<attempt>` for a rebuild of the same commit), and moves `dev` to it unless `main` has taken a newer change to the image in the meantime. Pull requests run the build and the smoke test only. A manual dispatch on `main` from the Actions tab always builds, and publishes as a push does.
+- **Promote image to prod** (`.github/workflows/promote-image.yml`) is started by hand from the Actions tab once an image has been tested on dev, and waits for a reviewer's approval (the `prod` environment; see `.github/iam/README.md`). Give it that image's digest (`sha256:...`, shown in the build's summary) or build tag; an empty input promotes whatever `dev` names at that moment, which is a newer image if main has moved since the test. Nothing is rebuilt, so prod runs exactly the image promoted. Rolling back is the same dispatch with an older digest.
 
-2. Tag your image:
+Older images are kept for rollback and reference: each build keeps its own tag, and each promotion that moves `prod` tags the image it named before as `prod-until-<UTC time>-run<run id>`. The workflows never delete images. Very old ones can be removed by hand; see `.github/iam/README.md` for which must stay. The workflows' AWS roles are also described there.
 
-```bash
-docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
-```
-
-3. Push to ECR:
-
-```bash
-docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:dev
-```
-
-Note that the EC2 instance will not update the docker image until it has fully rebooted.
-If you want to manually force the update, remotely connect to the instance and run:
+To run a new image before the instance's next start, remotely connect to the instance and run:
 
 ```bash
 sudo su
@@ -194,34 +182,33 @@ export PATH="$PATH:/usr/local/bin"
 /docker/docker-launch.sh
 ```
 
-#### Pushing to Production
+#### Pushing by hand
 
-Follow the same steps as above, but use the `:prod` tag instead of `:dev`:
+Other tags (for example the SWPC stand-in images `noaa` and `noaatest`, which bundle their own frontend build) are still pushed by hand. Do not push `dev`, `prod`, `sha-*` or `prod-until-*` by hand: the workflows own those tags, a hand push records no commit, overwriting a `sha-` tag would make a promotion by that tag pick up a different image, and overwriting a `prod-until-` tag would lose track of an earlier prod image.
 
-```bash
-docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod
-docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:prod
-```
-
-#### Pushing to Legacy (Testing Environment)
-
-For testing on legacy, create an ECR (or use a pre-existing one) and run the above commands referencing that ECR.
-
-1. Authenticate with the legacy account:
+1. Authenticate with AWS ECR:
 
 ```bash
-aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR Name>
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 ```
 
-2. Tag and push:
+2. Tag your image:
 
 ```bash
-docker tag h3lioviz:latest <ECR Name>
-docker push <ECR Name>
-docker logout public.ecr.aws
+docker tag h3lioviz:latest public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag>
 ```
 
-> **Note**: Remember to log out of the public ECR after pushing, as credentials can interfere with accessing public AWS ECR repositories.
+3. Push to ECR:
+
+```bash
+docker push public.ecr.aws/swx-trec/pvw-h3lioviz-osmesa:<tag>
+```
+
+#### Testing an image on legacy or a test account
+
+Legacy and any account that leaves `paraview_image_tag` unset pull `dev` from the swx-trec repository, so they follow the build workflow. To run a different image there, push it to swx-trec under a tag of your own (as above), then connect to the instance (Session Manager is enabled on it), set the `image:` line in `/docker/docker-compose-cpu.yaml` to your tag, and run `/docker/docker-launch.sh` as shown above, which pulls the image and restarts the container. Set the line back the same way when you are done. Changing `paraview_image_tag` in swxtrec-cdk's `cdk.json` alone does not do this on an existing instance: the tag is written into the instance's user data, which runs only at first boot, so a deploy restarts the instance without rewriting the compose file. It takes effect on a newly created instance.
+
+> **Note**: Log out of the public ECR after pushing (`docker logout public.ecr.aws`), as credentials can interfere with pulling from public AWS ECR repositories.
 
 ## Test Data
 
