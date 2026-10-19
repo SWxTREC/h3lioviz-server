@@ -228,11 +228,11 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
         Path of the directory to process
     download_images : bool (default False)
         Whether to download solar images or not
-    radius_downsample : int (default 1)
+    radius_downsample : int (default 1; the command line defaults to 8)
         Factor by which to downsample the radius
-    longitude_downsample : int (default 1)
+    longitude_downsample : int (default 1; the command line defaults to 2)
         Factor by which to downsample the longitude
-    latitude_downsample : int (default 1)
+    latitude_downsample : int (default 1; the command line defaults to 2)
         Factor by which to downsample the latitude
     aggregation : str (default "mean")
         Aggregation method to use for downsampling
