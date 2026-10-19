@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=ubuntu:20.04
+# Ubuntu 24.04: 20.04 is out of standard support, and its Python 3.9 (used for
+# flask) is past end of life. 24.04's system Python is 3.12.
+ARG BASE_IMAGE=ubuntu:24.04
 # Setting the below argument to false disables installing AWS packages
 ARG AWS_ENABLED=false
 ARG BUILD_FRONTEND=true
@@ -57,8 +59,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
         unzip \
-        python3.9 \
-        python3.9-venv \
+        python3 \
+        python3-venv \
         git && \
         rm -rf /var/lib/apt/lists/*
 
@@ -112,13 +114,14 @@ ENV VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow
 
 # Separate pip build to prevent having to re-install dependencies on every pvw code change.
 COPY pvw/requirements.txt /pvw/
-RUN python3.9 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
+RUN python3 -m venv /pvw/venv && source /pvw/venv/bin/activate && pip3 install -r /pvw/requirements.txt --upgrade && deactivate
 
+# The admin user is not given sudo
 RUN groupadd proxy-mapping && \
     groupadd pvw-user && \
     useradd --system -g pvw-user -G proxy-mapping -s /sbin/nologin pvw-user && \
     usermod -a -G proxy-mapping www-data && \
-    useradd admin && echo "admin:admin" | chpasswd && adduser admin sudo && \
+    useradd admin && echo "admin:admin" | chpasswd && \
     mkdir -p /opt/launcher/log && \
     chown -R pvw-user:pvw-user /opt/launcher && \
     mkdir -p /opt/paraviewweb/scripts && \
