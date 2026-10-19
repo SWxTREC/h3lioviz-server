@@ -13,7 +13,7 @@ encapsulation. The Paraview web server/visualizer is what handles all websocket 
 
 The configuration file is located in [../pvw/launcher/config.json](../pvw/launcher/config.json). Here are a few of the most important parameters:
 
-- configuration.sessionURL: This is the websocket url that the paraview launcher returns to the client for each new session; the client connects to it. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. $PROTOCOL and $SERVER_NAME are environment variables set by a docker-compose file or command line flags; set both so the browser can reach the session. If either is unset, server.sh uses ws://localhost.
+- configuration.sessionURL: This is the websocket url that the paraview launcher returns to the client for each new session; the client connects to it. SESSION_URL_ROOT is replaced with \$PROTOCOL://\$SERVER_NAME by server.sh. $PROTOCOL and $SERVER_NAME are environment variables set by a docker-compose file or command line flags; set both so the browser can reach the session. If either is unset, server.sh uses ws://localhost. Use `wss` when the frontend is served over https: browsers block a `ws://` connection from an https page as mixed content.
 - configuration.proxy_file: This is the file that will store mappings between sessionIDs and ports that have been opened for the websocket controlled visualization.
 - apps.visualizer: This will run pvpython and is started once for each new session request (POST) to the paraview web launcher
 - apps.visualizer-mpi: This provides parallelization for batch operations. It is not used: the frontend always requests the `visualizer` application.
@@ -71,7 +71,7 @@ Response:
     "sessionURL": "wss://paraview-web.noaa-demo.swx-trec.com/h3lioviz/proxy?sessionId=d6a03303-d6c6-11f0-b000-e555d37416b1&path=ws"
 }
 ```
-2. Create a websockets request. Input the url from sessionURL then hit "Connect". You are now connected to the websocket! Connect within 30 seconds (`--timeout 30` in the launcher config), or the session's server shuts down.
+2. Create a websockets request. Input the url from sessionURL then hit "Connect". You are now connected to the websocket! Connect within 30 seconds (`--timeout 30` in the launcher config), or the pvpython process started for this session exits (the launcher and other sessions keep running).
 3. Send the following test message:
 ```json
  {"wslink": "1.0", "id": "system:c0:0", "method": "wslink.hello", "args": [{"secret": "wslink-secret"}]}
