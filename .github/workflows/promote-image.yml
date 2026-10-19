@@ -139,6 +139,9 @@ jobs:
 
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here uses git after checkout
+          persist-credentials: false
 
       # Actions are pinned by commit, since this job can assume the promote role
       - name: Configure AWS credentials

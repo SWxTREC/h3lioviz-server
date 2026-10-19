@@ -97,6 +97,11 @@ jobs:
       # Actions are pinned by commit, since this job can assume the publish role
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Keep no token on the runner after checkout: on a pull request the
+          # Dockerfile and smoke test are the pull request's own code, and the
+          # later fetch of main reads this public repository without one
+          persist-credentials: false
 
       - name: Record the version being built
         id: vars
