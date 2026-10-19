@@ -14,7 +14,7 @@ Apache determines which port to route paraview web server requests to using /opt
 
 #### Proxy Mappings:
 
-- Paraview Launcher Reverse Proxy: http://localhost:80/h3lioviz/paraview -> http://localhost:9000/paraview
+- Paraview Launcher Reverse Proxy: http://localhost:80/h3lioviz/paraview/ -> http://localhost:9000/paraview/ (Apache maps the `/h3lioviz/paraview` prefix; requests need the trailing slash, as the launcher answers 404 without it)
 - Paraview Web Servers Reverse Proxy: ws://localhost:80/h3lioviz/proxy?sessionId=XXXX&path=ws -> ws://0.0.0.0:<SOME_PORT>/ws \
   Note that <SOME_PORT> is determined by the sessionId.
 - Flask Server Reverse Proxy: http://localhost:80/h3lioviz/metadata/ -> http://localhost:5000/h3lioviz/metadata/

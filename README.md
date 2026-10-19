@@ -25,7 +25,7 @@ Apache serves as the main entry point and handles routing:
 
 - `/` -> Reroutes to `/h3lioviz/`
 - `/h3lioviz/*` -> All routes except the below endpoints route to the Frontend Web Application
-- `/h3lioviz/paraview` -> ParaView Web service (creates visualization sessions)
+- `/h3lioviz/paraview/` -> ParaView Web service (creates visualization sessions; the trailing slash is required)
 - `/h3lioviz/proxy` -> WebSocket proxy (maps session IDs to ParaView ports)
 - `/h3lioviz/metadata/` -> Flask API for metadata operations
 
