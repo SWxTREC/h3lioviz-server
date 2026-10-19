@@ -115,12 +115,12 @@ Navigate to the [Paraview download page](https://www.paraview.org/download/). Se
 You will need processed data in order to use the Paraview GUI for visualizing h3lioviz data. There are instructions for this in [../scripts/README.md](../scripts/README.md).
 It is recommended you use the default downsampling as the visualization can be pretty hard on your system depending on its specs.
 
-Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your pv-ready-data-{RUN_ID} folder and select the pv-tim.\*.nc files.
+Once you have processed data open the Paraview GUI and select the 'Open File' icon. Then navigate to your `pv-ready-data-{RUN_ID}` folder and select the `pv-tim.*.nc` files.
 You should be able to select them all at once.
 Once you open these files you will be prompted for a reader. Select 'NetCDF Reader'. This will read the data into Paraview.
 In the left panel navigate to 'Properties' and select apply.
 
-Right click on the pv-tim.0\* files in the 'Pipeline Browser' and select 'Add Filter' then 'Alphabetical' and select 'Cell Data to Point Data'.
+Right click on the `pv-tim.0*` files in the 'Pipeline Browser' and select 'Add Filter' then 'Alphabetical' and select 'Cell Data to Point Data'.
 Next navigate to the 'Properties' tab and select 'Apply'. This filter will convert from blocky cells of data to a smoother representation.
 
 After applying the Cell Data to Point Data filter go to the bar above that panel and select 'Slice'.
