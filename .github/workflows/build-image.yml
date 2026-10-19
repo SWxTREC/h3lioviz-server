@@ -202,7 +202,11 @@ jobs:
           # ones this run built, so a rerun or a late run of an older commit
           # cannot put dev back on an older image. Comparing the inputs rather
           # than the commit lets a build finish while docs-only commits (which
-          # start no build of their own) land on main.
+          # start no build of their own) land on main. A newer image change
+          # that lands between this check and the push below has no image yet:
+          # builds on main run one at a time in this concurrency group, so its
+          # own build, if it starts one, runs after this one and moves dev then
+          # if it passes (if it fails, dev stays on this run's image).
           git fetch --quiet --depth=1 origin main
           TIP=$(git rev-parse FETCH_HEAD)
           # shellcheck disable=SC2086 # IMAGE_INPUTS is a list of paths
