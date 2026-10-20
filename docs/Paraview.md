@@ -28,7 +28,7 @@ The following logs contain:
 
 - Launcher requests for a new session via POST to /h3lioviz/paraview/
 - Status requests which the frontend uses to see if the server is online. These are GET requests to /h3lioviz/paraview/?{some_random_number}.
-  A 405 status_code (400 from the wslink bundled with ParaView 5.10) indicates the launcher is running; the wslink this image installs only answers GET when WSLINK_LAUNCHER_GET is set
+  A 405 status_code (400 from the wslink bundled with ParaView 5.10) indicates the launcher is running. The wslink this image installs (1.12.4) only serves GET for a session id path (`/paraview/<id>`), so the frontend's `/paraview/?<n>` gets 405
 - Any errors/warnings during the session launching process
 
 `/data/launcher/log/launcherLog.log`

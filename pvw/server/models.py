@@ -260,8 +260,14 @@ class Enlil(Model):
         series = dirname / SERIES_NAME
         if read_series(series) == names:
             return [str(series)]
-        # Else one this server saved privately for exactly these files
-        private = private_series_path(dirname, create=False)
+        # Else one this server saved privately for exactly these files. A
+        # private directory that is not this user's own, or one that cannot be
+        # read (or vanished between checks), is skipped here, so the load can
+        # still write the run directory's index below.
+        try:
+            private = private_series_path(dirname, create=False)
+        except OSError:
+            private = None
         if private and read_series(private, names_only=True) == [
             str(f) for f in files
         ]:

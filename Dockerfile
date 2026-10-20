@@ -37,7 +37,8 @@ RUN npm install --prefer-offline --no-audit --progress=false && \
 # ============================================================================
 # Main application stage
 # ============================================================================
-# ARG BASE_IMAGE=nvidia/opengl:1.0-glvnd-devel-ubuntu20.04
+# For GPU (EGL) rendering, use an nvidia/opengl glvnd base image instead and
+# override VTK_DEFAULT_OPENGL_WINDOW below, which forces OSMesa
 FROM ${BASE_IMAGE} AS base
 
 # Install using bash rather than sh. Allows for sourcing the pip venv. 

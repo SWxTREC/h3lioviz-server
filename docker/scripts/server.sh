@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 
-# Note: This is commented out because we don't require packages for paraview. 
-#       This allows paraview to access the packages in the venv created by the 
-#       Dockerfile.
-# if [ -f "/pvw/requirements.txt" ]; then
-#   export PV_VENV="/pvw/venv/"
-# fi
+# pvpython does not use the flask venv (/pvw/venv): it gets wslink from its
+# own venv, /opt/pv-venv, through `pvpython --venv` below.
 
 # Copy the launcher config into the location where the start script expects
 # to find it. The config may or may not have replacement values in it, if it
@@ -48,8 +44,10 @@ fi
 
 # Replace config.json with Dockerfile args
 INPUT=$(<"${LAUNCHER_TEMPLATE_PATH}")
-OUTPUT="${INPUT//"SESSION_URL_ROOT"/$ROOT_URL}"
-OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/$REPLACEMENT_ARGS}"
+# The replacements are quoted: since bash 5.2 (Ubuntu 24.04) an unquoted
+# replacement expands "&" to the matched text
+OUTPUT="${INPUT//"SESSION_URL_ROOT"/"$ROOT_URL"}"
+OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/"$REPLACEMENT_ARGS"}"
 echo -e "$OUTPUT" > "${LAUNCHER_PATH}"
 
 echo "Starting flask webserver"
@@ -66,4 +64,3 @@ service apache2 restart
 # /opt/pv-venv on pvpython's path.
 echo "Starting the wslink launcher"
 /opt/paraview/bin/pvpython --venv /opt/pv-venv /pvw/launcher/spare_launcher.py ${LAUNCHER_PATH}
-# python3 -m wslink.launcher ${LAUNCHER_PATH}

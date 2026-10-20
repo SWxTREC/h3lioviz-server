@@ -164,7 +164,7 @@ The server will be available at `http://127.0.0.1:8080`.
 
 To test changes to the pvw directory without rebuilding, add `-v ${PWD}/pvw:/pvw` to mount it directly within the docker container.
 The mount hides the image's `/pvw/venv`, so flask will not start, and the frontend bundled in `/pvw/www`, so copy a built frontend into `pvw/www` first (see step 6).
-Changes to `pvw/server` take effect in the next ParaView session; changes to `pvw/flask` or `pvw/launcher/config.json` need a container restart.
+Changes to `pvw/server` take effect in the session after the next one: the launcher keeps one ParaView process started ahead of time (the spare), which has already loaded the old code, and starts the next spare 10 s after handing one out. Changes to `pvw/flask`, `pvw/launcher/config.json` or `pvw/launcher/spare_launcher.py` need a container restart.
 
 ### AWS ECR Deployment
 
