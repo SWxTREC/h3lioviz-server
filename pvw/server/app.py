@@ -947,6 +947,12 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the plane to snap to. Either "ecliptic" (Earth) or
             "equator" (heliographic equator).
         """
+        if clip not in ("ecliptic", "equator"):
+            # Checked before it is remembered, so a bad call does not replace
+            # the plane a change of model replays
+            raise ValueError(
+                'The snapping clip plane must be either "ecliptic" or "equator"'
+            )
         # Same key as rotate_plane("lon", ...): both set the longitude plane,
         # so only the later of the two is replayed
         self._remember("lon_plane", "snap_solar_plane", clip)
@@ -959,14 +965,10 @@ class App(pv_protocols.ParaViewWebProtocol):
             # -z rotates by 90 degrees to get the normal vector to the plane
             # that contains Earth
             loc = [-self.earth.sat.Center[2], 0, self.earth.sat.Center[0]]
-        elif clip == "equator":
-            # Standard coordinates, so the plane is purely in xy and
-            # z is perpendicular
-            loc = [0, 0, 1]
         else:
-            raise ValueError(
-                'The snapping clip plane must be either "ecliptic" or "equator"'
-            )
+            # The equator: standard coordinates, so the plane is purely in xy
+            # and z is perpendicular
+            loc = [0, 0, 1]
 
         self.lon_slice.slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
@@ -982,6 +984,11 @@ class App(pv_protocols.ParaViewWebProtocol):
         angle : float
             Angle (in degrees) for the tilt of the ecliptic/solar plane.
         """
+        if plane not in ("lon", "lat") or not _finite_number(angle):
+            # Checked before it is remembered, as in snap_solar_plane
+            raise ValueError(
+                "You can only rotate the 'lon' or 'lat' plane, by a number"
+            )
         self._remember(f"{plane}_plane", "rotate_plane", plane, angle)
         angle_rad = math.radians(angle)
         x = math.cos(angle_rad)
@@ -997,8 +1004,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             loc = [-y, x, 0]
             self.lat_slice.slice_data.SliceType.Normal = loc
             self.lat_slice.stream_source.Normal = loc
-        else:
-            raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
     @exportRpc("pv.h3lioviz.snap_to_view")
     def snap_to_view(self, plane):
