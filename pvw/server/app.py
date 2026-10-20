@@ -855,8 +855,15 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
+        if not isinstance(range, (list, tuple)) or len(range) != 2:
+            # Checked before it is stored, as in set_opacity
+            raise ValueError("A range needs a minimum and a maximum")
+        self._remember(("range", name), "set_range", name, range)
         LUT_RANGE[name] = range
         self.update_lut(name)
+        # The opacity points are placed over the variable's range, so follow
+        # it, as a replay after a change of model does
+        self.update_opacity(name)
 
     @exportRpc("pv.h3lioviz.set_opacity")
     def set_opacity(self, name, range):
@@ -873,6 +880,11 @@ class App(pv_protocols.ParaViewWebProtocol):
             are given, or the minimum, midpoint, and maximum if 3 elements
             are given.
         """
+        if not isinstance(range, (list, tuple)) or len(range) not in (2, 3):
+            # Checked before it is stored, so a bad call cannot leave a value
+            # that every later color change of this variable would trip over
+            raise ValueError("Opacity needs 2 or 3 points to map")
+        self._remember(("opacity", name), "set_opacity", name, range)
         OPACITY_VALUES[name] = range
         self.update_opacity(name)
 
