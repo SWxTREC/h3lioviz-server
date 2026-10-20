@@ -50,12 +50,13 @@ def read_series(path, names_only=False):
             return files
         names = [entry["name"] for entry in files]
         times = [entry["time"] for entry in series["files"]]
-    except (OSError, ValueError, KeyError, TypeError):
+    # RecursionError: JSON nested too deeply for the parser
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
         return None
     if not all(isinstance(name, str) for name in names):
         return None
     # An int too large for a float would make math.isfinite raise, so ints
-    # are range-checked instead (a NetCDF time fits in 64 bits)
+    # are range-checked instead (a NetCDF time fits in a signed 64-bit int)
     if not all(
         not isinstance(t, bool)
         and (
