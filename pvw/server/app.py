@@ -123,6 +123,17 @@ INITIAL_VISIBILITY = {
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
 
 
+def _finite_number(value):
+    """True for an int or float (not a bool) that is a finite float."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        # An int too large for a float
+        return False
+
+
 class App(pv_protocols.ParaViewWebProtocol):
     def __init__(self, dirname):
         """
@@ -855,9 +866,14 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
-        if not isinstance(range, (list, tuple)) or len(range) != 2:
+        if (
+            not isinstance(range, (list, tuple))
+            or len(range) != 2
+            or not all(_finite_number(v) for v in range)
+            or range[0] > range[1]
+        ):
             # Checked before it is stored, as in set_opacity
-            raise ValueError("A range needs a minimum and a maximum")
+            raise ValueError("A range needs a finite minimum and maximum, in order")
         self._remember(("range", name), "set_range", name, range)
         LUT_RANGE[name] = range
         self.update_lut(name)
@@ -880,10 +896,14 @@ class App(pv_protocols.ParaViewWebProtocol):
             are given, or the minimum, midpoint, and maximum if 3 elements
             are given.
         """
-        if not isinstance(range, (list, tuple)) or len(range) not in (2, 3):
+        if (
+            not isinstance(range, (list, tuple))
+            or len(range) not in (2, 3)
+            or not all(_finite_number(v) for v in range)
+        ):
             # Checked before it is stored, so a bad call cannot leave a value
             # that every later color change of this variable would trip over
-            raise ValueError("Opacity needs 2 or 3 points to map")
+            raise ValueError("Opacity needs 2 or 3 finite points to map")
         self._remember(("opacity", name), "set_opacity", name, range)
         OPACITY_VALUES[name] = range
         self.update_opacity(name)
