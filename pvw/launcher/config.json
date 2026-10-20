@@ -3,6 +3,10 @@
   "sessionData": {
     "updir": "/Home"
   },
+  "spare": {
+    "application": "visualizer",
+    "delay": 10
+  },
   "configuration": {
     "log_dir": "/data/launcher/log",
     "host": "0.0.0.0",
@@ -11,7 +15,12 @@
     "sessionURL": "SESSION_URL_ROOT/proxy?sessionId=${id}&path=ws",
     "timeout": 45,
     "fields": ["file", "host", "port"],
-    "proxy_file": "/opt/launcher/proxy-mapping.txt"
+    "proxy_file": "/opt/launcher/proxy-mapping.txt",
+    "sanitize": {
+      "python_exec": {"type": "inList", "list": ["/opt/paraview/bin/pvpython"], "default": "/opt/paraview/bin/pvpython"},
+      "mpi_run": {"type": "inList", "list": ["/opt/paraview/bin/mpiexec"], "default": "/opt/paraview/bin/mpiexec"},
+      "batch_exec": {"type": "inList", "list": ["/opt/paraview/bin/pvbatch"], "default": "/opt/paraview/bin/pvbatch"}
+    }
   },
   "properties": {
     "dataDir": "/data",
@@ -25,6 +34,7 @@
         "PARAVIEW_LOG_EXECUTION_VERBOSITY=INFO",
         "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
         "${python_exec}",
+        "--venv", "/opt/pv-venv",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
         "--port", "${port}",
@@ -38,6 +48,7 @@
         "env", "PARAVIEW_LOG_RENDERING_VERBOSITY=INFO",
         "${mpi_run}", "-np", "4",
         "${batch_exec}",
+        "--venv", "/opt/pv-venv",
         EXTRA_PVPYTHON_ARGS
         "/pvw/server/app_server.py",
         "--port", "${port}",

@@ -3,10 +3,12 @@ import json
 import math
 import pathlib
 import os
+import re
 import subprocess
 import shutil
 
 import paraview.simple as pvs
+from paraview import servermanager
 from paraview.web import protocols as pv_protocols
 from wslink import register as exportRpc
 
@@ -16,6 +18,7 @@ import paraview.web.venv
 import models
 import satellite
 import slice
+from display import LazyDisplay, color_by
 
 
 # TODO: Try and use faster plugins where possible
@@ -67,6 +70,14 @@ DEFAULT_CMAP = {
     "dp": "Plasma (matplotlib)",
 }
 
+# ParaView 6 names these presets without the " (matplotlib)" suffix. The
+# frontend still sends the old names, so translate them before applying.
+PRESET_RENAMES = {
+    "Inferno (matplotlib)": "Inferno",
+    "Plasma (matplotlib)": "Plasma",
+    "Viridis (matplotlib)": "Viridis",
+}
+
 VARIABLE_LABEL = {
     "velocity": "Velocity (km/s)",
     "density": "Density (r$^2$N/cm$^3$)",
@@ -81,7 +92,46 @@ VARIABLE_LABEL = {
 
 STORAGE_SPACE_CUTOFF_GIB = 5
 
+# A run id becomes one directory name under the data directory and one S3
+# prefix (copied with s5cmd, which treats *, ? and [ as wildcards), so allow
+# only characters that are safe in both, and no "." or ".." on their own
+RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+# The model classes for each simulation program
+MODELS = {"enlil": models.Enlil, "euhforia": models.Euhforia}
+
+# What is visible when a run is first loaded: what the h3lioviz frontend shows
+# by default (its LAYER_FORM_DEFAULT_VALUES, with the CME and the threshold
+# off), which it sets right after loading a run.
+# Displays are only created when first shown (see display.LazyDisplay), so
+# nothing is built only to be hidden again. The color bar is not a geometry
+# display; it stays hidden until the client turns it on.
+INITIAL_VISIBILITY = {
+    "lon_slice": True,
+    "lon_streamlines": False,
+    "lat_slice": True,
+    "lat_streamlines": False,
+    "radial_slice": False,
+    "cme": False,
+    "cme_contours": False,
+    "threshold": False,
+    "logo": False,
+    "satellites": False,
+    "sat_fieldlines": False,
+}
+
 pvs.ImportPresets("/pvw/server/assets/cmap-WSA-Enlil.json")
+
+
+def _finite_number(value):
+    """True for an int or float (not a bool) that is a finite float."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        # An int too large for a float
+        return False
 
 
 class App(pv_protocols.ParaViewWebProtocol):
@@ -105,6 +155,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Get the initial 'Render View'
         self.view = pvs.GetActiveView()
         self.view.ViewSize = [600, 600]
+        # Keep the blue-grey background ParaView 5.10 drew by default. Newer
+        # versions default to a warm grey palette, so set it explicitly.
+        self.view.UseColorPaletteForBackground = 0
+        self.view.Background = [0.32, 0.34, 0.43]
         self.view.AxesGrid = "GridAxes3DActor"
         self.view.CenterOfRotation = [0, 0, 0]
         self.view.StereoType = "Crystal Eyes"
@@ -125,6 +179,14 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Track the current scalar bar and its visibility
         self._scalarbar_visible = False
+        # The latest call of each kind that set up the view (the client's, and
+        # the defaults this class applies itself), replayed when a run of the
+        # other model type rebuilds the pipeline
+        self._client_calls = {}
+        # Whether the satellites and their fieldlines are shown, kept across
+        # changes of run
+        self._satellites_visible = INITIAL_VISIBILITY["satellites"]
+        self._fieldlines_visible = INITIAL_VISIBILITY["sat_fieldlines"]
         self._current_lut = None
 
     @exportRpc("pv.h3lioviz.load_model")
@@ -137,6 +199,8 @@ class App(pv_protocols.ParaViewWebProtocol):
         program : str
             Name of the program (enlil or euhforia)
         """
+        if not isinstance(run_id, str) or not RUN_ID_PATTERN.fullmatch(run_id):
+            raise ValueError(f"Invalid run id: {run_id!r}")
         run_dir_name = f"pv-ready-data-{run_id}"
         data_dir = self._run_dir / run_dir_name
         if not data_dir.exists():
@@ -186,29 +250,46 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Euhforia data has vts files, so if we detect any in
             # this directory then that is the model we will use
             program = "euhforia"
-
-        if hasattr(self, "model"):
-            # We already have a model initialized, so we just need to switch
-            # the directory underneath the hood without recreating all the filters
-            self.model.change_run(data_dir)
-            # Update the satellite data files associated with the run
-            self._setup_satellites()
-            # Force an update and re-render
-            self.model.data.UpdatePipeline()
-            pvs.Render(self.view)
-            return
-
-        # We are in initialization and don't have a model yet, so
-        # we need to create one
-        if program == "enlil":
-            self.model = models.Enlil(data_dir)
-        elif program == "euhforia":
-            self.model = models.Euhforia(data_dir)
-        else:
+        if program not in MODELS:
             raise ValueError(
                 f"We cannot load {program} data at this time, only enlil and euhforia are supported"
             )
-        self._init_filters()
+        model_class = MODELS[program]
+
+        if not hasattr(self, "model"):
+            # First load of this session: build the model and its pipeline
+            self.model = model_class(data_dir)
+            self._init_filters()
+        elif type(self.model) is model_class:
+            # A run of the same model type: switch the files under the
+            # existing pipeline instead of recreating all the filters
+            self.model.change_run(data_dir)
+            # Update the satellite data files associated with the run
+            self._setup_satellites()
+            self._show_first_time_step()
+            # Force an update and re-render
+            self.model.data.UpdatePipeline()
+            pvs.Render(self.view)
+        else:
+            # A run of the other model type (Enlil and Euhforia): its variable
+            # names and pipeline differ, so build everything again. Build the
+            # new model's reader first, so a run whose reader cannot be built
+            # leaves the current one as it was. A failure after that leaves
+            # this session unusable; the client has to start a new one.
+            old_sources = list(pvs.GetSources().values())
+            try:
+                model = model_class(data_dir)
+            except Exception:
+                self._delete_sources(
+                    s for s in pvs.GetSources().values() if s not in old_sources
+                )
+                raise
+            client_calls = list(self._client_calls.values())
+            self._delete_pipeline(old_sources)
+            self.model = model
+            self._init_filters()
+            # The client does not send its settings again on a change of run
+            self._replay(client_calls)
 
     def _init_filters(self):
         """Initialize all of the paraview filters"""
@@ -294,8 +375,6 @@ class App(pv_protocols.ParaViewWebProtocol):
                 "cme_contours",
             )
         }
-        # Initialize an empty dictionary to store the displays of the objects
-        self.displays = {}
         self._setup_views()
         # After we have a view, we can start adding the satellites
         self._setup_satellites()
@@ -304,12 +383,99 @@ class App(pv_protocols.ParaViewWebProtocol):
         # Call the update function every time the TimeKeeper gets modified
         # The final 1.0 is optional, but sets it as high priority to first
         # do this before other rendering.
-        pvs.GetAnimationScene().TimeKeeper.AddObserver(
+        self._time_observer = pvs.GetAnimationScene().TimeKeeper.AddObserver(
             "PropertyModifiedEvent", self.update, 1.0
         )
+        self._show_first_time_step()
 
         # Set the default to have the slice go through Earth
         self.snap_solar_plane("ecliptic")
+
+    def _show_first_time_step(self):
+        """
+        Move the view to the first time step of the loaded run.
+
+        Until the client picks a time, the view would otherwise stay at time
+        0, labelled 1970-01-01, or after a change of run at the previous
+        run's time, which is outside this run, so none of its data is drawn.
+        """
+        scene = pvs.GetAnimationScene()
+        scene.UpdateAnimationUsingDataTimeSteps()
+        times = list(scene.TimeKeeper.TimestepValues)
+        if times:
+            scene.AnimationTime = times[0]
+        # Position everything for this time, even if the time is unchanged:
+        # the satellites may have a new run's position data
+        self._previous_time = None
+        self.update(None, None)
+
+    def _delete_pipeline(self, sources):
+        """
+        Delete the pipeline objects of the current model, including its
+        readers, so a model of another type can be built in their place.
+
+        Parameters
+        ----------
+        sources : list
+            Every pipeline object of the current model
+        """
+        pvs.GetAnimationScene().TimeKeeper.RemoveObserver(self._time_observer)
+        # Hide the current scalar bar: color maps are not pipeline objects and
+        # outlive it, so a bar for a variable the new model lacks would stay
+        if self._current_lut is not None:
+            pvs.GetScalarBar(self._current_lut, self.view).Visibility = 0
+            self._current_lut = None
+        # Textures are not pipeline sources, so note them before deleting the
+        # sources that use them
+        textures = [self.earth.texture, self.logo.Texture]
+        self._delete_sources(sources)
+        for texture in textures:
+            if texture is not None:
+                self._delete_texture(texture)
+        # The streamlines' own color maps (GetColorTransferFunction with
+        # separate=True); their displays are gone with the sources
+        pxm = servermanager.ProxyManager()
+        groups = ("lookup_tables", "piecewise_functions", "transfer_2d_functions")
+        for group in groups:
+            for (name, _), proxy in list(pxm.GetProxiesInGroup(group).items()):
+                if name.startswith("Separate_"):
+                    pxm.UnRegisterProxy(group, name, proxy)
+        # _init_filters and _setup_satellites build these again
+        for name in ("model", "sun", "earth", "satellites"):
+            delattr(self, name)
+
+    @staticmethod
+    def _delete_texture(texture):
+        """Delete a texture made by pvs.CreateTexture. pvs.Delete leaves a
+        texture registered, and so alive, in the "textures" group that
+        CreateTexture registered it in, so unregister it from there."""
+        pxm = servermanager.ProxyManager()
+        name = pxm.SMProxyManager.GetProxyName("textures", texture.SMProxy)
+        if name:
+            pxm.UnRegisterProxy("textures", name, texture)
+
+    @staticmethod
+    def _delete_sources(sources):
+        """Delete pipeline objects, newest first, so no object is deleted
+        while one built on it remains"""
+        for source in sorted(
+            sources, key=lambda s: int(s.GetGlobalIDAsString()), reverse=True
+        ):
+            pvs.Delete(source)
+
+    def _remember(self, key, method, *args):
+        """Keep the client's latest call of each kind (key), in call order"""
+        self._client_calls.pop(key, None)
+        self._client_calls[key] = (method, args)
+
+    def _replay(self, calls):
+        """Repeat the remembered calls on the rebuilt pipeline, in the order
+        they were made; a call that fails is reported and skipped"""
+        for method, args in calls:
+            try:
+                getattr(self, method)(*args)
+            except Exception as e:
+                print(f"Could not restore {method}{args} after a change of model: {e}")
 
     def _setup_views(self):
         """Setup the rendering view."""
@@ -318,11 +484,13 @@ class App(pv_protocols.ParaViewWebProtocol):
         disp = pvs.Show(self.time_string, self.view, "TextSourceRepresentation")
 
         # Logo watermark - fixed position in the corner
-        self.logo_display = pvs.Show(self.logo, self.view, "LogoSourceRepresentation")
-        self.logo_display.Interactivity = 0
-        self.logo_display.Position = [0.95, 0.02]
-        # Hide by default for NOAA
-        pvs.Hide(self.logo, self.view)
+        def setup_logo(disp):
+            disp.Interactivity = 0
+            disp.Position = [0.95, 0.02]
+
+        self.logo_display = LazyDisplay(
+            self.logo, self.view, "LogoSourceRepresentation", setup=setup_logo
+        )
 
         # get color transfer function/color map for Bz initially
         bzLUT = pvs.GetColorTransferFunction(self.model.get_variable("bz"))
@@ -346,25 +514,32 @@ class App(pv_protocols.ParaViewWebProtocol):
         bzPWF.Points = [-10, 0.0, 0.5, 0.0, 10, 1.0, 0.5, 0.0]
         bzPWF.ScalarRangeInitialized = 1
 
+        # The variable the colored surfaces are colored by
+        self._color_variable = self.model.get_variable("bz")
+
         # CME Threshold
-        disp = pvs.Show(self.cme, self.view, "GeometryRepresentation")
-        self.displays[self.cme] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = [None, ""]
-        disp.Opacity = 0.25
+        def setup_cme(disp):
+            disp.Representation = "Surface"
+            disp.ColorArrayName = [None, ""]
+            disp.Opacity = 0.25
 
-        # CME Contours
-        disp = pvs.Show(self.cme_contours, self.view, "GeometryRepresentation")
-        self.displays[self.cme_contours] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
-        disp.LookupTable = bzLUT
+        # CME Contours and the threshold
+        def setup_colored(disp):
+            disp.Representation = "Surface"
+            disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
+            disp.LookupTable = bzLUT
+            if self._color_variable != self.model.get_variable("bz"):
+                # The coloring a display shown from the start would have now
+                color_by(disp, self._color_variable)
 
-        disp = pvs.Show(self.threshold, self.view, "GeometryRepresentation")
-        self.displays[self.threshold] = disp
-        disp.Representation = "Surface"
-        disp.ColorArrayName = ["POINTS", self.model.get_variable("bz")]
-        disp.LookupTable = bzLUT
+        # The displays are created when first shown
+        self.displays = {
+            "cme": LazyDisplay(self.cme, self.view, setup=setup_cme),
+            "cme_contours": LazyDisplay(
+                self.cme_contours, self.view, setup=setup_colored
+            ),
+            "threshold": LazyDisplay(self.threshold, self.view, setup=setup_colored),
+        }
 
         # Set colormaps
         for name in DEFAULT_CMAP:
@@ -375,17 +550,14 @@ class App(pv_protocols.ParaViewWebProtocol):
         cbar = pvs.GetScalarBar(bzLUT, self.view)
         cbar.Visibility = 0
 
-        # hide this data from the default initial view
-        for x in [
-            self.threshold,
-            self.cme_contours,
-        ]:
-            pvs.Hide(x, self.view)
-
-        self.lon_slice.hide()
-        self.radial_slice.hide()
-        # We don't want any lat streamlines
-        self.lat_slice.hide_streamlines()
+        # Show what is visible initially, so only those displays get created.
+        # Not the satellites or their fieldlines: they do not exist yet here
+        # ("sat_fieldlines" loops over self.satellites, and the satellites are
+        # shown by toggle_satellites, not change_visibility), and
+        # _setup_satellites shows them when they are on.
+        for obj, visible in INITIAL_VISIBILITY.items():
+            if visible and obj not in ("satellites", "sat_fieldlines"):
+                self.change_visibility(obj, "on")
 
         # restore active source
         pvs.SetActiveSource(None)
@@ -394,43 +566,43 @@ class App(pv_protocols.ParaViewWebProtocol):
         """
         Initializes the satellite locations and objects.
 
-        If we are changing runs, we start by hiding and deleting all
-        previous instances of the objects.
+        On a change of run, the Sun, the Earth and the satellites both runs
+        have are kept and given the new run's position data; satellites
+        only the old run has are deleted, and those only the new run has are
+        created. Satellites and fieldlines keep the visibility the user chose.
+        The caller moves them to the new run's time.
         """
-        if hasattr(self, "sun"):
-            self.sun.hide()
-            del self.sun
-        self.sun = satellite.Sun(view=self.view)
+        if not hasattr(self, "sun"):
+            self.sun = satellite.Sun(view=self.view)
+            self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
+            self.earth.add_fieldline(self.bvec)
+            self.earth.show()
+            if self._fieldlines_visible:
+                self.earth.show_fieldline()
+            self.satellites = {}
+        else:
+            self.earth.change_satellite_data(self.model.satellites["earth"])
 
-        if hasattr(self, "earth"):
-            self.earth.hide()
-            if hasattr(self.earth, "streamlines"):
-                # Remove any streamlines if there were some
-                self.earth.hide_fieldline()
-                del self.earth.streamlines
-            del self.earth
-        self.earth = satellite.Earth(self.model.satellites["earth"], view=self.view)
-        if hasattr(self, "satellites"):
-            for sat in self.satellites.values():
-                sat.hide()
-                if hasattr(sat, "streamlines"):
-                    # Remove any streamlines if there were some
-                    sat.hide_fieldline()
-                    del sat.streamlines
-                del sat
-            del self.satellites
         # TODO: Use the other satellites eventually
         # For now, we are only showing the stereo spacecraft
-        self.satellites = {
-            x.name: satellite.Satellite(x, view=self.view)
-            for x in self.model.satellites.values()
-            if "stereo" in x.name
+        wanted = {
+            x.name: x for x in self.model.satellites.values() if "stereo" in x.name
         }
-
-        # Add the fieldlines to the satellites + Earth
-        for sat in self.satellites:
-            self.satellites[sat].add_fieldline(self.bvec)
-        self.earth.add_fieldline(self.bvec)
+        for name in list(self.satellites):
+            if name not in wanted:
+                self.satellites.pop(name).delete()
+        for name, model_satellite in wanted.items():
+            if name in self.satellites:
+                self.satellites[name].change_satellite_data(model_satellite)
+                continue
+            sat = satellite.Satellite(model_satellite, view=self.view)
+            # Add the fieldline to the satellite
+            sat.add_fieldline(self.bvec)
+            if self._satellites_visible:
+                sat.show()
+            if self._fieldlines_visible:
+                sat.show_fieldline()
+            self.satellites[name] = sat
 
     @exportRpc("pv.h3lioviz.get_available_runs")
     def get_available_runs(self):
@@ -479,6 +651,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         visibility : str ("on", "off")
             What to set the visibility to for the given object
         """
+        self._remember(("visibility", obj), "change_visibility", obj, visibility)
         if visibility == "on":
             if obj == "lon_slice":
                 self.lon_slice.show()
@@ -491,13 +664,16 @@ class App(pv_protocols.ParaViewWebProtocol):
             elif obj == "lat_streamlines":
                 self.lat_slice.show_streamlines()
             elif obj == "sat_fieldlines":
+                self._fieldlines_visible = True
                 for sat in self.satellites:
                     self.satellites[sat].show_fieldline()
                 self.earth.show_fieldline()
             elif obj == "logo":
-                pvs.Show(self.logo, self.view)
+                self.logo_display.show()
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(True)
+            elif obj in self.displays:
+                self.displays[obj].show()
             else:
                 pvs.Show(self.objs[obj], self.view)
 
@@ -513,13 +689,16 @@ class App(pv_protocols.ParaViewWebProtocol):
             elif obj == "lat_streamlines":
                 self.lat_slice.hide_streamlines()
             elif obj == "sat_fieldlines":
+                self._fieldlines_visible = False
                 for sat in self.satellites:
                     self.satellites[sat].hide_fieldline()
                 self.earth.hide_fieldline()
             elif obj == "logo":
-                pvs.Hide(self.logo, self.view)
+                self.logo_display.hide()
             elif obj == "color_bar":
                 self.set_scalarbar_visibility(False)
+            elif obj in self.displays:
+                self.displays[obj].hide()
             else:
                 pvs.Hide(self.objs[obj], self.view)
         else:
@@ -533,28 +712,29 @@ class App(pv_protocols.ParaViewWebProtocol):
         name : str
             Name of variable to colormap all of the surfaces by
         """
+        self._remember("colorby", "change_color_variable", name)
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         label = VARIABLE_LABEL[name]
 
-        # Update all displays to be colored by this variable
-        for obj, disp in self.displays.items():
-            if obj in (self.cme,):
-                # We don't want to update the longitude arrow colors
-                continue
-            pvs.ColorBy(disp, variable)
+        # Color the displays created on demand that show this variable (those
+        # not created yet get it when they are created); the slices get it
+        # below.
+        self._color_variable = variable
+        for obj in ("cme_contours", "threshold"):
+            if self.displays[obj].created:
+                pvs.ColorBy(self.displays[obj].display, variable)
 
-            # Also update the colorbar orientation information
-            if disp.LookupTable is None:
-                continue
-            cbar = pvs.GetScalarBar(disp.LookupTable, self.view)
-            cbar.AutoOrient = 0
-            cbar.Orientation = "Horizontal"
-            cbar.TextPosition = "Ticks left/bottom, annotations right/top"
-            cbar.Title = label
-            cbar.ComponentTitle = ""
-            # Disables the endpoints which can be formatted differently
-            cbar.AddRangeLabels = 0
+        # Also update the colorbar orientation information. It belongs to the
+        # variable's color map, so it is set whether or not those displays exist.
+        cbar = pvs.GetScalarBar(pvs.GetColorTransferFunction(variable), self.view)
+        cbar.AutoOrient = 0
+        cbar.Orientation = "Horizontal"
+        cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+        cbar.Title = label
+        cbar.ComponentTitle = ""
+        # Disables the endpoints which can be formatted differently
+        cbar.AddRangeLabels = 0
 
         self.lon_slice.variable = variable
         self.lat_slice.variable = variable
@@ -574,8 +754,8 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # restore active source
         pvs.SetActiveSource(None)
-        # Render the view
-        pvs.Render(self.view)
+        # No render here: a render in an RPC sends no image to the client,
+        # which asks for one itself (viewport.image.push) after the change
 
     def set_scalarbar_visibility(self, visible):
         """
@@ -666,11 +846,13 @@ class App(pv_protocols.ParaViewWebProtocol):
         cmap_name : str
             Name of the colormap to apply
         """
+        self._remember(("colormap", name), "set_colormap", name, cmap_name)
         # Use a dictionary to map the variable received to the internal name
         variable = self.model.get_variable(name)
         lut = pvs.GetColorTransferFunction(variable)
         # If cmap_name is None, use the default version
-        lut.ApplyPreset(cmap_name or DEFAULT_CMAP[name])
+        preset = cmap_name or DEFAULT_CMAP[name]
+        lut.ApplyPreset(PRESET_RENAMES.get(preset, preset))
         lut.EnableOpacityMapping = 1
 
     @exportRpc("pv.h3lioviz.set_range")
@@ -683,8 +865,20 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to colormap over
         """
+        if (
+            not isinstance(range, (list, tuple))
+            or len(range) != 2
+            or not all(_finite_number(v) for v in range)
+            or range[0] > range[1]
+        ):
+            # Checked before it is stored, as in set_opacity
+            raise ValueError("A range needs a finite minimum and maximum, in order")
+        self._remember(("range", name), "set_range", name, range)
         LUT_RANGE[name] = range
         self.update_lut(name)
+        # The opacity points are placed over the variable's range, so follow
+        # it, as a replay after a change of model does
+        self.update_opacity(name)
 
     @exportRpc("pv.h3lioviz.set_opacity")
     def set_opacity(self, name, range):
@@ -701,6 +895,15 @@ class App(pv_protocols.ParaViewWebProtocol):
             are given, or the minimum, midpoint, and maximum if 3 elements
             are given.
         """
+        if (
+            not isinstance(range, (list, tuple))
+            or len(range) not in (2, 3)
+            or not all(_finite_number(v) for v in range)
+        ):
+            # Checked before it is stored, so a bad call cannot leave a value
+            # that every later color change of this variable would trip over
+            raise ValueError("Opacity needs 2 or 3 finite points to map")
+        self._remember(("opacity", name), "set_opacity", name, range)
         OPACITY_VALUES[name] = range
         self.update_opacity(name)
 
@@ -714,6 +917,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         range : list[2]
             A list of the minimum and maximum values to threshold by
         """
+        self._remember("threshold", "set_threshold", name, range)
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.threshold.ContourBy = ["POINTS", variable]
@@ -729,6 +933,7 @@ class App(pv_protocols.ParaViewWebProtocol):
         values : list
             A list of the values to contour by
         """
+        self._remember("contours", "set_contours", name, values)
         variable = self.model.get_variable(name)
         # The quantity of interest
         self.cme_contours.ContourBy = ["POINTS", variable]
@@ -742,6 +947,15 @@ class App(pv_protocols.ParaViewWebProtocol):
             Name of the plane to snap to. Either "ecliptic" (Earth) or
             "equator" (heliographic equator).
         """
+        if clip not in ("ecliptic", "equator"):
+            # Checked before it is remembered, so a bad call does not replace
+            # the plane a change of model replays
+            raise ValueError(
+                'The snapping clip plane must be either "ecliptic" or "equator"'
+            )
+        # Same key as rotate_plane("lon", ...): both set the longitude plane,
+        # so only the later of the two is replayed
+        self._remember("lon_plane", "snap_solar_plane", clip)
         if clip == "ecliptic":
             if not hasattr(self, "earth"):
                 # We don't have earth's location, so just return
@@ -751,14 +965,10 @@ class App(pv_protocols.ParaViewWebProtocol):
             # -z rotates by 90 degrees to get the normal vector to the plane
             # that contains Earth
             loc = [-self.earth.sat.Center[2], 0, self.earth.sat.Center[0]]
-        elif clip == "equator":
-            # Standard coordinates, so the plane is purely in xy and
-            # z is perpendicular
-            loc = [0, 0, 1]
         else:
-            raise ValueError(
-                'The snapping clip plane must be either "ecliptic" or "equator"'
-            )
+            # The equator: standard coordinates, so the plane is purely in xy
+            # and z is perpendicular
+            loc = [0, 0, 1]
 
         self.lon_slice.slice_data.SliceType.Normal = loc
         # Also update the stream source so they stay in-sync
@@ -774,6 +984,12 @@ class App(pv_protocols.ParaViewWebProtocol):
         angle : float
             Angle (in degrees) for the tilt of the ecliptic/solar plane.
         """
+        if plane not in ("lon", "lat") or not _finite_number(angle):
+            # Checked before it is remembered, as in snap_solar_plane
+            raise ValueError(
+                "You can only rotate the 'lon' or 'lat' plane, by a number"
+            )
+        self._remember(f"{plane}_plane", "rotate_plane", plane, angle)
         angle_rad = math.radians(angle)
         x = math.cos(angle_rad)
         y = math.sin(angle_rad)
@@ -788,8 +1004,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             loc = [-y, x, 0]
             self.lat_slice.slice_data.SliceType.Normal = loc
             self.lat_slice.stream_source.Normal = loc
-        else:
-            raise ValueError("You can only update the 'lon' or 'lat' plane.")
 
     @exportRpc("pv.h3lioviz.snap_to_view")
     def snap_to_view(self, plane):
@@ -828,12 +1042,14 @@ class App(pv_protocols.ParaViewWebProtocol):
         visibility : str ("on", "off")
             What to set the visibility to
         """
+        self._remember("satellites", "toggle_satellites", visibility)
         if visibility == "on":
             hide_show = "show"
         elif visibility == "off":
             hide_show = "hide"
         else:
             return ["Visibility can only be 'on' or 'off'"]
+        self._satellites_visible = visibility == "on"
         for sat in self.satellites:
             # Call the hide() or show() method
             getattr(self.satellites[sat], hide_show)()
@@ -889,7 +1105,7 @@ class App(pv_protocols.ParaViewWebProtocol):
 
         # Rotate the Earth image
         self.earth.update(curr_time)
-        self._previous_time == curr_time
+        self._previous_time = curr_time
 
     def get_current_time(self):
         """Retrieves the current time of the view.

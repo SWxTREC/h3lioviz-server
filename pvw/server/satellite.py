@@ -2,6 +2,8 @@ import pathlib
 
 import paraview.simple as pvs
 
+from display import LazyDisplay
+
 # List of satellite colors
 SATELLITE_COLORS = {
     "earth": [0.0, 0.3333333333333333, 0.0],
@@ -53,21 +55,33 @@ class Satellite:
         self.color = (
             SATELLITE_COLORS[name] if name in SATELLITE_COLORS else [0.5, 0.5, 0.5]
         )
-        self.sat_disp = pvs.Show(self.sat, self.view, "GeometryRepresentation")
-        self.sat_disp.Representation = "Surface"
-        self.sat_disp.AmbientColor = self.color
-        self.sat_disp.ColorArrayName = [None, ""]
-        self.sat_disp.DiffuseColor = self.color
-
         self.label = pvs.Text()
         self.label.Text = SATELLITE_NAMES[name] if name in SATELLITE_NAMES else name
-        self.label_disp = pvs.Show(self.label, self.view, "TextSourceRepresentation")
-        self.label_disp.TextPropMode = "Billboard 3D Text"
-        self.label_disp.FontSize = 14
-        self.label_disp.WindowLocation = "Any Location"
+        # The displays are created when the satellite is first shown
+        self.sat_display = LazyDisplay(
+            self.sat, self.view, setup=self._setup_sat_display
+        )
+        self.label_display = LazyDisplay(
+            self.label,
+            self.view,
+            "TextSourceRepresentation",
+            setup=self._setup_label_display,
+        )
+        self.fieldline_display = None
+
+    def _setup_sat_display(self, disp):
+        disp.Representation = "Surface"
+        disp.AmbientColor = self.color
+        disp.ColorArrayName = [None, ""]
+        disp.DiffuseColor = self.color
+
+    def _setup_label_display(self, disp):
+        disp.TextPropMode = "Billboard 3D Text"
+        disp.FontSize = 14
+        disp.WindowLocation = "Any Location"
         # Offset the center by the width to give some separation
-        self.label_disp.BillboardPosition = [x + size for x in self.sat.Center]
-        self.label_disp.Color = [0, 0, 0]  # Black text
+        disp.BillboardPosition = [x + self.size for x in self.sat.Center]
+        disp.Color = [0, 0, 0]  # Black text
 
     def change_satellite_data(self, model_satellite):
         """Change the underlying satellite data file
@@ -116,30 +130,42 @@ class Satellite:
         self.stream_input = stream_input
         self.streamlines = streamlines
 
-        # Streamlines
-        self.streamlines_disp = pvs.Show(
-            self.streamlines, self.view, "GeometryRepresentation"
+        # Streamlines, created when first shown
+        self.fieldline_display = LazyDisplay(
+            self.streamlines, self.view, setup=self._setup_fieldline_display
         )
-        self.streamlines_disp.Representation = "Surface"
-        self.streamlines_disp.ColorArrayName = [None, ""]
-        self.streamlines_disp.AmbientColor = self.color
-        self.streamlines_disp.DiffuseColor = self.color
+
+    def _setup_fieldline_display(self, disp):
+        disp.Representation = "Surface"
+        disp.ColorArrayName = [None, ""]
+        disp.AmbientColor = self.color
+        disp.DiffuseColor = self.color
+        # Shade the tube as it has always been shaded: the display used to be
+        # created right after the tube, while its seed was still at the origin
+        # and the tube empty, so ParaView picked no normals array for it
+        disp.SelectNormalArray = "None"
+
+    def delete(self):
+        """Delete this satellite's pipeline objects and their displays"""
+        # Newest first, so nothing is deleted while a filter on it remains
+        for source in (self.streamlines, self.stream_input, self.label, self.sat):
+            pvs.Delete(source)
 
     def show(self):
         """Make the satellite visible"""
-        pvs.Show(self.sat, self.view)
-        pvs.Show(self.label, self.view)
+        self.sat_display.show()
+        self.label_display.show()
 
     def hide(self):
         """Hide the satellite"""
-        pvs.Hide(self.sat, self.view)
-        pvs.Hide(self.label, self.view)
+        self.sat_display.hide()
+        self.label_display.hide()
 
     def show_fieldline(self):
-        pvs.Show(self.streamlines, self.view)
+        self.fieldline_display.show()
 
     def hide_fieldline(self):
-        pvs.Hide(self.streamlines, self.view)
+        self.fieldline_display.hide()
 
     def update(self, time):
         """
@@ -151,7 +177,10 @@ class Satellite:
             The time of the visualization
         """
         self.sat.Center = self.model_satellite.get_position(time=time)
-        self.label_disp.BillboardPosition = [x + self.size for x in self.sat.Center]
+        if self.label_display.created:
+            self.label_display.display.BillboardPosition = [
+                x + self.size for x in self.sat.Center
+            ]
         if hasattr(self, "stream_input"):
             self.stream_input.SeedType.Center = self.sat.Center
 
@@ -231,6 +260,7 @@ class Earth(Satellite):
 
         # We should have a local image file to use as a texture
         earth_image = pvs.CreateTexture(str(earth_path))
+        self.texture = earth_image
         # Set up the sphere source
         sphere = self.sat
         sphere.ThetaResolution = 50
@@ -268,28 +298,29 @@ class Earth(Satellite):
         t.Transform.Translate = [0.0, 0.0, -1]
         self.translation2 = t
 
-        # show data from the image and hide the plain sphere and label
-        pvs.Hide(self.sat)
-        pvs.Hide(self.label)
-        texture_map_disp = pvs.Show(
-            self.translation2, self.view, "GeometryRepresentation"
+        # Show data from the image. The plain sphere and label are never
+        # shown for the Earth, so their displays are never created.
+        self.texture_display = LazyDisplay(
+            self.translation2, self.view, setup=self._setup_texture_display
         )
 
+    def _setup_texture_display(self, texture_map_disp):
         # trace defaults for the display properties.
         texture_map_disp.Representation = "Surface"
         texture_map_disp.ColorArrayName = [None, ""]
         texture_map_disp.SelectTCoordArray = "Texture Coordinates"
         texture_map_disp.SelectNormalArray = "Normals"
         texture_map_disp.SelectTangentArray = "None"
-        texture_map_disp.Texture = earth_image
-        # To get the proper orientation
-        texture_map_disp.FlipTextures = 1
+        texture_map_disp.Texture = self.texture
+        # To get the proper orientation, flip the texture vertically. This
+        # is what FlipTextures = 1 did before ParaView 5.13 removed it.
+        texture_map_disp.TextureTransform.Scale = [1, -1, 1]
 
     def show(self):
-        pvs.Show(self.translation2, self.view)
+        self.texture_display.show()
 
     def hide(self):
-        pvs.Hide(self.translation2, self.view)
+        self.texture_display.hide()
 
     def update(self, time):
         """

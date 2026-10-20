@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 
-# Note: This is commented out because we don't require packages for paraview. 
-#       This allows paraview to access the packages in the venv created by the 
-#       Dockerfile.
-# if [ -f "/pvw/requirements.txt" ]; then
-#   export PV_VENV="/pvw/venv/"
-# fi
+# pvpython does not use the flask venv (/pvw/venv): it gets wslink from its
+# own venv, /opt/pv-venv, through `pvpython --venv` below.
 
 # Copy the launcher config into the location where the start script expects
 # to find it. The config may or may not have replacement values in it, if it
@@ -48,19 +44,23 @@ fi
 
 # Replace config.json with Dockerfile args
 INPUT=$(<"${LAUNCHER_TEMPLATE_PATH}")
-OUTPUT="${INPUT//"SESSION_URL_ROOT"/$ROOT_URL}"
-OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/$REPLACEMENT_ARGS}"
+# The replacements are quoted: since bash 5.2 (Ubuntu 24.04) an unquoted
+# replacement expands "&" to the matched text
+OUTPUT="${INPUT//"SESSION_URL_ROOT"/"$ROOT_URL"}"
+OUTPUT="${OUTPUT//"EXTRA_PVPYTHON_ARGS"/"$REPLACEMENT_ARGS"}"
 echo -e "$OUTPUT" > "${LAUNCHER_PATH}"
 
 echo "Starting flask webserver"
 source /pvw/venv/bin/activate
-python3.9 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
+python3 /pvw/flask/main.py >> /data/launcher/log/flask.log 2>&1 &
 
 # Make sure the apache webserver is running
 echo "Starting/Restarting Apache webserver"
 service apache2 restart
 
-# Run the pvw launcher in the foreground so this script doesn't end
+# Run the pvw launcher in the foreground so this script doesn't end. It is
+# wslink's launcher plus one session process started ahead of time (the
+# "spare" entry of the launcher config). --venv puts the wslink installed in
+# /opt/pv-venv on pvpython's path.
 echo "Starting the wslink launcher"
-/opt/paraview/bin/pvpython -m wslink.launcher ${LAUNCHER_PATH}
-# python3 -m wslink.launcher ${LAUNCHER_PATH}
+/opt/paraview/bin/pvpython --venv /opt/pv-venv /pvw/launcher/spare_launcher.py ${LAUNCHER_PATH}

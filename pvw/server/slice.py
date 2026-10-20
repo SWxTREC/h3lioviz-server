@@ -1,5 +1,7 @@
 import paraview.simple as pvs
 
+from display import LazyDisplay, color_by
+
 
 class Slice:
     """
@@ -52,14 +54,13 @@ class Slice:
         )
         self.slice.ProcessAllArrays = 1
 
-        # Set up the display
-        self.slice_disp = pvs.Show(self.slice, self.view, "GeometryRepresentation")
-        self.slice_disp.Representation = "Surface"
+        # Set up the display, created when the slice is first shown
         self._variable = "Bz"
-        self.slice_disp.ColorArrayName = ["POINTS", self._variable]
-        self.slice_disp.LookupTable = pvs.GetColorTransferFunction(
-            "Bz", self.slice_disp
+        self.slice_display = LazyDisplay(
+            self.slice, self.view, setup=self._setup_slice_display
         )
+        self.streamlines_display = None
+        self.arrows_display = None
 
         # TODO: Handle spherical sources as well?
         #       Trying out spherical sources didn't look great at first glance
@@ -129,27 +130,43 @@ class Slice:
         self.streamlines = streamlines
         self.arrows = arrows
 
-        # Streamlines
-        self.streamlines_disp = pvs.Show(
-            self.streamlines, self.view, "GeometryRepresentation"
+        # Streamlines and B-field vectors, created when first shown
+        self._bpLUT = None
+        self.streamlines_display = LazyDisplay(
+            self.streamlines, self.view, setup=self._setup_streamlines_display
         )
+        self.arrows_display = LazyDisplay(
+            self.arrows, self.view, setup=self._setup_arrows_display
+        )
+
+    def _setup_slice_display(self, disp):
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Bz"]
+        disp.LookupTable = pvs.GetColorTransferFunction("Bz", disp)
+        if self._variable != "Bz":
+            # The coloring a display shown from the start would have now
+            color_by(disp, self._variable)
+
+    def _setup_streamlines_display(self, disp):
         # Add in a magnetic polarity colormap (radial in or out)
         # with two values blue/red
         # separate=True makes sure it doesn't overwrite the Br of the
         # frontend choices
-        bpLUT = pvs.GetColorTransferFunction("Br", self.streamlines_disp, separate=True)
+        bpLUT = pvs.GetColorTransferFunction("Br", disp, separate=True)
         bpLUT.RGBPoints = [-1e5, 0.5, 0.5, 0.5, 1e5, 0.9, 0.9, 0.9]
         bpLUT.ScalarRangeInitialized = 1.0
         bpLUT.NumberOfTableValues = 2
-        self.streamlines_disp.Representation = "Surface"
-        self.streamlines_disp.ColorArrayName = ["POINTS", "Br"]
-        self.streamlines_disp.LookupTable = bpLUT
+        self._bpLUT = bpLUT
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
+        disp.LookupTable = bpLUT
 
-        # B-field vectors
-        self.arrows_disp = pvs.Show(self.arrows, self.view, "GeometryRepresentation")
-        self.arrows_disp.Representation = "Surface"
-        self.arrows_disp.ColorArrayName = ["POINTS", "Br"]
-        self.arrows_disp.LookupTable = bpLUT
+    def _setup_arrows_display(self, disp):
+        # Uses the streamlines' colormap, which their display's setup creates;
+        # show_streamlines shows the streamlines first, so it always exists
+        disp.Representation = "Surface"
+        disp.ColorArrayName = ["POINTS", "Br"]
+        disp.LookupTable = self._bpLUT
 
     @property
     def variable(self):
@@ -159,22 +176,30 @@ class Slice:
     @variable.setter
     def variable(self, var):
         self._variable = var
-        pvs.ColorBy(self.slice_disp, var)
+        if self.slice_display.created:
+            pvs.ColorBy(self.slice_display.display, var)
 
     def hide(self):
         """Hide the plane"""
-        pvs.Hide(self.slice)
+        self.slice_display.hide()
 
     def hide_streamlines(self):
         """Hide the streamlines on the plane"""
-        pvs.Hide(self.streamlines)
-        pvs.Hide(self.arrows)
+        if self.streamlines_display is None:
+            # A spherical slice has no streamlines
+            return
+        self.streamlines_display.hide()
+        self.arrows_display.hide()
 
     def show(self):
         """Show the plane"""
-        pvs.Show(self.slice)
+        self.slice_display.show()
 
     def show_streamlines(self):
         """Show the streamlines on the plane"""
-        pvs.Show(self.streamlines)
-        pvs.Show(self.arrows)
+        if self.streamlines_display is None:
+            # A spherical slice has no streamlines
+            return
+        # The streamlines first: their setup makes the colormap the arrows use
+        self.streamlines_display.show()
+        self.arrows_display.show()
