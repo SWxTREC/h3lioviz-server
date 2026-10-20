@@ -224,7 +224,8 @@ def write_time_index(run_dir, names):
     swxtrec-cdk ingest Lambda writes). Each time is read back from the
     written file as stored, as ParaView reads it. If the times do not
     strictly increase, the server would not use the index, so none is
-    written and the server reads the times from the files.
+    written (and an older one from a previous run of this script is
+    removed) and the server reads the times from the files.
     """
     files = []
     for name in names:
@@ -233,6 +234,7 @@ def write_time_index(run_dir, names):
     times = [entry["time"] for entry in files]
     if any(later <= earlier for earlier, later in zip(times, times[1:])):
         warnings.warn("TIM file times do not strictly increase, so no pv-tim.series was written")
+        (run_dir / "pv-tim.series").unlink(missing_ok=True)
         return
     with open(run_dir / "pv-tim.series", "w") as f:
         json.dump({"file-series-version": "1.0", "files": files}, f)
