@@ -217,6 +217,26 @@ def process_evo(ds):
 
     return ds
 
+def write_time_index(run_dir, names):
+    """
+    Write pv-tim.series, the index of time file names and times the ParaView
+    server reads instead of opening every file (the same format the
+    swxtrec-cdk ingest Lambda writes). Each time is read back from the
+    written file as stored, as ParaView reads it. If the times do not
+    strictly increase, the server would not use the index, so none is
+    written and the server reads the times from the files.
+    """
+    files = []
+    for name in names:
+        with xr.open_dataset(run_dir / name, decode_times=False) as ds:
+            files.append({"name": name, "time": ds["time"].item()})
+    times = [entry["time"] for entry in files]
+    if any(later <= earlier for earlier, later in zip(times, times[1:])):
+        warnings.warn("TIM file times do not strictly increase, so no pv-tim.series was written")
+        return
+    with open(run_dir / "pv-tim.series", "w") as f:
+        json.dump({"file-series-version": "1.0", "files": files}, f)
+
 def process_directory(path, download_images=False, radius_downsample=1, longitude_downsample=1, latitude_downsample=1, aggregation="mean", boundary="trim"):
     """
     Processes the given directory to transform the files into
@@ -290,6 +310,7 @@ def process_directory(path, download_images=False, radius_downsample=1, longitud
                 encoding={"time": {"units": "seconds since 1970-01-01"}},
             )
     print(f"TIM files processed: {time.time()-t0} s")
+    write_time_index(newpath, [f"pv-{fname.name}" for fname in tim_fnames])
 
     print(f"Processing {len(evo_fnames)} EVO files")
     for fname in evo_fnames:
