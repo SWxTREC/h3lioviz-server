@@ -256,10 +256,13 @@ class App(pv_protocols.ParaViewWebProtocol):
             )
         model_class = MODELS[program]
 
-        if hasattr(self, "model") and type(self.model) is model_class:
-            # We already have a model of this type initialized, so we just
-            # need to switch the directory underneath the hood without
-            # recreating all the filters
+        if not hasattr(self, "model"):
+            # First load of this session: build the model and its pipeline
+            self.model = model_class(data_dir)
+            self._init_filters()
+        elif type(self.model) is model_class:
+            # A run of the same model type: switch the files under the
+            # existing pipeline instead of recreating all the filters
             self.model.change_run(data_dir)
             # Update the satellite data files associated with the run
             self._setup_satellites()
@@ -267,14 +270,12 @@ class App(pv_protocols.ParaViewWebProtocol):
             # Force an update and re-render
             self.model.data.UpdatePipeline()
             pvs.Render(self.view)
-            return
-
-        if hasattr(self, "model"):
-            # The other model type: its variable names and pipeline differ,
-            # so build everything again. Build the new model's reader first,
-            # so a run whose reader cannot be built leaves the current one as
-            # it was. A failure after that leaves this session unusable; the
-            # client has to start a new one.
+        else:
+            # A run of the other model type (Enlil and Euhforia): its variable
+            # names and pipeline differ, so build everything again. Build the
+            # new model's reader first, so a run whose reader cannot be built
+            # leaves the current one as it was. A failure after that leaves
+            # this session unusable; the client has to start a new one.
             old_sources = list(pvs.GetSources().values())
             try:
                 model = model_class(data_dir)
@@ -289,12 +290,6 @@ class App(pv_protocols.ParaViewWebProtocol):
             self._init_filters()
             # The client does not send its settings again on a change of run
             self._replay(client_calls)
-            return
-
-        # We are in initialization and don't have a model yet, so
-        # we need to create one
-        self.model = model_class(data_dir)
-        self._init_filters()
 
     def _init_filters(self):
         """Initialize all of the paraview filters"""
@@ -556,7 +551,10 @@ class App(pv_protocols.ParaViewWebProtocol):
         cbar.Visibility = 0
 
         # Show what is visible initially, so only those displays get created.
-        # _setup_satellites shows the satellites and fieldlines when they are on.
+        # Not the satellites or their fieldlines: they do not exist yet here
+        # ("sat_fieldlines" loops over self.satellites, and the satellites are
+        # shown by toggle_satellites, not change_visibility), and
+        # _setup_satellites shows them when they are on.
         for obj, visible in INITIAL_VISIBILITY.items():
             if visible and obj not in ("satellites", "sat_fieldlines"):
                 self.change_visibility(obj, "on")
@@ -719,8 +717,9 @@ class App(pv_protocols.ParaViewWebProtocol):
         variable = self.model.get_variable(name)
         label = VARIABLE_LABEL[name]
 
-        # Update all displays to be colored by this variable. Those not
-        # created yet are colored by it when they are created.
+        # Color the displays created on demand that show this variable (those
+        # not created yet get it when they are created); the slices get it
+        # below.
         self._color_variable = variable
         for obj in ("cme_contours", "threshold"):
             if self.displays[obj].created:
