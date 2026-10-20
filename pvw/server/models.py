@@ -54,8 +54,15 @@ def read_series(path, names_only=False):
         return None
     if not all(isinstance(name, str) for name in names):
         return None
+    # An int too large for a float would make math.isfinite raise, so ints
+    # are range-checked instead (a NetCDF time fits in 64 bits)
     if not all(
-        isinstance(t, (int, float)) and not isinstance(t, bool) and math.isfinite(t)
+        not isinstance(t, bool)
+        and (
+            -(2**63) <= t < 2**63
+            if isinstance(t, int)
+            else isinstance(t, float) and math.isfinite(t)
+        )
         for t in times
     ):
         return None
